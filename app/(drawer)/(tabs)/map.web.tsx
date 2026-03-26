@@ -4,7 +4,7 @@ export default function MapWebScreen() {
   return (
     <ScreenContainer
       title="Map"
-      description="Interactive map is available on Android and iOS builds."
+      description="Map with geolocation and region lock works on Android and iOS builds."
     />
   );
 }

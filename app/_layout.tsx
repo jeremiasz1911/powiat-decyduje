@@ -9,8 +9,8 @@ import { AppProviders } from '@/src/components/app-providers';
 export default function RootLayout() {
   return (
     <AppProviders>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack screenOptions={{ animation: 'fade' }}>
+        <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </AppProviders>

@@ -10,7 +10,7 @@ export default function MapScreen() {
         latitudeDelta: 0.2,
         longitudeDelta: 0.2,
       }}>
-      <Marker coordinate={{ latitude: 52.2297, longitude: 21.0122 }} title="Warszawa" />
+      <Marker coordinate={{ latitude: 52.2297, longitude: 21.0122 }} title="Warsaw" />
     </MapView>
   );
 }

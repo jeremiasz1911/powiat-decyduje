@@ -10,9 +10,11 @@ export default function RootLayout() {
   return (
     <AppProviders>
       <Stack screenOptions={{ animation: 'fade' }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </AppProviders>
   );
 }

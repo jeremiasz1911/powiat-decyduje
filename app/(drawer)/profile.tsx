@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Text } from '@gluestack-ui/themed';
 
-import { auth } from '@/src/lib/firebase';
-import { secureStore } from '@/src/lib/secure-store';
 import { ScreenContainer } from '@/src/components/screen-container';
+import { auth, isFirebaseConfigured } from '@/src/lib/firebase';
+import { secureStore } from '@/src/lib/secure-store';
 
 export default function DrawerProfileScreen() {
   const [tokenPreview, setTokenPreview] = useState('none');
@@ -19,7 +19,8 @@ export default function DrawerProfileScreen() {
 
   return (
     <ScreenContainer title="Profile" description="Your account summary and secure session state.">
-      <Text>Status: {auth.currentUser ? 'authenticated' : 'guest'}</Text>
+      <Text>Firebase configured: {isFirebaseConfigured ? 'yes' : 'no'}</Text>
+      <Text>Status: {auth?.currentUser ? 'authenticated' : 'guest'}</Text>
       <Text>Secure token: {tokenPreview}</Text>
     </ScreenContainer>
   );

@@ -19,6 +19,7 @@ import {
   projectSubmissionSchema,
   type ProjectSubmissionFormValues,
 } from '@/src/features/projects/project-submission.schema';
+import { createProject, ensureAnonymousAuth } from '@/src/services';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
 
@@ -88,8 +89,26 @@ export default function SubmitProjectScreen() {
   };
 
   const onSubmit = async (values: ProjectSubmissionFormValues) => {
-    Alert.alert('Projekt zapisany', `Tytul: ${values.title}\nKategoria: ${values.category}`);
-    router.back();
+    try {
+      const user = await ensureAnonymousAuth();
+      const projectId = await createProject({
+        userId: user.uid,
+        title: values.title,
+        description: values.description,
+        category: values.category,
+        commune: values.commune,
+        village: values.village,
+        cost: Number(values.cost),
+        location: values.location,
+        imageUri: values.imageUri,
+      });
+
+      Alert.alert('Projekt zapisany', `ID: ${projectId}\nKategoria: ${values.category}`);
+      router.back();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nieznany blad zapisu projektu.';
+      Alert.alert('Blad zapisu', message);
+    }
   };
 
   return (

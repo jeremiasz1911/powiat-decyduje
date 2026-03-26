@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "powiat-decyduje",
+    "name": "Powiat Decyduje",
     "slug": "powiat-decyduje",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -38,7 +38,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

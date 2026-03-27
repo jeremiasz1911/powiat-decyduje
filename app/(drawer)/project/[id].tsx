@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Image, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Box, Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
 
+import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
   ensureAnonymousAuth,
   getInstallationId,
@@ -14,6 +17,7 @@ import {
 export default function ProjectDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const projectId = params.id ?? '';
+  const { notify } = useAppFeedback();
 
   const [project, setProject] = useState<ProjectItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,27 +25,31 @@ export default function ProjectDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [remainingVotes, setRemainingVotes] = useState<number | null>(null);
 
+  const loadProject = useCallback(async () => {
+    if (!projectId) {
+      setError('Brak identyfikatora projektu.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await getProjectById(projectId);
+      setProject(data);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac projektu.';
+      setError(message);
+      await notify('Blad projektu', message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [notify, projectId]);
+
   useEffect(() => {
-    const loadProject = async () => {
-      if (!projectId) {
-        setError('Brak identyfikatora projektu.');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const data = await getProjectById(projectId);
-        setProject(data);
-      } catch (loadError) {
-        const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac projektu.';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void loadProject();
-  }, [projectId]);
+  }, [loadProject]);
 
   const handleVote = async () => {
     if (!project) {
@@ -67,33 +75,40 @@ export default function ProjectDetailsScreen() {
 
       if (!result.added) {
         if (result.reason === 'vote_limit_reached') {
-          setError('Wykorzystales limit 5 glosow.');
+          const message = 'Wykorzystales limit 5 glosow.';
+          setError(message);
+          await notify('Limit glosow', message, 'error');
         } else {
-          setError('Juz oddales glos na ten projekt.');
+          const message = 'Juz oddales glos na ten projekt.';
+          setError(message);
+          await notify('Duplikat glosu', message, 'error');
         }
+      } else {
+        await notify('Dziekujemy', 'Twoj glos zostal zapisany.', 'success');
       }
 
       setRemainingVotes(result.remainingVotes);
     } catch (voteError) {
       const message = voteError instanceof Error ? voteError.message : 'Nie udalo sie oddac glosu.';
       setError(message);
+      await notify('Blad glosowania', message, 'error');
     } finally {
       setVoting(false);
     }
   };
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
+    return <LoadingState label="Laduje szczegoly projektu..." />;
   }
 
   if (!project) {
     return (
       <Box flex={1} bg="$backgroundLight0" p="$4" justifyContent="center">
-        <Text color="$error600">{error ?? 'Projekt nie istnieje.'}</Text>
+        <ErrorState
+          message={error ?? 'Projekt nie istnieje.'}
+          actionLabel="Sprobuj ponownie"
+          onActionPress={() => void loadProject()}
+        />
       </Box>
     );
   }
@@ -103,7 +118,9 @@ export default function ProjectDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <VStack space="md">
           {project.imageUrl ? (
-            <Image source={{ uri: project.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            <Animated.View entering={FadeInDown.duration(250)}>
+              <Image source={{ uri: project.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+            </Animated.View>
           ) : null}
 
           <Heading size="xl">{project.title}</Heading>
@@ -143,11 +160,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 36,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heroImage: {
     width: '100%',

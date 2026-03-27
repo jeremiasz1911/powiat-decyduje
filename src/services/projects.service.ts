@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  collectionGroup,
   doc,
   getDocs,
   getDoc,
@@ -11,15 +12,16 @@ import {
   runTransaction,
   serverTimestamp,
   startAfter,
+  updateDoc,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
   type Timestamp,
 } from 'firebase/firestore';
+import { FirebaseError } from 'firebase/app';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 import { db, storage } from '@/src/lib/firebase';
-import { ensureAnonymousAuth } from '@/src/services/auth.service';
 
 export type CreateProjectPayload = {
   userId: string;
@@ -33,11 +35,12 @@ export type CreateProjectPayload = {
     latitude: number;
     longitude: number;
   };
-  imageUri: string;
+  imageUris: string[];
 };
 
 export type ProjectItem = {
   id: string;
+  createdBy: string;
   title: string;
   description: string;
   category: string;
@@ -45,6 +48,7 @@ export type ProjectItem = {
   village: string;
   cost: number;
   imageUrl: string;
+  imageUrls?: string[];
   location: {
     latitude: number;
     longitude: number;
@@ -73,6 +77,53 @@ export type VoteProjectResult = {
   reason?: 'already_voted' | 'vote_limit_reached';
 };
 
+export type VotesSummary = {
+  votesUsed: number;
+  votesRemaining: number;
+};
+
+export type UpdateProjectPayload = {
+  title: string;
+  description: string;
+  category: string;
+  commune: string;
+  village: string;
+  cost: number;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+};
+
+function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectItem {
+  const data = docSnap.data() as Omit<ProjectItem, 'id'>;
+
+  return {
+    id: docSnap.id,
+    createdBy: data.createdBy ?? '',
+    title: data.title,
+    description: data.description,
+    category: data.category,
+    commune: data.commune,
+    village: data.village,
+    cost: data.cost,
+    imageUrl: data.imageUrl,
+    imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
+    location: data.location,
+    createdAt: data.createdAt ?? null,
+    status: data.status ?? 'submitted',
+    votesCount: data.votesCount ?? 0,
+  };
+}
+
+function isMissingIndexError(error: unknown): boolean {
+  return (
+    error instanceof FirebaseError &&
+    error.code === 'failed-precondition' &&
+    error.message.toLowerCase().includes('index')
+  );
+}
+
 async function fileUriToBlob(fileUri: string): Promise<Blob> {
   const response = await fetch(fileUri);
 
@@ -98,12 +149,18 @@ async function uploadProjectImage(userId: string, imageUri: string): Promise<str
   return getDownloadURL(fileRef);
 }
 
+async function uploadProjectImages(userId: string, imageUris: string[]): Promise<string[]> {
+  const uploads = imageUris.map((uri) => uploadProjectImage(userId, uri));
+  return Promise.all(uploads);
+}
+
 export async function createProject(payload: CreateProjectPayload): Promise<string> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
 
-  const imageUrl = await uploadProjectImage(payload.userId, payload.imageUri);
+  const imageUrls = await uploadProjectImages(payload.userId, payload.imageUris);
+  const primaryImageUrl = imageUrls[0];
 
   const docRef = await addDoc(collection(db, 'projects'), {
     title: payload.title,
@@ -113,7 +170,8 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     village: payload.village,
     cost: payload.cost,
     location: payload.location,
-    imageUrl,
+    imageUrl: primaryImageUrl,
+    imageUrls,
     createdBy: payload.userId,
     createdAt: serverTimestamp(),
     status: 'submitted',
@@ -127,8 +185,6 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
-
-  await ensureAnonymousAuth();
 
   const pageSize = filters.pageSize ?? 10;
   const constraints = [] as Parameters<typeof query>[1][];
@@ -149,33 +205,161 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
 
   constraints.push(limit(pageSize));
 
-  const projectsQuery = query(collection(db, 'projects'), ...constraints);
-  const snapshot = await getDocs(projectsQuery);
+  const projectsCollection = collection(db, 'projects');
 
-  const items: ProjectItem[] = snapshot.docs.map((doc) => {
-    const data = doc.data() as Omit<ProjectItem, 'id'>;
+  try {
+    const projectsQuery = query(projectsCollection, ...constraints);
+    const snapshot = await getDocs(projectsQuery);
+    const items = snapshot.docs.map(mapProjectDoc);
+    const nextCursor = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
     return {
-      id: doc.id,
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      commune: data.commune,
-      village: data.village,
-      cost: data.cost,
-      imageUrl: data.imageUrl,
-      location: data.location,
-      createdAt: data.createdAt ?? null,
-      status: data.status ?? 'submitted',
-      votesCount: data.votesCount ?? 0,
+      items,
+      nextCursor,
     };
-  });
+  } catch (error) {
+    // Fallback when composite index is still building/missing.
+    if (!isMissingIndexError(error) || (!filters.commune && !filters.category)) {
+      throw error;
+    }
 
-  const nextCursor = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
+    let cursor = filters.cursor ?? null;
+    let attempts = 0;
+    const maxAttempts = 5;
+    const items: ProjectItem[] = [];
+
+    while (items.length < pageSize && attempts < maxAttempts) {
+      const fallbackConstraints = [] as Parameters<typeof query>[1][];
+
+      fallbackConstraints.push(orderBy('createdAt', 'desc'));
+      if (cursor) {
+        fallbackConstraints.push(startAfter(cursor));
+      }
+      fallbackConstraints.push(limit(pageSize));
+
+      const snapshot = await getDocs(query(projectsCollection, ...fallbackConstraints));
+      if (snapshot.empty) {
+        cursor = null;
+        break;
+      }
+
+      cursor = snapshot.docs[snapshot.docs.length - 1];
+
+      const filtered = snapshot.docs
+        .map(mapProjectDoc)
+        .filter(
+          (project) =>
+            (!filters.commune || project.commune === filters.commune) &&
+            (!filters.category || project.category === filters.category)
+        );
+
+      items.push(...filtered);
+      attempts += 1;
+    }
+
+    return {
+      items: items.slice(0, pageSize),
+      nextCursor: cursor,
+    };
+  }
+}
+
+export async function listMyProjects(
+  userId: string,
+  options: { pageSize?: number; cursor?: QueryDocumentSnapshot<DocumentData> | null } = {}
+): Promise<ListProjectsResult> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const pageSize = options.pageSize ?? 10;
+  const constraints = [] as Parameters<typeof query>[1][];
+
+  constraints.push(where('createdBy', '==', userId));
+  constraints.push(orderBy('createdAt', 'desc'));
+
+  if (options.cursor) {
+    constraints.push(startAfter(options.cursor));
+  }
+
+  constraints.push(limit(pageSize));
+
+  const projectsCollection = collection(db, 'projects');
+
+  try {
+    const snapshot = await getDocs(query(projectsCollection, ...constraints));
+    const items = snapshot.docs.map(mapProjectDoc);
+    const nextCursor = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
+
+    return {
+      items,
+      nextCursor,
+    };
+  } catch (error) {
+    if (!isMissingIndexError(error)) {
+      throw error;
+    }
+
+    let cursor = options.cursor ?? null;
+    let attempts = 0;
+    const maxAttempts = 5;
+    const items: ProjectItem[] = [];
+
+    while (items.length < pageSize && attempts < maxAttempts) {
+      const fallbackConstraints = [] as Parameters<typeof query>[1][];
+      fallbackConstraints.push(orderBy('createdAt', 'desc'));
+
+      if (cursor) {
+        fallbackConstraints.push(startAfter(cursor));
+      }
+
+      fallbackConstraints.push(limit(pageSize));
+
+      const snapshot = await getDocs(query(projectsCollection, ...fallbackConstraints));
+
+      if (snapshot.empty) {
+        cursor = null;
+        break;
+      }
+
+      cursor = snapshot.docs[snapshot.docs.length - 1];
+      const filtered = snapshot.docs.map(mapProjectDoc).filter((project) => project.createdBy === userId);
+      items.push(...filtered);
+      attempts += 1;
+    }
+
+    return {
+      items: items.slice(0, pageSize),
+      nextCursor: cursor,
+    };
+  }
+}
+
+export async function getVotedProjectIds(userId: string): Promise<string[]> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const votesQuery = query(collectionGroup(db, 'votes'), where('userId', '==', userId));
+  const votesSnapshot = await getDocs(votesQuery);
+
+  return votesSnapshot.docs
+    .map((voteDoc) => voteDoc.ref.parent.parent?.id)
+    .filter((projectId): projectId is string => Boolean(projectId));
+}
+
+export async function getVotesSummary(userId: string): Promise<VotesSummary> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const userRef = doc(db, 'users', userId);
+  const snapshot = await getDoc(userRef);
+  const votesUsed = (snapshot.data()?.votesUsed as number | undefined) ?? 0;
 
   return {
-    items,
-    nextCursor,
+    votesUsed,
+    votesRemaining: Math.max(0, MAX_VOTES_PER_USER - votesUsed),
   };
 }
 
@@ -183,8 +367,6 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
-
-  await ensureAnonymousAuth();
 
   const projectRef = doc(db, 'projects', projectId);
   const snapshot = await getDoc(projectRef);
@@ -197,6 +379,7 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
 
   return {
     id: snapshot.id,
+    createdBy: data.createdBy ?? '',
     title: data.title,
     description: data.description,
     category: data.category,
@@ -204,11 +387,46 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
     village: data.village,
     cost: data.cost,
     imageUrl: data.imageUrl,
+    imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
     location: data.location,
     createdAt: data.createdAt ?? null,
     status: data.status ?? 'submitted',
     votesCount: data.votesCount ?? 0,
   };
+}
+
+export async function updateProject(
+  projectId: string,
+  userId: string,
+  payload: UpdateProjectPayload
+): Promise<void> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const projectRef = doc(db, 'projects', projectId);
+  const snapshot = await getDoc(projectRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('Project not found.');
+  }
+
+  const existing = snapshot.data() as Partial<ProjectItem>;
+
+  if (existing.createdBy !== userId) {
+    throw new Error('Nie masz uprawnien do edycji tego projektu.');
+  }
+
+  await updateDoc(projectRef, {
+    title: payload.title,
+    description: payload.description,
+    category: payload.category,
+    commune: payload.commune,
+    village: payload.village,
+    cost: payload.cost,
+    location: payload.location,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 const MAX_VOTES_PER_USER = 5;

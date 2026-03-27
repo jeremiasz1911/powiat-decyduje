@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   Box,
   Button,
@@ -13,6 +14,9 @@ import {
   VStack,
 } from '@gluestack-ui/themed';
 
+import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { ProjectCard } from '@/src/features/projects/components/project-card';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
@@ -20,6 +24,7 @@ const COMMUNES = ['Mlawa', 'Lipowiec Koscielny', 'Szydlowo', 'Wieczfnia Koscieln
 
 export default function ProjectsScreen() {
   const router = useRouter();
+  const { notify } = useAppFeedback();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedCommune, setSelectedCommune] = useState<string>('');
@@ -52,12 +57,13 @@ export default function ProjectsScreen() {
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac projektow.';
         setError(message);
+        await notify('Blad listy projektow', message, 'error');
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [selectedCategory, selectedCommune]
+    [notify, selectedCategory, selectedCommune]
   );
 
   useEffect(() => {
@@ -84,6 +90,13 @@ export default function ProjectsScreen() {
   };
 
   const hasMore = Boolean(cursor);
+  const handleOpenDetails = useCallback(
+    (projectId: string) => {
+      void notify('Projekt', 'Otwieram szczegoly projektu.', 'info');
+      router.push(`/(drawer)/project/${projectId}`);
+    },
+    [notify, router]
+  );
 
   return (
     <Box flex={1} bg="$backgroundLight0">
@@ -154,40 +167,34 @@ export default function ProjectsScreen() {
             <ButtonText>Zastosuj filtry</ButtonText>
           </Button>
 
-          {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator size="large" color="#2563eb" />
-            </View>
-          ) : null}
+          {loading ? <LoadingState label="Pobieram projekty..." /> : null}
 
-          {error ? <Text color="$error600">{error}</Text> : null}
+          {error ? (
+            <ErrorState
+              message={error}
+              actionLabel="Sprobuj ponownie"
+              onActionPress={() => void fetchProjects(true, null)}
+            />
+          ) : null}
 
           {!loading && filteredBySearch.length === 0 && !error ? (
-            <Text color="$textLight600">Brak projektow dla wybranych kryteriow.</Text>
+            <EmptyState
+              title="Brak projektow"
+              description="Sprobuj zmienic filtry lub wyszukiwanie."
+              actionLabel="Wyczysc filtry"
+              onActionPress={() => {
+                setSelectedCategory('');
+                setSelectedCommune('');
+                setSearch('');
+                void fetchProjects(true, null);
+              }}
+            />
           ) : null}
 
-          {filteredBySearch.map((project) => (
-            <Box key={project.id} style={styles.card} borderRadius="$xl" bg="$backgroundLight50" p="$3">
-              {project.imageUrl ? (
-                <Image source={{ uri: project.imageUrl }} style={styles.cardImage} resizeMode="cover" />
-              ) : null}
-              <VStack space="xs">
-                <Heading size="sm">{project.title}</Heading>
-                <Text color="$textLight700">{project.description}</Text>
-                <Text color="$textLight600">
-                  {project.category} • {project.commune} • {project.village}
-                </Text>
-                <Text color="$textLight600">Koszt: {project.cost.toLocaleString('pl-PL')} PLN</Text>
-                <Text color="$textLight800">Glosy: {project.votesCount}</Text>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  action="secondary"
-                  onPress={() => router.push(`/(drawer)/project/${project.id}`)}>
-                  <ButtonText>Zobacz szczegoly</ButtonText>
-                </Button>
-              </VStack>
-            </Box>
+          {filteredBySearch.map((project, index) => (
+            <Animated.View key={project.id} entering={FadeInDown.delay(index * 40).duration(260)}>
+              <ProjectCard project={project} onOpenDetails={handleOpenDetails} />
+            </Animated.View>
           ))}
 
           {hasMore ? (
@@ -210,20 +217,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 10,
-  },
-  cardImage: {
-    width: '100%',
-    height: 170,
-    borderRadius: 10,
-  },
-  center: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
   },
 });

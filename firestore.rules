@@ -1,0 +1,202 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userVoteDoc(projectId, uid) {
+      return /databases/$(database)/documents/projects/$(projectId)/votes/$(uid);
+    }
+
+    function userVoteCollection(uid) {
+      return /databases/$(database)/documents/projects/{projectId}/votes/$(uid);
+    }
+
+    function validProjectCreate() {
+      return request.resource.data.keys().hasOnly([
+        'title',
+        'description',
+        'category',
+        'commune',
+        'village',
+        'cost',
+        'location',
+        'imageUrl',
+        'imageUrls',
+        'createdBy',
+        'createdAt',
+        'status',
+        'votesCount'
+      ]) &&
+      request.resource.data.createdBy == request.auth.uid &&
+      request.resource.data.status == 'submitted' &&
+      request.resource.data.votesCount == 0;
+    }
+
+    match /projects/{projectId} {
+      // Public projects list/details.
+      allow get, list: if true;
+
+      // Authenticated user can submit only their own project.
+      allow create: if isSignedIn() && validProjectCreate();
+
+      // votesCount can only be incremented by exactly 1 and only
+      // when a new vote document for this user is created in the same write.
+      allow update: if isSignedIn() &&
+        (
+          (
+            request.resource.data.diff(resource.data).changedKeys().hasOnly(['votesCount']) &&
+            request.resource.data.votesCount == resource.data.votesCount + 1 &&
+            !exists(userVoteDoc(projectId, request.auth.uid)) &&
+            existsAfter(userVoteDoc(projectId, request.auth.uid))
+          ) ||
+          (
+            resource.data.createdBy == request.auth.uid &&
+            request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'title',
+              'description',
+              'category',
+              'commune',
+              'village',
+              'cost',
+              'location',
+              'updatedAt'
+            ]) &&
+            request.resource.data.updatedAt == request.time &&
+            request.resource.data.createdBy == resource.data.createdBy &&
+            request.resource.data.votesCount == resource.data.votesCount &&
+            request.resource.data.status == resource.data.status &&
+            request.resource.data.imageUrl == resource.data.imageUrl &&
+            request.resource.data.imageUrls == resource.data.imageUrls &&
+            request.resource.data.createdAt == resource.data.createdAt
+          )
+        );
+
+      allow delete: if false;
+
+      match /votes/{uid} {
+        allow read: if isOwner(uid);
+
+        allow create: if isOwner(uid) &&
+          !exists(userVoteDoc(projectId, uid)) &&
+          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt']) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.installationId is string &&
+          request.resource.data.installationId.size() >= 8 &&
+          request.resource.data.createdAt == request.time;
+
+        allow update, delete: if false;
+      }
+
+      match /installationVotes/{installationId} {
+        allow read: if false;
+
+        allow create: if isSignedIn() &&
+          !exists(/databases/$(database)/documents/projects/$(projectId)/installationVotes/$(installationId)) &&
+          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt']) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.installationId == installationId &&
+          installationId.size() >= 8 &&
+          request.resource.data.createdAt == request.time;
+
+        allow update, delete: if false;
+      }
+    }
+
+    match /projects/{projectId}/votes/{uid} {
+      allow list: if isOwner(uid);
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid) &&
+        (
+          // votes counter bootstrap doc
+          (
+            request.resource.data.keys().hasOnly(['votesUsed', 'updatedAt']) &&
+            request.resource.data.votesUsed == 1 &&
+            request.resource.data.updatedAt == request.time
+          ) ||
+          // resident profile doc (with optional votesUsed)
+          (
+            request.resource.data.keys().hasOnly([
+              'fullName',
+              'email',
+              'phone',
+              'village',
+              'street',
+              'commune',
+              'residentStatus',
+              'votesUsed',
+              'createdAt',
+              'updatedAt'
+            ]) &&
+            request.resource.data.commune == 'Mlawa' &&
+            request.resource.data.residentStatus == 'verified_resident' &&
+            request.resource.data.updatedAt == request.time &&
+            (
+              !request.resource.data.keys().hasAny(['votesUsed']) ||
+              (
+                request.resource.data.votesUsed is int &&
+                request.resource.data.votesUsed >= 0 &&
+                request.resource.data.votesUsed <= 1
+              )
+            )
+          )
+        );
+
+      allow update: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly([
+          'votesUsed',
+          'updatedAt',
+          'fullName',
+          'email',
+          'phone',
+          'village',
+          'street',
+          'commune',
+          'residentStatus',
+          'createdAt'
+        ]) &&
+        request.resource.data.updatedAt == request.time &&
+        (!request.resource.data.keys().hasAny(['commune']) || request.resource.data.commune == 'Mlawa') &&
+        (!request.resource.data.keys().hasAny(['residentStatus']) || request.resource.data.residentStatus == 'verified_resident') &&
+        (
+          // profile update without changing votes counter
+          (
+            (!resource.data.keys().hasAny(['votesUsed']) && !request.resource.data.keys().hasAny(['votesUsed'])) ||
+            (
+              resource.data.keys().hasAny(['votesUsed']) &&
+              request.resource.data.keys().hasAny(['votesUsed']) &&
+              request.resource.data.votesUsed == resource.data.votesUsed
+            )
+          ) ||
+          // counter increment by max 1 and cap 5
+          (
+            request.resource.data.keys().hasAny(['votesUsed']) &&
+            request.resource.data.votesUsed is int &&
+            request.resource.data.votesUsed <= 5 &&
+            (
+              (!resource.data.keys().hasAny(['votesUsed']) && request.resource.data.votesUsed == 1) ||
+              (
+                resource.data.keys().hasAny(['votesUsed']) &&
+                request.resource.data.votesUsed == resource.data.votesUsed + 1
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

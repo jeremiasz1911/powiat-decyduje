@@ -7,7 +7,6 @@ export default function DrawerLayout() {
       screenOptions={{
         headerShown: true,
         swipeEnabled: true,
-        animation: 'slide_from_right',
       }}>
       <Drawer.Screen
         name="(tabs)"
@@ -49,6 +48,13 @@ export default function DrawerLayout() {
         name="project/[id]"
         options={{
           title: 'Szczegóły projektu',
+          drawerItemStyle: { display: 'none' },
+        }}
+      />
+      <Drawer.Screen
+        name="edit-project/[id]"
+        options={{
+          title: 'Edytuj projekt',
           drawerItemStyle: { display: 'none' },
         }}
       />

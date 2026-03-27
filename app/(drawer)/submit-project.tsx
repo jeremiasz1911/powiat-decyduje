@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   Box,
   Button,
@@ -15,22 +16,26 @@ import {
   VStack,
 } from '@gluestack-ui/themed';
 
+import { ErrorState } from '@/src/components/feedback-state';
 import {
   projectSubmissionSchema,
   type ProjectSubmissionFormValues,
 } from '@/src/features/projects/project-submission.schema';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { createProject, ensureAnonymousAuth } from '@/src/services';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
 
 export default function SubmitProjectScreen() {
   const router = useRouter();
+  const { notify } = useAppFeedback();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
 
   const initialLatitude = Number(params.latitude ?? 53.1126);
   const initialLongitude = Number(params.longitude ?? 20.3843);
 
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -44,7 +49,7 @@ export default function SubmitProjectScreen() {
         latitude: Number.isFinite(initialLatitude) ? initialLatitude : 53.1126,
         longitude: Number.isFinite(initialLongitude) ? initialLongitude : 20.3843,
       },
-      imageUri: '',
+      imageUris: [],
     }),
     [initialLatitude, initialLongitude]
   );
@@ -64,15 +69,43 @@ export default function SubmitProjectScreen() {
   const location = watch('location');
   const selectedCategory = watch('category');
 
-  const handlePickImage = async () => {
+  const handlePickImagesFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Brak uprawnienia', 'Zezwol na dostep do galerii, aby dodac zdjecie.');
+      await notify('Brak uprawnienia', 'Zezwol na dostep do galerii, aby dodac zdjecie.', 'error');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.75,
+    });
+
+    if (result.canceled || !result.assets.length) {
+      return;
+    }
+
+    const uris = result.assets.map((asset) => asset.uri).filter(Boolean) as string[];
+    if (!uris.length) {
+      return;
+    }
+
+    setImagePreviews(uris);
+    setValue('imageUris', uris, { shouldValidate: true, shouldDirty: true });
+    await notify('Zdjecia dodane', `Dodano ${uris.length} zdjec.`, 'success');
+  };
+
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      await notify('Brak uprawnienia', 'Zezwol na dostep do aparatu, aby zrobic zdjecie.', 'error');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.75,
@@ -84,11 +117,14 @@ export default function SubmitProjectScreen() {
     }
 
     const uri = result.assets[0].uri;
-    setImagePreview(uri);
-    setValue('imageUri', uri, { shouldValidate: true, shouldDirty: true });
+    const updated = [...imagePreviews, uri];
+    setImagePreviews(updated);
+    setValue('imageUris', updated, { shouldValidate: true, shouldDirty: true });
+    await notify('Zdjecie dodane', 'Zdjecie z aparatu zostalo dodane do projektu.', 'success');
   };
 
   const onSubmit = async (values: ProjectSubmissionFormValues) => {
+    setSubmitError(null);
     try {
       const user = await ensureAnonymousAuth();
       const projectId = await createProject({
@@ -100,14 +136,15 @@ export default function SubmitProjectScreen() {
         village: values.village,
         cost: Number(values.cost),
         location: values.location,
-        imageUri: values.imageUri,
+        imageUris: values.imageUris,
       });
 
-      Alert.alert('Projekt zapisany', `ID: ${projectId}\nKategoria: ${values.category}`);
+      await notify('Projekt zapisany', `ID: ${projectId}\nKategoria: ${values.category}`, 'success');
       router.back();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nieznany blad zapisu projektu.';
-      Alert.alert('Blad zapisu', message);
+      setSubmitError(message);
+      await notify('Blad zapisu', message, 'error');
     }
   };
 
@@ -120,7 +157,8 @@ export default function SubmitProjectScreen() {
             Uzupelnij formularz, aby przeslac nowy projekt do glosowania.
           </Text>
 
-          <Controller
+          <Animated.View entering={FadeInDown.duration(220)}>
+            <Controller
             control={control}
             name="title"
             render={({ field: { onChange, onBlur, value } }) => (
@@ -137,7 +175,8 @@ export default function SubmitProjectScreen() {
                 {errors.title ? <Text color="$error600">{errors.title.message}</Text> : null}
               </VStack>
             )}
-          />
+            />
+          </Animated.View>
 
           <Controller
             control={control}
@@ -238,17 +277,27 @@ export default function SubmitProjectScreen() {
           </VStack>
 
           <VStack space="xs">
-            <Text>Zdjecie projektu</Text>
-            <Button onPress={handlePickImage} action="secondary" variant="outline">
-              <ButtonText>{imagePreview ? 'Zmien zdjecie' : 'Dodaj zdjecie'}</ButtonText>
+            <Text>Zdjecia projektu</Text>
+            <Button onPress={handleTakePhoto} action="secondary" variant="outline">
+              <ButtonText>Zrob zdjecie</ButtonText>
             </Button>
-            {imagePreview ? <Image source={{ uri: imagePreview }} style={styles.preview} /> : null}
-            {errors.imageUri ? <Text color="$error600">{errors.imageUri.message}</Text> : null}
+            <Button onPress={handlePickImagesFromLibrary} action="secondary" variant="outline">
+              <ButtonText>{imagePreviews.length ? 'Dodaj/zmien zdjecia z galerii' : 'Dodaj zdjecia z galerii'}</ButtonText>
+            </Button>
+            {imagePreviews.length ? (
+              <View style={styles.previewGrid}>
+                {imagePreviews.map((uri) => (
+                  <Image key={uri} source={{ uri }} style={styles.previewItem} />
+                ))}
+              </View>
+            ) : null}
+            {errors.imageUris ? <Text color="$error600">{errors.imageUris.message}</Text> : null}
           </VStack>
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting}>
             <ButtonText>{isSubmitting ? 'Wysylanie...' : 'Wyslij projekt'}</ButtonText>
           </Button>
+          {submitError ? <ErrorState title="Nie udalo sie wyslac projektu" message={submitError} /> : null}
         </VStack>
       </ScrollView>
     </Box>
@@ -270,5 +319,16 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     marginTop: 8,
+  },
+  previewGrid: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  previewItem: {
+    width: 94,
+    height: 94,
+    borderRadius: 10,
   },
 });

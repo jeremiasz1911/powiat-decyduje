@@ -1,27 +1,286 @@
-import { useEffect, useState } from 'react';
-import { Text } from '@gluestack-ui/themed';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Box,
+  Button,
+  ButtonText,
+  Checkbox,
+  CheckboxIcon,
+  CheckboxIndicator,
+  CheckboxLabel,
+  CheckIcon,
+  Heading,
+  Input,
+  InputField,
+  Text,
+  VStack,
+} from '@gluestack-ui/themed';
 
-import { ScreenContainer } from '@/src/components/screen-container';
-import { auth, isFirebaseConfigured } from '@/src/lib/firebase';
-import { secureStore } from '@/src/lib/secure-store';
+import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import {
+  residentProfileSchema,
+  type ResidentProfileFormValues,
+} from '@/src/features/profile/resident-profile.schema';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { ensureAnonymousAuth, getResidentProfile, upsertResidentProfile } from '@/src/services';
 
 export default function DrawerProfileScreen() {
-  const [tokenPreview, setTokenPreview] = useState('none');
+  const { notify } = useAppFeedback();
+  const [loading, setLoading] = useState(true);
+  const [profileExists, setProfileExists] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
+
+  const defaultValues = useMemo<ResidentProfileFormValues>(
+    () => ({
+      fullName: '',
+      email: '',
+      phone: '',
+      village: 'Mlawa',
+      street: '',
+      acceptedRegulations: false,
+    }),
+    []
+  );
+
+  const {
+    control,
+    reset,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ResidentProfileFormValues>({
+    resolver: zodResolver(residentProfileSchema),
+    defaultValues,
+    mode: 'onBlur',
+  });
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const user = await ensureAnonymousAuth();
+      setUid(user.uid);
+      const profile = await getResidentProfile(user.uid);
+
+      if (!profile) {
+        setProfileExists(false);
+        reset(defaultValues);
+        return;
+      }
+
+      setProfileExists(true);
+      reset({
+        fullName: profile.fullName,
+        email: profile.email ?? '',
+        phone: profile.phone ?? '',
+        village: profile.village || 'Mlawa',
+        street: profile.street ?? '',
+        acceptedRegulations: true,
+      });
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac profilu.';
+      setError(message);
+      await notify('Blad profilu', message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [defaultValues, notify, reset]);
 
   useEffect(() => {
-    const loadToken = async () => {
-      const token = await secureStore.get('session_token');
-      setTokenPreview(token ? `${token.slice(0, 8)}...` : 'none');
-    };
+    void loadProfile();
+  }, [loadProfile]);
 
-    void loadToken();
-  }, []);
+  const onSubmit = async (values: ResidentProfileFormValues) => {
+    if (!uid) {
+      await notify('Brak sesji', 'Nie mozna zapisac profilu bez aktywnego uzytkownika.', 'error');
+      return;
+    }
+
+    try {
+      await upsertResidentProfile({
+        uid,
+        fullName: values.fullName,
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        village: values.village,
+        street: values.street || undefined,
+      });
+
+      setProfileExists(true);
+      await notify(
+        profileExists ? 'Profil zaktualizowany' : 'Rejestracja zakonczona',
+        'Konto mieszkanca gminy Mlawa jest gotowe.',
+        'success'
+      );
+    } catch (saveError) {
+      const message = saveError instanceof Error ? saveError.message : 'Nie udalo sie zapisac profilu.';
+      setError(message);
+      await notify('Blad zapisu', message, 'error');
+    }
+  };
+
+  if (loading) {
+    return <LoadingState label="Laduje profil mieszkanca..." />;
+  }
+
+  if (error) {
+    return (
+      <Box flex={1} bg="$backgroundLight0" p="$4" justifyContent="center">
+        <ErrorState message={error} actionLabel="Sprobuj ponownie" onActionPress={() => void loadProfile()} />
+      </Box>
+    );
+  }
 
   return (
-    <ScreenContainer title="Profile" description="Your account summary and secure session state.">
-      <Text>Firebase configured: {isFirebaseConfigured ? 'yes' : 'no'}</Text>
-      <Text>Status: {auth?.currentUser ? 'authenticated' : 'guest'}</Text>
-      <Text>Secure token: {tokenPreview}</Text>
-    </ScreenContainer>
+    <Box flex={1} bg="$backgroundLight0">
+      <ScrollView contentContainerStyle={styles.content}>
+        <VStack space="lg">
+          <Heading size="lg">Profil mieszkanca</Heading>
+          <Text color="$textLight600">
+            Zarejestruj sie jako mieszkaniec gminy Mlawa. Po zapisie otrzymasz karte profilu.
+          </Text>
+
+          <Box style={styles.profileCard}>
+            <VStack space="xs">
+              <Text style={styles.cardTitle}>Karta profilu</Text>
+              <Text color="$textLight700">Gmina: Mlawa</Text>
+              <Text color="$textLight700">Status: {profileExists ? 'Mieszkaniec zarejestrowany' : 'Nieuzupelniony'}</Text>
+              <Text color="$textLight700">UID: {uid ?? '-'}</Text>
+            </VStack>
+          </Box>
+
+          <Controller
+            control={control}
+            name="fullName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Imie i nazwisko</Text>
+                <Input>
+                  <InputField
+                    placeholder="Np. Jan Kowalski"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                  />
+                </Input>
+                {errors.fullName ? <Text color="$error600">{errors.fullName.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Email (opcjonalnie)</Text>
+                <Input>
+                  <InputField
+                    placeholder="jan@example.com"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </Input>
+                {errors.email ? <Text color="$error600">{errors.email.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Telefon (opcjonalnie)</Text>
+                <Input>
+                  <InputField
+                    placeholder="Np. 600700800"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    keyboardType="phone-pad"
+                  />
+                </Input>
+                {errors.phone ? <Text color="$error600">{errors.phone.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="village"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Miejscowosc</Text>
+                <Input>
+                  <InputField placeholder="Mlawa" value={value} onBlur={onBlur} onChangeText={onChange} />
+                </Input>
+                {errors.village ? <Text color="$error600">{errors.village.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="street"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Ulica i nr (opcjonalnie)</Text>
+                <Input>
+                  <InputField placeholder="Np. Sienkiewicza 12" value={value} onBlur={onBlur} onChangeText={onChange} />
+                </Input>
+                {errors.street ? <Text color="$error600">{errors.street.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="acceptedRegulations"
+            render={({ field: { onChange, value } }) => (
+              <VStack space="xs">
+                <Checkbox value="accepted" isChecked={Boolean(value)} onChange={onChange}>
+                  <CheckboxIndicator mr="$2">
+                    <CheckboxIcon as={CheckIcon} />
+                  </CheckboxIndicator>
+                  <CheckboxLabel>Oswiadczam, ze jestem mieszkancem gminy Mlawa.</CheckboxLabel>
+                </Checkbox>
+                {errors.acceptedRegulations ? (
+                  <Text color="$error600">{errors.acceptedRegulations.message}</Text>
+                ) : null}
+              </VStack>
+            )}
+          />
+
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting}>
+            <ButtonText>{isSubmitting ? 'Zapisywanie...' : profileExists ? 'Aktualizuj profil' : 'Zarejestruj profil'}</ButtonText>
+          </Button>
+        </VStack>
+      </ScrollView>
+    </Box>
   );
 }
+
+const styles = StyleSheet.create({
+  content: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  profileCard: {
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    backgroundColor: '#eff6ff',
+    borderRadius: 14,
+    padding: 12,
+  },
+  cardTitle: {
+    fontWeight: '700',
+    color: '#1e3a8a',
+  },
+});

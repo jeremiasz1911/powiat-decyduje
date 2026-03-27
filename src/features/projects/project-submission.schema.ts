@@ -17,7 +17,7 @@ export const projectSubmissionSchema = z.object({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
   }),
-  imageUri: z.string().min(1, 'Dodaj zdjecie projektu'),
+  imageUris: z.array(z.string().min(1)).min(1, 'Dodaj co najmniej jedno zdjecie projektu'),
 });
 
 export type ProjectSubmissionFormValues = z.infer<typeof projectSubmissionSchema>;

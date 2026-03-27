@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, Polygon, type MapEvent, type Region } from 'react-native-maps';
+import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -16,6 +17,7 @@ import {
   MLAWA_BOUNDARY_GEOJSON,
   polygonFromGeoJson,
 } from '@/src/features/map/mlawa-boundary';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 
 const MLAWA_CENTER = {
   latitude: 53.1126,
@@ -68,6 +70,7 @@ const clampToMlawa = (region: Region): Region => {
 
 export default function MapScreen() {
   const router = useRouter();
+  const { notify } = useAppFeedback();
   const mapRef = useRef<MapView>(null);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [selectedInsideBoundary, setSelectedInsideBoundary] = useState(true);
@@ -84,8 +87,8 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(region, animated ? 280 : 0);
   };
 
-  const onRegionChangeComplete = (region: Region, details?: MapEvent['nativeEvent']) => {
-    if (details && 'isGesture' in details && !details.isGesture) {
+  const onRegionChangeComplete = (region: Region, details?: { isGesture?: boolean }) => {
+    if (details?.isGesture === false) {
       return;
     }
 
@@ -120,7 +123,7 @@ export default function MapScreen() {
     setPermissionGranted(granted);
 
     if (!granted) {
-      Alert.alert('Brak uprawnienia', 'Wlacz lokalizacje, aby przejsc do swojej pozycji.');
+      await notify('Brak uprawnienia', 'Wlacz lokalizacje, aby przejsc do swojej pozycji.', 'error');
       return;
     }
 
@@ -141,6 +144,7 @@ export default function MapScreen() {
   const toggleFab = () => {
     const next = !isFabOpen;
     setIsFabOpen(next);
+    void Haptics.selectionAsync();
     fabProgress.value = withTiming(next ? 1 : 0, {
       duration: 220,
       easing: Easing.out(Easing.cubic),
@@ -148,6 +152,7 @@ export default function MapScreen() {
   };
 
   const handleActionReport = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsFabOpen(false);
     fabProgress.value = withTiming(0, { duration: 180 });
 
@@ -161,9 +166,10 @@ export default function MapScreen() {
   };
 
   const handleActionVote = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsFabOpen(false);
     fabProgress.value = withTiming(0, { duration: 180 });
-    Alert.alert('Głosuj', 'Tu możesz dodać flow głosowania.');
+    void notify('Glosuj', 'Przejdz do listy projektow i wybierz projekt do glosowania.', 'info');
   };
 
   const fabMainStyle = useAnimatedStyle(() => ({

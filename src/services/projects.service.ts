@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  collectionGroup,
   doc,
   getDocs,
   getDoc,
@@ -336,16 +335,33 @@ export async function listMyProjects(
 }
 
 export async function getVotedProjectIds(userId: string): Promise<string[]> {
-  if (!db) {
+  return listProjectsVotedByUser(userId, []);
+}
+
+export async function listProjectsVotedByUser(
+  userId: string,
+  projects: ProjectItem[]
+): Promise<string[]> {
+  const firestore = db;
+
+  if (!firestore) {
     throw new Error('Firebase Firestore is not configured.');
   }
 
-  const votesQuery = query(collectionGroup(db, 'votes'), where('userId', '==', userId));
-  const votesSnapshot = await getDocs(votesQuery);
+  const voted: string[] = [];
 
-  return votesSnapshot.docs
-    .map((voteDoc) => voteDoc.ref.parent.parent?.id)
-    .filter((projectId): projectId is string => Boolean(projectId));
+  await Promise.all(
+    projects.map(async (project) => {
+      const voteRef = doc(firestore, 'projects', project.id, 'votes', userId);
+      const snapshot = await getDoc(voteRef);
+
+      if (snapshot.exists()) {
+        voted.push(project.id);
+      }
+    })
+  );
+
+  return voted;
 }
 
 export async function getVotesSummary(userId: string): Promise<VotesSummary> {

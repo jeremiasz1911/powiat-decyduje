@@ -19,22 +19,36 @@ export default function DrawerLayout() {
       <Drawer.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'Profil',
           drawerIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
         }}
       />
       <Drawer.Screen
         name="my-projects"
         options={{
-          title: 'My Projects',
+          title: 'Moje projekty',
           drawerIcon: ({ color, size }) => <Ionicons name="folder-open-outline" size={size} color={color} />,
         }}
       />
       <Drawer.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: 'Ustawienia',
           drawerIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="map"
+        options={{
+          title: 'Mapa',
+          drawerIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="my-votes"
+        options={{
+          title: 'Moje głosy',
+          drawerIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" size={size} color={color} />,
         }}
       />
       <Drawer.Screen

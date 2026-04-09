@@ -1,23 +1,17 @@
-import { useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { Button, ButtonText, Text } from '@gluestack-ui/themed';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import {
-  isPointInPolygon,
-  MLAWA_BOUNDARY_GEOJSON,
-  polygonFromGeoJson,
+    isPointInPolygon,
+    MLAWA_BOUNDARY_GEOJSON,
+    polygonFromGeoJson,
 } from '@/src/features/map/mlawa-boundary';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { Ionicons } from '@expo/vector-icons';
+import { Button, ButtonText, Text } from '@gluestack-ui/themed';
+import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import { useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
 
 const MLAWA_CENTER = {
   latitude: 53.1126,
@@ -68,6 +62,13 @@ const clampToMlawa = (region: Region): Region => {
   };
 };
 
+const toTargetRegion = (latitude: number, longitude: number): Region => ({
+  latitude,
+  longitude,
+  latitudeDelta: 0.02,
+  longitudeDelta: 0.02,
+});
+
 export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
@@ -79,7 +80,6 @@ export default function MapScreen() {
     longitude: INITIAL_REGION.longitude,
   });
   const [isFabOpen, setIsFabOpen] = useState(false);
-  const fabProgress = useSharedValue(0);
 
   const boundaryPolygon = useMemo(() => polygonFromGeoJson(MLAWA_BOUNDARY_GEOJSON), []);
 
@@ -118,43 +118,57 @@ export default function MapScreen() {
   };
 
   const handleMyLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    const granted = status === 'granted';
-    setPermissionGranted(granted);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      const granted = status === 'granted';
+      setPermissionGranted(granted);
 
-    if (!granted) {
-      await notify('Brak uprawnienia', 'Wlacz lokalizacje, aby przejsc do swojej pozycji.', 'error');
-      return;
+      if (!granted) {
+        await notify('Brak uprawnienia', 'Wlacz lokalizacje, aby przejsc do swojej pozycji.', 'error');
+        return;
+      }
+
+      let position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      if (!position?.coords) {
+        position = await Location.getLastKnownPositionAsync();
+      }
+
+      if (!position?.coords) {
+        await notify('Lokalizacja niedostepna', 'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.', 'error');
+        return;
+      }
+
+      const targetRegion = clampToMlawa(toTargetRegion(position.coords.latitude, position.coords.longitude));
+      moveCamera(targetRegion);
+    } catch {
+      await notify('Lokalizacja niedostepna', 'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.', 'error');
     }
+  };
 
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
-    const targetRegion = clampToMlawa({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    });
-
+  const handleMapPress = (latitude: number, longitude: number) => {
+    const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude));
     moveCamera(targetRegion);
   };
 
   const toggleFab = () => {
-    const next = !isFabOpen;
-    setIsFabOpen(next);
-    void Haptics.selectionAsync();
-    fabProgress.value = withTiming(next ? 1 : 0, {
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-    });
+    setIsFabOpen((prev) => !prev);
+    try {
+      void Haptics.selectionAsync();
+    } catch {
+      // Haptics can be unavailable on some devices/emulators.
+    }
   };
 
   const handleActionReport = () => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      // Haptics can be unavailable on some devices/emulators.
+    }
     setIsFabOpen(false);
-    fabProgress.value = withTiming(0, { duration: 180 });
 
     router.push({
       pathname: '/(drawer)/submit-project',
@@ -166,31 +180,14 @@ export default function MapScreen() {
   };
 
   const handleActionVote = () => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      // Haptics can be unavailable on some devices/emulators.
+    }
     setIsFabOpen(false);
-    fabProgress.value = withTiming(0, { duration: 180 });
     void notify('Glosuj', 'Przejdz do listy projektow i wybierz projekt do glosowania.', 'info');
   };
-
-  const fabMainStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${fabProgress.value * 45}deg` }],
-  }));
-
-  const firstActionStyle = useAnimatedStyle(() => ({
-    opacity: fabProgress.value,
-    transform: [
-      { translateY: -fabProgress.value * 66 },
-      { scale: 0.92 + fabProgress.value * 0.08 },
-    ],
-  }));
-
-  const secondActionStyle = useAnimatedStyle(() => ({
-    opacity: fabProgress.value,
-    transform: [
-      { translateY: -fabProgress.value * 122 },
-      { scale: 0.92 + fabProgress.value * 0.08 },
-    ],
-  }));
 
   return (
     <View style={styles.container}>
@@ -201,6 +198,10 @@ export default function MapScreen() {
         maxDelta={MAX_REGION.latitudeDelta}
         minDelta={MIN_DELTA}
         onRegionChangeComplete={onRegionChangeComplete}
+        onPress={(event) => {
+          const { latitude, longitude } = event.nativeEvent.coordinate;
+          handleMapPress(latitude, longitude);
+        }}
         loadingEnabled
         moveOnMarkerPress={false}
         toolbarEnabled={false}
@@ -226,6 +227,12 @@ export default function MapScreen() {
         />
 
         <Marker coordinate={MLAWA_CENTER} title="Mlawa" description="Centrum Mlawy" />
+        <Marker
+          coordinate={selectedCenter}
+          pinColor="#2563eb"
+          title="Lokalizacja projektu"
+          description="To miejsce zostanie przekazane do formularza zgłoszenia."
+        />
       </MapView>
 
       <View style={styles.controls}>
@@ -234,6 +241,9 @@ export default function MapScreen() {
         </Button>
         <Text color="$textLight700" style={styles.hint}>
           Mapa jest ograniczona do obszaru Mlawy.
+        </Text>
+        <Text color="$textLight700" style={styles.hint}>
+          Dotknij mapy, aby ustawic znacznik projektu.
         </Text>
         <Text color={selectedInsideBoundary ? '$success700' : '$warning700'} style={styles.hint}>
           {selectedInsideBoundary
@@ -248,40 +258,38 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.fabContainer} pointerEvents="box-none">
-        <Animated.View style={[styles.fabAction, secondActionStyle]}>
-          <Button
-            onPress={handleActionVote}
-            size="md"
-            borderRadius="$full"
-            bg="$backgroundLight0"
-            action="secondary"
-            isDisabled={!isFabOpen}>
-            <ButtonText>Głosuj</ButtonText>
-          </Button>
-        </Animated.View>
+        {isFabOpen ? (
+          <>
+            <View style={styles.fabActionStack}>
+              <Button
+                onPress={handleActionVote}
+                size="md"
+                borderRadius="$full"
+                bg="$gray300">
+                <ButtonText color="$textDark900">Glosuj</ButtonText>
+              </Button>
+            </View>
 
-        <Animated.View style={[styles.fabAction, firstActionStyle]}>
-          <Button
-            onPress={handleActionReport}
-            size="md"
-            borderRadius="$full"
-            bg="$backgroundLight0"
-            action="secondary"
-            isDisabled={!isFabOpen}>
-            <ButtonText>Zgłoś projekt</ButtonText>
-          </Button>
-        </Animated.View>
+            <View style={styles.fabActionStack}>
+              <Button
+                onPress={handleActionReport}
+                size="md"
+                borderRadius="$full"
+                bg="$gray300">
+                <ButtonText color="$textDark900">Zglos projekt</ButtonText>
+              </Button>
+            </View>
+          </>
+        ) : null}
 
-        <Animated.View style={fabMainStyle}>
-          <Button
-            onPress={toggleFab}
-            size="lg"
-            borderRadius="$full"
-            bg="$blue600"
-            style={styles.fabMain}>
-            <Ionicons name="add" size={26} color="#fff" />
-          </Button>
-        </Animated.View>
+        <Button
+          onPress={toggleFab}
+          size="lg"
+          borderRadius="$full"
+          bg="$blue600"
+          style={styles.fabMain}>
+          <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color="#fff" />
+        </Button>
       </View>
     </View>
   );
@@ -315,11 +323,17 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 24,
     alignItems: 'flex-end',
+    gap: 10,
+    zIndex: 30,
+    elevation: 10,
   },
-  fabAction: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
+  fabActionStack: {
+    zIndex: 31,
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 5,
   },
   fabMain: {
     shadowColor: '#111827',

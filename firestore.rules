@@ -13,10 +13,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/projects/$(projectId)/votes/$(uid);
     }
 
-    function userVoteCollection(uid) {
-      return /databases/$(database)/documents/projects/{projectId}/votes/$(uid);
-    }
-
     function validProjectCreate() {
       return request.resource.data.keys().hasOnly([
         'title',
@@ -106,10 +102,6 @@ service cloud.firestore {
 
         allow update, delete: if false;
       }
-    }
-
-    match /projects/{projectId}/votes/{uid} {
-      allow list: if isOwner(uid);
     }
 
     match /users/{uid} {

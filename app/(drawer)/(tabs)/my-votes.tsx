@@ -11,7 +11,7 @@ import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
   ensureAnonymousAuth,
   getInstallationId,
-  getVotedProjectIds,
+  listProjectsVotedByUser,
   getVotesSummary,
   listProjects,
   type ProjectItem,
@@ -34,13 +34,16 @@ export default function MyVotesScreen() {
   const [userId, setUserId] = useState<string | null>(null);
 
   const refreshVotesMeta = useCallback(async (uid: string) => {
-    const [summary, ids] = await Promise.all([getVotesSummary(uid), getVotedProjectIds(uid)]);
+    const summary = await getVotesSummary(uid);
     setVotesRemaining(summary.votesRemaining);
-    setVotedIds(ids);
   }, []);
 
   const fetchProjects = useCallback(
-    async (reset: boolean, currentCursor: QueryDocumentSnapshot<DocumentData> | null = null) => {
+    async (
+      reset: boolean,
+      currentCursor: QueryDocumentSnapshot<DocumentData> | null = null,
+      baseItems: ProjectItem[] = []
+    ) => {
       if (reset) {
         setLoading(true);
       } else {
@@ -56,7 +59,13 @@ export default function MyVotesScreen() {
         });
 
         setCursor(result.nextCursor);
-        setItems((prev) => (reset ? result.items : [...prev, ...result.items]));
+        const nextItems = reset ? result.items : [...baseItems, ...result.items];
+        setItems(nextItems);
+
+        if (userId) {
+          const voted = await listProjectsVotedByUser(userId, nextItems);
+          setVotedIds(voted);
+        }
       } catch (loadError) {
         const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac projektow.';
         setError(message);
@@ -65,7 +74,7 @@ export default function MyVotesScreen() {
         setLoadingMore(false);
       }
     },
-    []
+    [userId]
   );
 
   useEffect(() => {
@@ -74,17 +83,25 @@ export default function MyVotesScreen() {
         const user = await ensureAnonymousAuth();
         setUserId(user.uid);
         await refreshVotesMeta(user.uid);
-        await fetchProjects(true, null);
       } catch (bootstrapError) {
         const message = bootstrapError instanceof Error ? bootstrapError.message : 'Nie udalo sie zaladowac glosowania.';
         setError(message);
+        setLoading(false);
       } finally {
         setLoading(false);
       }
     };
 
     void bootstrap();
-  }, [fetchProjects, refreshVotesMeta]);
+  }, [refreshVotesMeta]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    void fetchProjects(true, null, []);
+  }, [fetchProjects, userId]);
 
   const filteredItems = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -154,7 +171,7 @@ export default function MyVotesScreen() {
             <ErrorState
               message={error}
               actionLabel="Sprobuj ponownie"
-              onActionPress={() => void fetchProjects(true, null)}
+              onActionPress={() => void fetchProjects(true, null, [])}
             />
           ) : null}
 
@@ -195,7 +212,7 @@ export default function MyVotesScreen() {
           })}
 
           {hasMore ? (
-            <Button onPress={() => void fetchProjects(false, cursor)} isDisabled={loadingMore}>
+            <Button onPress={() => void fetchProjects(false, cursor, items)} isDisabled={loadingMore}>
               <ButtonText>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
             </Button>
           ) : null}

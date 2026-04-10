@@ -87,7 +87,7 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(region, animated ? 280 : 0);
   };
 
-  const onRegionChangeComplete = (region: Region) => {
+  const onRegionChangeComplete = (region: Region, details?: { isGesture?: boolean }) => {
     const clamped = clampToMlawa(region);
 
     const hasChanged =
@@ -96,7 +96,7 @@ export default function MapScreen() {
       Math.abs(clamped.latitudeDelta - region.latitudeDelta) > 0.00001 ||
       Math.abs(clamped.longitudeDelta - region.longitudeDelta) > 0.00001;
 
-    if (hasChanged) {
+    if (hasChanged && details?.isGesture !== false) {
       moveCamera(clamped);
     }
 

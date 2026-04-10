@@ -67,10 +67,7 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [selectedInsideBoundary, setSelectedInsideBoundary] = useState(true);
-  const [selectedCenter, setSelectedCenter] = useState({
-    latitude: INITIAL_REGION.latitude,
-    longitude: INITIAL_REGION.longitude,
-  });
+  const [selectedCenter, setSelectedCenter] = useState<{ latitude: number; longitude: number } | null>(null);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -108,10 +105,6 @@ export default function MapScreen() {
       )
     );
 
-    setSelectedCenter({
-      latitude: clamped.latitude,
-      longitude: clamped.longitude,
-    });
   };
 
   const handleMyLocation = async () => {
@@ -205,6 +198,11 @@ export default function MapScreen() {
     }
     setIsFabOpen(false);
 
+    if (!selectedCenter) {
+      void notify('Wybierz punkt', 'Najpierw kliknij punkt na mapie, aby ustawic lokalizacje projektu.', 'info');
+      return;
+    }
+
     router.push({
       pathname: '/(drawer)/submit-project',
       params: {
@@ -264,13 +262,14 @@ export default function MapScreen() {
           />
         ))}
 
-        <Marker coordinate={MLAWA_CENTER} title="Mlawa" description="Centrum Mlawy" />
-        <Marker
-          coordinate={selectedCenter}
-          pinColor="#2563eb"
-          title="Lokalizacja projektu"
-          description="To miejsce zostanie przekazane do formularza zgłoszenia."
-        />
+        {selectedCenter ? (
+          <Marker
+            coordinate={selectedCenter}
+            pinColor="#2563eb"
+            title="Lokalizacja projektu"
+            description="To miejsce zostanie przekazane do formularza zgłoszenia."
+          />
+        ) : null}
 
         {projects.map((project) => {
           const isSelected = project.id === selectedProjectId;

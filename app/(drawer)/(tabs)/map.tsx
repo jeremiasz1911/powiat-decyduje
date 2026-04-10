@@ -33,6 +33,7 @@ const MAX_REGION: Region = {
 
 const MIN_DELTA = 0.005;
 const MAX_DELTA = 0.09;
+const POINT_PLACEMENT_ZOOM_FACTOR = 0.85;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -145,7 +146,12 @@ export default function MapScreen() {
     }
 
     setSelectedProjectId(null);
-    const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude, currentRegion.latitudeDelta));
+    const targetRegion = clampToMlawa({
+      latitude,
+      longitude,
+      latitudeDelta: currentRegion.latitudeDelta * POINT_PLACEMENT_ZOOM_FACTOR,
+      longitudeDelta: currentRegion.longitudeDelta * POINT_PLACEMENT_ZOOM_FACTOR,
+    });
     setSelectedCenter({ latitude: targetRegion.latitude, longitude: targetRegion.longitude });
     moveCamera(targetRegion);
   };

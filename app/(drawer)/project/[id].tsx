@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Box, Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
 
@@ -13,6 +14,7 @@ import {
   voteForProject,
   type ProjectItem,
 } from '@/src/services';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function ProjectDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -103,7 +105,7 @@ export default function ProjectDetailsScreen() {
 
   if (!project) {
     return (
-      <Box flex={1} bg="$backgroundLight0" p="$4" justifyContent="center">
+      <Box flex={1} bg={futuristicTheme.colors.bgTop} p="$4" justifyContent="center">
         <ErrorState
           message={error ?? 'Projekt nie istnieje.'}
           actionLabel="Sprobuj ponownie"
@@ -114,49 +116,54 @@ export default function ProjectDetailsScreen() {
   }
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
-      <ScrollView contentContainerStyle={styles.content}>
-        <VStack space="md">
+    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+      <Box flex={1}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <VStack space="md">
           {project.imageUrl ? (
             <Animated.View entering={FadeInDown.duration(250)}>
               <Image source={{ uri: project.imageUrl }} style={styles.heroImage} resizeMode="cover" />
             </Animated.View>
           ) : null}
 
-          <Heading size="xl">{project.title}</Heading>
-          <Text color="$textLight700">{project.description}</Text>
+          <Heading size="xl" color={futuristicTheme.colors.textPrimary}>{project.title}</Heading>
+          <Text color={futuristicTheme.colors.textMuted}>{project.description}</Text>
 
           <Box style={styles.metaCard}>
             <VStack space="xs">
-              <Text color="$textLight600">Kategoria: {project.category}</Text>
-              <Text color="$textLight600">
+              <Text color={futuristicTheme.colors.textMuted}>Kategoria: {project.category}</Text>
+              <Text color={futuristicTheme.colors.textMuted}>
                 Lokalizacja: {project.commune}, {project.village}
               </Text>
-              <Text color="$textLight600">
+              <Text color={futuristicTheme.colors.textMuted}>
                 Koordynaty: {project.location.latitude.toFixed(5)}, {project.location.longitude.toFixed(5)}
               </Text>
-              <Text color="$textLight600">Koszt: {project.cost.toLocaleString('pl-PL')} PLN</Text>
-              <Text color="$textLight800" style={styles.votes}>
+              <Text color={futuristicTheme.colors.textMuted}>Koszt: {project.cost.toLocaleString('pl-PL')} PLN</Text>
+              <Text color={futuristicTheme.colors.accent} style={styles.votes}>
                 Glosy: {project.votesCount}
               </Text>
               {remainingVotes !== null ? (
-                <Text color="$textLight700">Pozostale glosy: {remainingVotes}</Text>
+                <Text color={futuristicTheme.colors.textMuted}>Pozostale glosy: {remainingVotes}</Text>
               ) : null}
             </VStack>
           </Box>
 
-          <Button onPress={handleVote} isDisabled={voting}>
-            <ButtonText>{voting ? 'Glosowanie...' : 'Głosuj'}</ButtonText>
+          <Button onPress={handleVote} isDisabled={voting} style={styles.primaryButton}>
+            <ButtonText color={futuristicTheme.colors.textDark}>{voting ? 'Glosowanie...' : 'Głosuj'}</ButtonText>
           </Button>
 
-          {error ? <Text color="$warning700">{error}</Text> : null}
-        </VStack>
-      </ScrollView>
-    </Box>
+          {error ? <Text color={futuristicTheme.colors.warning}>{error}</Text> : null}
+          </VStack>
+        </ScrollView>
+      </Box>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     paddingBottom: 36,
@@ -169,13 +176,19 @@ const styles = StyleSheet.create({
   },
   metaCard: {
     borderWidth: 1,
-    borderColor: '#dbeafe',
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 12,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 16,
+    padding: 14,
+    ...futuristicShadows.soft,
   },
   votes: {
     fontWeight: '700',
     marginTop: 4,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 14,
+    ...futuristicShadows.glow,
   },
 });

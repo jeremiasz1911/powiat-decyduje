@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Box, Button, ButtonText, Text, VStack } from '@gluestack-ui/themed';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 type LoadingStateProps = {
   label?: string;
@@ -22,8 +23,8 @@ type ErrorStateProps = {
 export function LoadingState({ label = 'Ladowanie...' }: LoadingStateProps) {
   return (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color="#2563eb" />
-      <Text color="$textLight600">{label}</Text>
+      <ActivityIndicator size="large" color={futuristicTheme.colors.accent} />
+      <Text color={futuristicTheme.colors.textMuted}>{label}</Text>
     </View>
   );
 }
@@ -33,7 +34,7 @@ export function EmptyState({ title, description, actionLabel, onActionPress }: E
     <Box style={styles.card}>
       <VStack space="sm" alignItems="center">
         <Text style={styles.title}>{title}</Text>
-        {description ? <Text color="$textLight600">{description}</Text> : null}
+        {description ? <Text color={futuristicTheme.colors.textMuted}>{description}</Text> : null}
         {actionLabel && onActionPress ? (
           <Button size="sm" action="secondary" variant="outline" onPress={onActionPress}>
             <ButtonText>{actionLabel}</ButtonText>
@@ -53,10 +54,10 @@ export function ErrorState({
   return (
     <Box style={styles.card}>
       <VStack space="sm" alignItems="center">
-        <Text color="$error700" style={styles.title}>
+        <Text color={futuristicTheme.colors.danger} style={styles.title}>
           {title}
         </Text>
-        <Text color="$error600">{message}</Text>
+        <Text color={futuristicTheme.colors.textMuted}>{message}</Text>
         {actionLabel && onActionPress ? (
           <Button size="sm" action="negative" variant="outline" onPress={onActionPress}>
             <ButtonText>{actionLabel}</ButtonText>
@@ -76,12 +77,14 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    borderRadius: 14,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 18,
     padding: 16,
+    ...futuristicShadows.soft,
   },
   title: {
     fontWeight: '700',
+    color: futuristicTheme.colors.textPrimary,
   },
 });

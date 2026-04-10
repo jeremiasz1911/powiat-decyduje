@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { futuristicTheme } from '@/src/theme/futuristic';
 
 export default function TabsLayout() {
   return (
@@ -7,7 +8,20 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: '#2563eb',
+        tabBarActiveTintColor: futuristicTheme.colors.accent,
+        tabBarInactiveTintColor: futuristicTheme.colors.textMuted,
+        tabBarStyle: {
+          height: 66,
+          backgroundColor: '#03182f',
+          borderTopColor: futuristicTheme.colors.border,
+          borderTopWidth: 1,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontWeight: '600',
+          fontSize: 12,
+        },
       }}>
       <Tabs.Screen
         name="map"

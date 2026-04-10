@@ -124,13 +124,23 @@ function isMissingIndexError(error: unknown): boolean {
 }
 
 async function fileUriToBlob(fileUri: string): Promise<Blob> {
-  const response = await fetch(fileUri);
+  // On React Native, fetch(file://...) can fail with "Network request failed".
+  // XHR with responseType=blob is significantly more reliable for local URIs.
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onerror = () => reject(new Error('Unable to read selected image file.'));
+    xhr.onload = () => {
+      if (!xhr.response) {
+        reject(new Error('Unable to read selected image file.'));
+        return;
+      }
 
-  if (!response.ok) {
-    throw new Error('Unable to read selected image file.');
-  }
-
-  return response.blob();
+      resolve(xhr.response as Blob);
+    };
+    xhr.responseType = 'blob';
+    xhr.open('GET', fileUri, true);
+    xhr.send();
+  });
 }
 
 async function uploadProjectImage(userId: string, imageUri: string): Promise<string> {
@@ -141,9 +151,14 @@ async function uploadProjectImage(userId: string, imageUri: string): Promise<str
   const blob = await fileUriToBlob(imageUri);
   const fileRef = ref(storage, `projects/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`);
 
-  await uploadBytes(fileRef, blob, {
-    contentType: 'image/jpeg',
-  });
+  try {
+    await uploadBytes(fileRef, blob, {
+      contentType: 'image/jpeg',
+    });
+  } finally {
+    const maybeClosable = blob as Blob & { close?: () => void };
+    maybeClosable.close?.();
+  }
 
   return getDownloadURL(fileRef);
 }

@@ -90,7 +90,9 @@ service cloud.firestore {
       }
 
       match /installationVotes/{installationId} {
-        allow read: if false;
+        // vote transaction reads this doc to prevent duplicate votes per installation
+        allow get: if isSignedIn();
+        allow list: if false;
 
         allow create: if isSignedIn() &&
           !exists(/databases/$(database)/documents/projects/$(projectId)/installationVotes/$(installationId)) &&

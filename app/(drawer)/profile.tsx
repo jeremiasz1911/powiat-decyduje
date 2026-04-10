@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Box,
   Button,
@@ -25,6 +26,7 @@ import {
 } from '@/src/features/profile/resident-profile.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getResidentProfile, upsertResidentProfile } from '@/src/services';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function DrawerProfileScreen() {
   const { notify } = useAppFeedback();
@@ -128,42 +130,45 @@ export default function DrawerProfileScreen() {
 
   if (error) {
     return (
-      <Box flex={1} bg="$backgroundLight0" p="$4" justifyContent="center">
+      <Box flex={1} bg={futuristicTheme.colors.bgTop} p="$4" justifyContent="center">
         <ErrorState message={error} actionLabel="Sprobuj ponownie" onActionPress={() => void loadProfile()} />
       </Box>
     );
   }
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
-      <ScrollView contentContainerStyle={styles.content}>
-        <VStack space="lg">
-          <Heading size="lg">Profil mieszkanca</Heading>
-          <Text color="$textLight600">
+    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+      <Box flex={1}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <VStack space="lg">
+            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>Profil mieszkanca</Heading>
+            <Text color={futuristicTheme.colors.textMuted}>
             Zarejestruj sie jako mieszkaniec gminy Mlawa. Po zapisie otrzymasz karte profilu.
-          </Text>
+            </Text>
 
-          <Box style={styles.profileCard}>
-            <VStack space="xs">
-              <Text style={styles.cardTitle}>Karta profilu</Text>
-              <Text color="$textLight700">Gmina: Mlawa</Text>
-              <Text color="$textLight700">Status: {profileExists ? 'Mieszkaniec zarejestrowany' : 'Nieuzupelniony'}</Text>
-              <Text color="$textLight700">UID: {uid ?? '-'}</Text>
-            </VStack>
-          </Box>
+            <Box style={styles.profileCard}>
+              <VStack space="xs">
+                <Text style={styles.cardTitle}>Karta profilu</Text>
+                <Text color={futuristicTheme.colors.textMuted}>Gmina: Mlawa</Text>
+                <Text color={futuristicTheme.colors.textMuted}>Status: {profileExists ? 'Mieszkaniec zarejestrowany' : 'Nieuzupelniony'}</Text>
+                <Text color={futuristicTheme.colors.textMuted}>UID: {uid ?? '-'}</Text>
+              </VStack>
+            </Box>
 
           <Controller
             control={control}
             name="fullName"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Imie i nazwisko</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>Imie i nazwisko</Text>
+                <Input style={styles.input}>
                   <InputField
                     placeholder="Np. Jan Kowalski"
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.fullName ? <Text color="$error600">{errors.fullName.message}</Text> : null}
@@ -176,8 +181,8 @@ export default function DrawerProfileScreen() {
             name="email"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Email (opcjonalnie)</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>Email (opcjonalnie)</Text>
+                <Input style={styles.input}>
                   <InputField
                     placeholder="jan@example.com"
                     value={value}
@@ -185,6 +190,8 @@ export default function DrawerProfileScreen() {
                     onChangeText={onChange}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.email ? <Text color="$error600">{errors.email.message}</Text> : null}
@@ -197,14 +204,16 @@ export default function DrawerProfileScreen() {
             name="phone"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Telefon (opcjonalnie)</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>Telefon (opcjonalnie)</Text>
+                <Input style={styles.input}>
                   <InputField
                     placeholder="Np. 600700800"
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     keyboardType="phone-pad"
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.phone ? <Text color="$error600">{errors.phone.message}</Text> : null}
@@ -217,9 +226,9 @@ export default function DrawerProfileScreen() {
             name="village"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Miejscowosc</Text>
-                <Input>
-                  <InputField placeholder="Mlawa" value={value} onBlur={onBlur} onChangeText={onChange} />
+                <Text color={futuristicTheme.colors.textPrimary}>Miejscowosc</Text>
+                <Input style={styles.input}>
+                  <InputField placeholder="Mlawa" value={value} onBlur={onBlur} onChangeText={onChange} color={futuristicTheme.colors.textPrimary} placeholderTextColor={futuristicTheme.colors.textMuted} />
                 </Input>
                 {errors.village ? <Text color="$error600">{errors.village.message}</Text> : null}
               </VStack>
@@ -231,9 +240,9 @@ export default function DrawerProfileScreen() {
             name="street"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Ulica i nr (opcjonalnie)</Text>
-                <Input>
-                  <InputField placeholder="Np. Sienkiewicza 12" value={value} onBlur={onBlur} onChangeText={onChange} />
+                <Text color={futuristicTheme.colors.textPrimary}>Ulica i nr (opcjonalnie)</Text>
+                <Input style={styles.input}>
+                  <InputField placeholder="Np. Sienkiewicza 12" value={value} onBlur={onBlur} onChangeText={onChange} color={futuristicTheme.colors.textPrimary} placeholderTextColor={futuristicTheme.colors.textMuted} />
                 </Input>
                 {errors.street ? <Text color="$error600">{errors.street.message}</Text> : null}
               </VStack>
@@ -249,7 +258,7 @@ export default function DrawerProfileScreen() {
                   <CheckboxIndicator mr="$2">
                     <CheckboxIcon as={CheckIcon} />
                   </CheckboxIndicator>
-                  <CheckboxLabel>Oswiadczam, ze jestem mieszkancem gminy Mlawa.</CheckboxLabel>
+                  <CheckboxLabel color={futuristicTheme.colors.textPrimary}>Oswiadczam, ze jestem mieszkancem gminy Mlawa.</CheckboxLabel>
                 </Checkbox>
                 {errors.acceptedRegulations ? (
                   <Text color="$error600">{errors.acceptedRegulations.message}</Text>
@@ -258,29 +267,44 @@ export default function DrawerProfileScreen() {
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting}>
-            <ButtonText>{isSubmitting ? 'Zapisywanie...' : profileExists ? 'Aktualizuj profil' : 'Zarejestruj profil'}</ButtonText>
-          </Button>
-        </VStack>
-      </ScrollView>
-    </Box>
+            <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
+              <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Zapisywanie...' : profileExists ? 'Aktualizuj profil' : 'Zarejestruj profil'}</ButtonText>
+            </Button>
+          </VStack>
+        </ScrollView>
+      </Box>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
+  input: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 14,
+  },
   profileCard: {
     borderWidth: 1,
-    borderColor: '#dbeafe',
-    backgroundColor: '#eff6ff',
-    borderRadius: 14,
-    padding: 12,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 18,
+    padding: 14,
+    ...futuristicShadows.soft,
   },
   cardTitle: {
     fontWeight: '700',
-    color: '#1e3a8a',
+    color: futuristicTheme.colors.accent,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 14,
+    ...futuristicShadows.glow,
   },
 });

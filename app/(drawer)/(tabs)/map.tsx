@@ -1,29 +1,21 @@
 import {
-    isPointInPolygon,
-    MLAWA_BOUNDARY_GEOJSON,
-    polygonFromGeoJson,
+  isPointInPolygon,
+  MLAWA_BOUNDS,
+  MLAWA_BOUNDARY_RINGS,
+  MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { listProjects, type ProjectItem } from '@/src/services';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
-
-const MLAWA_CENTER = {
-  latitude: 53.1126,
-  longitude: 20.3843,
-};
-
-const MLAWA_BOUNDS = {
-  minLat: 53.08,
-  maxLat: 53.15,
-  minLng: 20.33,
-  maxLng: 20.45,
-} as const;
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const INITIAL_REGION: Region = {
   latitude: MLAWA_CENTER.latitude,
@@ -62,11 +54,11 @@ const clampToMlawa = (region: Region): Region => {
   };
 };
 
-const toTargetRegion = (latitude: number, longitude: number): Region => ({
+const toTargetRegion = (latitude: number, longitude: number, delta = 0.02): Region => ({
   latitude,
   longitude,
-  latitudeDelta: 0.02,
-  longitudeDelta: 0.02,
+  latitudeDelta: delta,
+  longitudeDelta: delta,
 });
 
 export default function MapScreen() {
@@ -79,19 +71,23 @@ export default function MapScreen() {
     latitude: INITIAL_REGION.latitude,
     longitude: INITIAL_REGION.longitude,
   });
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
 
-  const boundaryPolygon = useMemo(() => polygonFromGeoJson(MLAWA_BOUNDARY_GEOJSON), []);
+  const boundaryRings = useMemo(() => MLAWA_BOUNDARY_RINGS, []);
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId]
+  );
 
   const moveCamera = (region: Region, animated = true) => {
     mapRef.current?.animateToRegion(region, animated ? 280 : 0);
   };
 
-  const onRegionChangeComplete = (region: Region, details?: { isGesture?: boolean }) => {
-    if (details?.isGesture === false) {
-      return;
-    }
-
+  const onRegionChangeComplete = (region: Region) => {
     const clamped = clampToMlawa(region);
 
     const hasChanged =
@@ -104,10 +100,11 @@ export default function MapScreen() {
       moveCamera(clamped);
     }
 
+    setCurrentRegion(clamped);
     setSelectedInsideBoundary(
       isPointInPolygon(
         { latitude: clamped.latitude, longitude: clamped.longitude },
-        boundaryPolygon
+        boundaryRings
       )
     );
 
@@ -128,7 +125,7 @@ export default function MapScreen() {
         return;
       }
 
-      let position = await Location.getCurrentPositionAsync({
+      let position: Location.LocationObject | null = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
 
@@ -149,9 +146,47 @@ export default function MapScreen() {
   };
 
   const handleMapPress = (latitude: number, longitude: number) => {
-    const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude));
+    setSelectedProjectId(null);
+    const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude, currentRegion.latitudeDelta));
+    setSelectedCenter({ latitude: targetRegion.latitude, longitude: targetRegion.longitude });
     moveCamera(targetRegion);
   };
+
+  const handleZoom = (direction: 'in' | 'out') => {
+    const zoomFactor = direction === 'in' ? 0.7 : 1.35;
+    const nextRegion = clampToMlawa({
+      latitude: currentRegion.latitude,
+      longitude: currentRegion.longitude,
+      latitudeDelta: currentRegion.latitudeDelta * zoomFactor,
+      longitudeDelta: currentRegion.longitudeDelta * zoomFactor,
+    });
+
+    moveCamera(nextRegion);
+  };
+
+  const fetchProjectsForMap = useCallback(async () => {
+    setProjectsLoading(true);
+    try {
+      const result = await listProjects({ pageSize: 60 });
+      setProjects(
+        result.items.filter(
+          (project) =>
+            Number.isFinite(project.location?.latitude) && Number.isFinite(project.location?.longitude)
+        )
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nie udalo sie pobrac projektow na mape.';
+      await notify('Blad mapy', message, 'error');
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [notify]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchProjectsForMap();
+    }, [fetchProjectsForMap])
+  );
 
   const toggleFab = () => {
     setIsFabOpen((prev) => !prev);
@@ -214,17 +249,20 @@ export default function MapScreen() {
             { latitude: -90, longitude: 180 },
             { latitude: -90, longitude: -180 },
           ]}
-          holes={[boundaryPolygon]}
+          holes={boundaryRings}
           fillColor="rgba(15, 23, 42, 0.16)"
           strokeWidth={0}
         />
 
-        <Polygon
-          coordinates={boundaryPolygon}
-          strokeColor="rgba(37, 99, 235, 0.85)"
-          fillColor="rgba(37, 99, 235, 0.08)"
-          strokeWidth={2}
-        />
+        {boundaryRings.map((ring, index) => (
+          <Polygon
+            key={`boundary-${index}`}
+            coordinates={ring}
+            strokeColor="rgba(37, 99, 235, 0.85)"
+            fillColor="rgba(37, 99, 235, 0.08)"
+            strokeWidth={2}
+          />
+        ))}
 
         <Marker coordinate={MLAWA_CENTER} title="Mlawa" description="Centrum Mlawy" />
         <Marker
@@ -233,29 +271,87 @@ export default function MapScreen() {
           title="Lokalizacja projektu"
           description="To miejsce zostanie przekazane do formularza zgłoszenia."
         />
+
+        {projects.map((project) => {
+          const isSelected = project.id === selectedProjectId;
+          return (
+            <Marker
+              key={project.id}
+              coordinate={{
+                latitude: project.location.latitude,
+                longitude: project.location.longitude,
+              }}
+              onPress={() => setSelectedProjectId(project.id)}
+              title={project.title}
+              description={project.category}>
+              <View style={[styles.projectMarker, isSelected ? styles.projectMarkerActive : null]}>
+                <Ionicons
+                  name={isSelected ? 'sparkles' : 'radio-button-on'}
+                  size={14}
+                  color={isSelected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
+                />
+              </View>
+            </Marker>
+          );
+        })}
       </MapView>
 
       <View style={styles.controls}>
-        <Button onPress={handleMyLocation} size="md">
-          <ButtonText>My Location</ButtonText>
+        <View style={styles.zoomControls}>
+          <Button onPress={() => handleZoom('in')} size="sm" bg={futuristicTheme.colors.panel} style={styles.zoomButton}>
+            <ButtonText color={futuristicTheme.colors.textPrimary}>+</ButtonText>
+          </Button>
+          <Button onPress={() => handleZoom('out')} size="sm" bg={futuristicTheme.colors.panel} style={styles.zoomButton}>
+            <ButtonText color={futuristicTheme.colors.textPrimary}>-</ButtonText>
+          </Button>
+        </View>
+        <Button onPress={handleMyLocation} size="md" bg={futuristicTheme.colors.accent} style={styles.locationButton}>
+          <ButtonText color={futuristicTheme.colors.textDark}>My Location</ButtonText>
         </Button>
-        <Text color="$textLight700" style={styles.hint}>
+        <Text color={futuristicTheme.colors.textPrimary} style={styles.hint}>
           Mapa jest ograniczona do obszaru Mlawy.
         </Text>
-        <Text color="$textLight700" style={styles.hint}>
+        <Text color={futuristicTheme.colors.textPrimary} style={styles.hint}>
           Dotknij mapy, aby ustawic znacznik projektu.
         </Text>
-        <Text color={selectedInsideBoundary ? '$success700' : '$warning700'} style={styles.hint}>
+        <Text color={futuristicTheme.colors.accent} style={styles.hint}>
+          Projekty na mapie: {projectsLoading ? 'ladowanie...' : projects.length}
+        </Text>
+        <Text color={selectedInsideBoundary ? futuristicTheme.colors.success : futuristicTheme.colors.warning} style={styles.hint}>
           {selectedInsideBoundary
             ? 'Wybrana pozycja jest w granicy.'
             : 'Pozycja poza granica - wracam do obszaru Mlawy.'}
         </Text>
         {permissionGranted === false ? (
-          <Text color="$error600" style={styles.hint}>
+          <Text color={futuristicTheme.colors.danger} style={styles.hint}>
             Uprawnienie lokalizacji zostalo odrzucone.
           </Text>
         ) : null}
       </View>
+
+      {selectedProject ? (
+        <View style={styles.previewCard}>
+          <Text color={futuristicTheme.colors.accent} style={styles.previewTag}>
+            {selectedProject.category}
+          </Text>
+          <Text color={futuristicTheme.colors.textPrimary} style={styles.previewTitle}>
+            {selectedProject.title}
+          </Text>
+          <Text color={futuristicTheme.colors.textMuted} numberOfLines={2}>
+            {selectedProject.description}
+          </Text>
+          <Text color={futuristicTheme.colors.textMuted}>
+            {selectedProject.village} • {selectedProject.cost.toLocaleString('pl-PL')} PLN
+          </Text>
+          <Button
+            onPress={() => router.push(`/(drawer)/project/${selectedProject.id}`)}
+            size="sm"
+            bg={futuristicTheme.colors.accent}
+            style={styles.previewButton}>
+            <ButtonText color={futuristicTheme.colors.textDark}>Zobacz projekt</ButtonText>
+          </Button>
+        </View>
+      ) : null}
 
       <View style={styles.fabContainer} pointerEvents="box-none">
         {isFabOpen ? (
@@ -265,8 +361,8 @@ export default function MapScreen() {
                 onPress={handleActionVote}
                 size="md"
                 borderRadius="$full"
-                bg="$gray300">
-                <ButtonText color="$textDark900">Glosuj</ButtonText>
+                bg={futuristicTheme.colors.panel}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>Glosuj</ButtonText>
               </Button>
             </View>
 
@@ -275,8 +371,8 @@ export default function MapScreen() {
                 onPress={handleActionReport}
                 size="md"
                 borderRadius="$full"
-                bg="$gray300">
-                <ButtonText color="$textDark900">Zglos projekt</ButtonText>
+                bg={futuristicTheme.colors.panel}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>Zglos projekt</ButtonText>
               </Button>
             </View>
           </>
@@ -286,9 +382,9 @@ export default function MapScreen() {
           onPress={toggleFab}
           size="lg"
           borderRadius="$full"
-          bg="$blue600"
+          bg={futuristicTheme.colors.accent}
           style={styles.fabMain}>
-          <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color="#fff" />
+          <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color={futuristicTheme.colors.textDark} />
         </Button>
       </View>
     </View>
@@ -307,16 +403,74 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     left: 16,
-    bottom: 20,
+    top: 18,
     gap: 8,
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
+  },
+  zoomControls: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  zoomButton: {
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...futuristicShadows.soft,
   },
   hint: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(3, 24, 47, 0.88)',
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 12,
     overflow: 'hidden',
+  },
+  locationButton: {
+    ...futuristicShadows.glow,
+  },
+  projectMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    ...futuristicShadows.soft,
+  },
+  projectMarkerActive: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderColor: futuristicTheme.colors.accent,
+  },
+  previewCard: {
+    position: 'absolute',
+    left: 16,
+    right: 86,
+    bottom: 24,
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 16,
+    padding: 12,
+    gap: 6,
+    ...futuristicShadows.soft,
+  },
+  previewTag: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  previewTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  previewButton: {
+    marginTop: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    ...futuristicShadows.glow,
   },
   fabContainer: {
     position: 'absolute',
@@ -329,17 +483,9 @@ const styles = StyleSheet.create({
   },
   fabActionStack: {
     zIndex: 31,
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
+    ...futuristicShadows.soft,
   },
   fabMain: {
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    elevation: 8,
+    ...futuristicShadows.glow,
   },
 });

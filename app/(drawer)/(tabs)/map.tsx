@@ -65,6 +65,7 @@ export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const mapRef = useRef<MapView>(null);
+  const lastPanAtRef = useRef(0);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [selectedInsideBoundary, setSelectedInsideBoundary] = useState(true);
   const [selectedCenter, setSelectedCenter] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -139,6 +140,10 @@ export default function MapScreen() {
   };
 
   const handleMapPress = (latitude: number, longitude: number) => {
+    if (Date.now() - lastPanAtRef.current < 250) {
+      return;
+    }
+
     setSelectedProjectId(null);
     const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude, currentRegion.latitudeDelta));
     setSelectedCenter({ latitude: targetRegion.latitude, longitude: targetRegion.longitude });
@@ -234,6 +239,9 @@ export default function MapScreen() {
         onPress={(event) => {
           const { latitude, longitude } = event.nativeEvent.coordinate;
           handleMapPress(latitude, longitude);
+        }}
+        onPanDrag={() => {
+          lastPanAtRef.current = Date.now();
         }}
         loadingEnabled
         moveOnMarkerPress={false}

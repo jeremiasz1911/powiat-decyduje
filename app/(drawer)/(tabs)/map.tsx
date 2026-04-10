@@ -27,12 +27,13 @@ const INITIAL_REGION: Region = {
 const MAX_REGION: Region = {
   latitude: MLAWA_CENTER.latitude,
   longitude: MLAWA_CENTER.longitude,
-  latitudeDelta: 0.09,
-  longitudeDelta: 0.09,
+  latitudeDelta: 0.3,
+  longitudeDelta: 0.3,
 };
 
 const MIN_DELTA = 0.005;
-const MAX_DELTA = 0.09;
+const MAX_DELTA = 0.3;
+const BOUNDS_MARGIN = 0.08;
 const POINT_PLACEMENT_ZOOM_FACTOR = 0.85;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -44,8 +45,16 @@ const clampToMlawa = (region: Region): Region => {
   const halfLat = latitudeDelta / 2;
   const halfLng = longitudeDelta / 2;
 
-  const latitude = clamp(region.latitude, MLAWA_BOUNDS.minLat + halfLat, MLAWA_BOUNDS.maxLat - halfLat);
-  const longitude = clamp(region.longitude, MLAWA_BOUNDS.minLng + halfLng, MLAWA_BOUNDS.maxLng - halfLng);
+  const latitude = clamp(
+    region.latitude,
+    MLAWA_BOUNDS.minLat - BOUNDS_MARGIN + halfLat,
+    MLAWA_BOUNDS.maxLat + BOUNDS_MARGIN - halfLat
+  );
+  const longitude = clamp(
+    region.longitude,
+    MLAWA_BOUNDS.minLng - BOUNDS_MARGIN + halfLng,
+    MLAWA_BOUNDS.maxLng + BOUNDS_MARGIN - halfLng
+  );
 
   return {
     latitude,

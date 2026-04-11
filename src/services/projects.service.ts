@@ -18,7 +18,7 @@ import {
   type Timestamp,
 } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
 
 import { resolveProjectIcon, type ProjectIconId } from '@/src/features/projects/project-icons';
 import { db, storage } from '@/src/lib/firebase';
@@ -133,7 +133,19 @@ async function fileUriToBlob(fileUri: string): Promise<Blob> {
   // XHR with responseType=blob is significantly more reliable for local URIs.
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.onerror = () => reject(new Error('Unable to read selected image file.'));
+    xhr.onerror = async () => {
+      try {
+        const fallbackResponse = await fetch(fileUri);
+        if (!fallbackResponse.ok) {
+          reject(new Error(`Unable to read selected image file (HTTP ${fallbackResponse.status}).`));
+          return;
+        }
+        const fallbackBlob = await fallbackResponse.blob();
+        resolve(fallbackBlob);
+      } catch {
+        reject(new Error(`Unable to read selected image file (${fileUri.slice(0, 24)}...).`));
+      }
+    };
     xhr.onload = () => {
       if (!xhr.response) {
         reject(new Error('Unable to read selected image file.'));
@@ -153,13 +165,29 @@ async function uploadProjectImage(userId: string, imageUri: string): Promise<str
     throw new Error('Firebase Storage is not configured.');
   }
 
-  const blob = await fileUriToBlob(imageUri);
   const fileRef = ref(storage, `projects/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`);
 
+  if (imageUri.startsWith('data:')) {
+    const match = imageUri.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) {
+      throw new Error('Niepoprawny format danych obrazu.');
+    }
+
+    const [, contentType, base64Data] = match;
+    await uploadString(fileRef, base64Data, 'base64', { contentType });
+    return getDownloadURL(fileRef);
+  }
+
+  const blob = await fileUriToBlob(imageUri);
   try {
     await uploadBytes(fileRef, blob, {
       contentType: 'image/jpeg',
     });
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      throw new Error(`Blad wysylania obrazu: ${error.code}`);
+    }
+    throw error;
   } finally {
     const maybeClosable = blob as Blob & { close?: () => void };
     maybeClosable.close?.();

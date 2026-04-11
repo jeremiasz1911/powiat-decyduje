@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
 import { DEFAULT_PROJECT_ICON, PROJECT_ICON_OPTIONS } from '@/src/features/projects/project-icons';
 import {
   projectSubmissionSchema,
@@ -16,17 +17,6 @@ import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
-const DESCRIPTION_ACTIONS = [
-  { key: 'text', label: 'TXT', template: '' },
-  { key: 'bullet', label: '•', template: '• ' },
-  { key: 'number', label: '1.', template: '1. ' },
-  { key: 'h1', label: 'H1', template: '# ' },
-  { key: 'h2', label: 'H2', template: '## ' },
-  { key: 'h3', label: 'H3', template: '### ' },
-  { key: 'h4', label: 'H4', template: '#### ' },
-  { key: 'h5', label: 'H5', template: '##### ' },
-] as const;
-
 export default function EditProjectScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -34,6 +24,7 @@ export default function EditProjectScreen() {
   const [loading, setLoading] = useState(true);
   const [screenError, setScreenError] = useState<string | null>(null);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -123,17 +114,6 @@ export default function EditProjectScreen() {
     }
   };
 
-  const applyDescriptionTemplate = (
-    currentValue: string,
-    template: (typeof DESCRIPTION_ACTIONS)[number]['template']
-  ) => {
-    if (!template) {
-      return currentValue;
-    }
-
-    return `${currentValue}${currentValue ? '\n' : ''}${template}`;
-  };
-
   if (loading) {
     return <LoadingState label="Ladowanie projektu do edycji..." />;
   }
@@ -172,32 +152,30 @@ export default function EditProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text>Opis</Text>
-                <View style={styles.editorToolbar}>
-                  {DESCRIPTION_ACTIONS.map((action) => (
-                    <Button
-                      key={action.key}
-                      size="xs"
-                      variant="outline"
-                      action="secondary"
-                      style={styles.editorButton}
-                      onPress={() => onChange(applyDescriptionTemplate(value, action.template))}>
-                      <ButtonText>{action.label}</ButtonText>
-                    </Button>
-                  ))}
+                <View style={styles.textareaPreview}>
+                  <Text>{value || 'Tapnij, aby otworzyc pelnoekranowy edytor opisu...'}</Text>
                 </View>
-                <View style={styles.textareaContainer}>
-                  <TextInput
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    multiline
-                    numberOfLines={6}
-                    textAlignVertical="top"
-                    style={styles.textareaInput}
-                  />
-                </View>
-                <Text>Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.</Text>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  action="secondary"
+                  style={styles.openEditorButton}
+                  onPress={() => setIsDescriptionModalOpen(true)}>
+                  <Ionicons name="create-outline" size={16} />
+                  <ButtonText>Edytuj opis na pelnym ekranie</ButtonText>
+                </Button>
+                <Text>Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.</Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
+                <DescriptionEditorModal
+                  visible={isDescriptionModalOpen}
+                  value={value}
+                  onChange={onChange}
+                  onClose={() => {
+                    onBlur();
+                    setIsDescriptionModalOpen(false);
+                  }}
+                  title="Opis projektu"
+                />
               </VStack>
             )}
           />
@@ -320,29 +298,16 @@ const styles = StyleSheet.create({
   iconSelectTrigger: {
     justifyContent: 'space-between',
   },
-  editorButton: {
-    minWidth: 48,
-  },
-  editorToolbar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 2,
-  },
-  textareaContainer: {
-    borderColor: '#1f3b5d',
-    backgroundColor: '#03182f',
+  textareaPreview: {
+    borderColor: '#d1d5db',
+    backgroundColor: '#f8fafc',
     borderRadius: 14,
     borderWidth: 1,
-    minHeight: 190,
+    minHeight: 120,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  textareaInput: {
-    flex: 1,
-    minHeight: 160,
-    color: '#f8fafc',
-    fontSize: 16,
-    lineHeight: 22,
+  openEditorButton: {
+    justifyContent: 'flex-start',
   },
 });

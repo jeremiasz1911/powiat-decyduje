@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +20,7 @@ import {
 } from '@gluestack-ui/themed';
 
 import { ErrorState } from '@/src/components/feedback-state';
+import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
 import {
   DEFAULT_PROJECT_ICON,
   PROJECT_ICON_OPTIONS,
@@ -33,17 +34,6 @@ import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
-const DESCRIPTION_ACTIONS = [
-  { key: 'text', label: 'TXT', template: '' },
-  { key: 'bullet', label: '•', template: '• ' },
-  { key: 'number', label: '1.', template: '1. ' },
-  { key: 'h1', label: 'H1', template: '# ' },
-  { key: 'h2', label: 'H2', template: '## ' },
-  { key: 'h3', label: 'H3', template: '### ' },
-  { key: 'h4', label: 'H4', template: '#### ' },
-  { key: 'h5', label: 'H5', template: '##### ' },
-] as const;
-
 export default function SubmitProjectScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
@@ -55,6 +45,7 @@ export default function SubmitProjectScreen() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -175,17 +166,6 @@ export default function SubmitProjectScreen() {
     }
   };
 
-  const applyDescriptionTemplate = (
-    currentValue: string,
-    template: (typeof DESCRIPTION_ACTIONS)[number]['template']
-  ) => {
-    if (!template) {
-      return currentValue;
-    }
-
-    return `${currentValue}${currentValue ? '\n' : ''}${template}`;
-  };
-
   return (
     <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
       <Box flex={1}>
@@ -225,36 +205,34 @@ export default function SubmitProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
-                <View style={styles.editorToolbar}>
-                  {DESCRIPTION_ACTIONS.map((action) => (
-                    <Button
-                      key={action.key}
-                      size="xs"
-                      variant="outline"
-                      action="secondary"
-                      style={styles.editorButton}
-                      onPress={() => onChange(applyDescriptionTemplate(value, action.template))}>
-                      <ButtonText color={futuristicTheme.colors.textPrimary}>{action.label}</ButtonText>
-                    </Button>
-                  ))}
+                <View style={styles.textareaPreview}>
+                  <Text color={value ? futuristicTheme.colors.textPrimary : futuristicTheme.colors.textMuted}>
+                    {value || 'Tapnij, aby otworzyc pelnoekranowy edytor opisu...'}
+                  </Text>
                 </View>
-                <View style={styles.textareaContainer}>
-                  <TextInput
-                    placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    multiline
-                    numberOfLines={6}
-                    textAlignVertical="top"
-                    style={styles.textareaInput}
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                  />
-                </View>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  action="secondary"
+                  style={styles.openEditorButton}
+                  onPress={() => setIsDescriptionModalOpen(true)}>
+                  <Ionicons name="create-outline" size={16} color={futuristicTheme.colors.textPrimary} />
+                  <ButtonText color={futuristicTheme.colors.textPrimary}>Edytuj opis na pelnym ekranie</ButtonText>
+                </Button>
                 <Text color={futuristicTheme.colors.textMuted}>
-                  Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.
+                  Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.
                 </Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
+                <DescriptionEditorModal
+                  visible={isDescriptionModalOpen}
+                  value={value}
+                  onChange={onChange}
+                  onClose={() => {
+                    onBlur();
+                    setIsDescriptionModalOpen(false);
+                  }}
+                  title="Opis projektu"
+                />
               </VStack>
             )}
           />
@@ -429,21 +407,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  textareaContainer: {
+  textareaPreview: {
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panel,
     borderRadius: 14,
     borderWidth: 1,
-    minHeight: 190,
+    minHeight: 120,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  textareaInput: {
-    flex: 1,
-    minHeight: 160,
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 22,
+  openEditorButton: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
   },
   categoryWrap: {
     flexDirection: 'row',
@@ -472,17 +448,6 @@ const styles = StyleSheet.create({
     backgroundColor: futuristicTheme.colors.panelSoft,
     borderWidth: 1,
     paddingHorizontal: 0,
-  },
-  editorToolbar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 2,
-  },
-  editorButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    minWidth: 48,
   },
   preview: {
     width: '100%',

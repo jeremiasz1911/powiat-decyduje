@@ -271,7 +271,9 @@ export function DescriptionEditorModal({
             Podglad formatowania
           </Text>
           <View style={styles.previewWrap}>
-            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
+            <ScrollView style={styles.previewScroll} contentContainerStyle={styles.previewScrollContent}>
+              <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
+            </ScrollView>
           </View>
         </View>
       </View>
@@ -292,6 +294,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34, 211, 238, 0.65)',
     backgroundColor: 'rgba(2, 22, 40, 0.96)',
     padding: 14,
+    maxHeight: '92%',
     gap: 12,
     ...futuristicShadows.soft,
   },
@@ -376,7 +379,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(7, 39, 66, 0.88)',
     minHeight: 140,
+    maxHeight: 240,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  previewScroll: {
+    flex: 1,
+  },
+  previewScrollContent: {
+    paddingBottom: 8,
   },
 });

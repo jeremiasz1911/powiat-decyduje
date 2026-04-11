@@ -35,6 +35,7 @@ import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
+const MAX_PROJECT_IMAGES = 5;
 export default function SubmitProjectScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
@@ -83,6 +84,12 @@ export default function SubmitProjectScreen() {
   const selectedIcon = watch('icon');
 
   const handlePickImagesFromLibrary = async () => {
+    const remainingSlots = MAX_PROJECT_IMAGES - imagePreviews.length;
+    if (remainingSlots <= 0) {
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      return;
+    }
+
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
@@ -93,6 +100,7 @@ export default function SubmitProjectScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
+      selectionLimit: remainingSlots,
       quality: 0.75,
     });
 
@@ -105,12 +113,22 @@ export default function SubmitProjectScreen() {
       return;
     }
 
-    setImagePreviews(uris);
-    setValue('imageUris', uris, { shouldValidate: true, shouldDirty: true });
-    await notify('Zdjecia dodane', `Dodano ${uris.length} zdjec.`, 'success');
+    const merged = [...imagePreviews, ...uris].slice(0, MAX_PROJECT_IMAGES);
+    setImagePreviews(merged);
+    setValue('imageUris', merged, { shouldValidate: true, shouldDirty: true });
+    await notify(
+      'Zdjecia dodane',
+      `Lacznie: ${merged.length}/${MAX_PROJECT_IMAGES} zdjec.`,
+      merged.length === MAX_PROJECT_IMAGES ? 'warning' : 'success'
+    );
   };
 
   const handleTakePhoto = async () => {
+    if (imagePreviews.length >= MAX_PROJECT_IMAGES) {
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      return;
+    }
+
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
@@ -130,10 +148,10 @@ export default function SubmitProjectScreen() {
     }
 
     const uri = result.assets[0].uri;
-    const updated = [...imagePreviews, uri];
+    const updated = [...imagePreviews, uri].slice(0, MAX_PROJECT_IMAGES);
     setImagePreviews(updated);
     setValue('imageUris', updated, { shouldValidate: true, shouldDirty: true });
-    await notify('Zdjecie dodane', 'Zdjecie z aparatu zostalo dodane do projektu.', 'success');
+    await notify('Zdjecie dodane', `Lacznie: ${updated.length}/${MAX_PROJECT_IMAGES} zdjec.`, 'success');
   };
 
   const onSubmit = async (values: ProjectSubmissionFormValues) => {
@@ -369,10 +387,21 @@ export default function SubmitProjectScreen() {
 
           <VStack space="xs">
             <Text color={futuristicTheme.colors.textPrimary}>Zdjecia projektu</Text>
-            <Button onPress={handleTakePhoto} action="secondary" variant="outline" style={styles.ghostButton}>
+            <Text color={futuristicTheme.colors.textMuted}>Maksymalnie {MAX_PROJECT_IMAGES} zdjec.</Text>
+            <Button
+              onPress={handleTakePhoto}
+              action="secondary"
+              variant="outline"
+              style={styles.ghostButton}
+              isDisabled={imagePreviews.length >= MAX_PROJECT_IMAGES}>
               <ButtonText color={futuristicTheme.colors.textPrimary}>Zrob zdjecie</ButtonText>
             </Button>
-            <Button onPress={handlePickImagesFromLibrary} action="secondary" variant="outline" style={styles.ghostButton}>
+            <Button
+              onPress={handlePickImagesFromLibrary}
+              action="secondary"
+              variant="outline"
+              style={styles.ghostButton}
+              isDisabled={imagePreviews.length >= MAX_PROJECT_IMAGES}>
               <ButtonText color={futuristicTheme.colors.textPrimary}>{imagePreviews.length ? 'Dodaj/zmien zdjecia z galerii' : 'Dodaj zdjecia z galerii'}</ButtonText>
             </Button>
             {imagePreviews.length ? (

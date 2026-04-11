@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -10,6 +11,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-
 import { ProjectCard } from '@/src/features/projects/components/project-card';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, listMyProjects, type ProjectItem } from '@/src/services';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function DrawerMyProjectsScreen() {
   const router = useRouter();
@@ -102,90 +104,114 @@ export default function DrawerMyProjectsScreen() {
   }, [items, search]);
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
-      <ScrollView contentContainerStyle={styles.content}>
-        <VStack space="md">
-          <Heading size="lg">Moje projekty</Heading>
-          <Text color="$textLight600">Twoje zgloszenia z wyszukiwaniem, podgladem i edycja.</Text>
+    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+      <Box flex={1}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <VStack space="md">
+            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>Moje projekty</Heading>
+            <Text color={futuristicTheme.colors.textMuted}>Twoje zgloszenia z wyszukiwaniem, podgladem i edycja.</Text>
 
-          <Input>
-            <InputField
-              placeholder="Szukaj po tytule, opisie lub miejscowosci..."
-              value={search}
-              onChangeText={setSearch}
-            />
-          </Input>
+            <Input style={styles.input}>
+              <InputField
+                placeholder="Szukaj po tytule, opisie lub miejscowosci..."
+                value={search}
+                onChangeText={setSearch}
+                color={futuristicTheme.colors.textPrimary}
+                placeholderTextColor={futuristicTheme.colors.textMuted}
+              />
+            </Input>
 
-          <Button
-            onPress={() =>
-              router.push({
-                pathname: '/(drawer)/submit-project',
-                params: { latitude: '53.1126', longitude: '20.3843' },
-              })
-            }>
-            <ButtonText>Zloz nowy projekt</ButtonText>
-          </Button>
-
-          <Button action="secondary" variant="outline" onPress={() => void fetchProjects(true, null)}>
-            <ButtonText>Odswiez liste</ButtonText>
-          </Button>
-
-          {loading ? <LoadingState label="Laduje projekty..." /> : null}
-
-          {error ? (
-            <ErrorState
-              message={error}
-              actionLabel="Sprobuj ponownie"
-              onActionPress={() => void fetchProjects(true, null)}
-            />
-          ) : null}
-
-          {!loading && !error && filteredItems.length === 0 ? (
-            <EmptyState
-              title="Brak Twoich projektow"
-              description="Dodaj pierwszy projekt, aby miec go na tej liscie."
-              actionLabel="Przejdz do formularza"
-              onActionPress={() =>
+            <Button
+              style={styles.primaryButton}
+              onPress={() =>
                 router.push({
                   pathname: '/(drawer)/submit-project',
                   params: { latitude: '53.1126', longitude: '20.3843' },
                 })
-              }
-            />
-          ) : null}
-
-          {filteredItems.map((project, index) => (
-            <Animated.View key={project.id} entering={FadeInDown.delay(index * 35).duration(240)}>
-              <VStack space="sm">
-                <ProjectCard
-                  project={project}
-                  onOpenDetails={(projectId) => router.push(`/(drawer)/project/${projectId}`)}
-                />
-                <Button
-                  size="sm"
-                  action="secondary"
-                  variant="outline"
-                  onPress={() => router.push(`/(drawer)/edit-project/${project.id}`)}>
-                  <ButtonText>Edytuj projekt</ButtonText>
-                </Button>
-              </VStack>
-            </Animated.View>
-          ))}
-
-          {hasMore ? (
-            <Button onPress={() => fetchProjects(false, cursor)} isDisabled={loadingMore}>
-              <ButtonText>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
+              }>
+              <ButtonText color={futuristicTheme.colors.textDark}>Zloz nowy projekt</ButtonText>
             </Button>
-          ) : null}
-        </VStack>
-      </ScrollView>
-    </Box>
+
+            <Button action="secondary" variant="outline" style={styles.ghostButton} onPress={() => void fetchProjects(true, null)}>
+              <ButtonText color={futuristicTheme.colors.textPrimary}>Odswiez liste</ButtonText>
+            </Button>
+
+            {loading ? <LoadingState label="Laduje projekty..." /> : null}
+
+            {error ? (
+              <ErrorState
+                message={error}
+                actionLabel="Sprobuj ponownie"
+                onActionPress={() => void fetchProjects(true, null)}
+              />
+            ) : null}
+
+            {!loading && !error && filteredItems.length === 0 ? (
+              <EmptyState
+                title="Brak Twoich projektow"
+                description="Dodaj pierwszy projekt, aby miec go na tej liscie."
+                actionLabel="Przejdz do formularza"
+                onActionPress={() =>
+                  router.push({
+                    pathname: '/(drawer)/submit-project',
+                    params: { latitude: '53.1126', longitude: '20.3843' },
+                  })
+                }
+              />
+            ) : null}
+
+            {filteredItems.map((project, index) => (
+              <Animated.View key={project.id} entering={FadeInDown.delay(index * 35).duration(240)}>
+                <VStack space="sm">
+                  <ProjectCard
+                    project={project}
+                    onOpenDetails={(projectId) => router.push(`/(drawer)/project/${projectId}`)}
+                  />
+                  <Button
+                    size="sm"
+                    action="secondary"
+                    variant="outline"
+                    style={styles.ghostButton}
+                    onPress={() => router.push(`/(drawer)/edit-project/${project.id}`)}>
+                    <ButtonText color={futuristicTheme.colors.textPrimary}>Edytuj projekt</ButtonText>
+                  </Button>
+                </VStack>
+              </Animated.View>
+            ))}
+
+            {hasMore ? (
+              <Button onPress={() => fetchProjects(false, cursor)} isDisabled={loadingMore} style={styles.ghostButton}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
+              </Button>
+            ) : null}
+          </VStack>
+        </ScrollView>
+      </Box>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     paddingBottom: 36,
+  },
+  input: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 14,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 14,
+    ...futuristicShadows.glow,
+  },
+  ghostButton: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
   },
 });

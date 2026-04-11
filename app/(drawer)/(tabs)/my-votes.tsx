@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -17,6 +18,7 @@ import {
   type ProjectItem,
   voteForProject,
 } from '@/src/services';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function MyVotesScreen() {
   const router = useRouter();
@@ -150,81 +152,104 @@ export default function MyVotesScreen() {
   const hasMore = Boolean(cursor);
 
   return (
-    <Box flex={1} bg="$backgroundLight0">
-      <ScrollView contentContainerStyle={styles.content}>
-        <VStack space="md">
-          <Heading size="lg">My Votes</Heading>
-          <Text color="$textLight600">Szukaj projektow i glosuj bezposrednio z tej zakladki.</Text>
-          <Text color="$textLight700">Pozostale glosy: {votesRemaining ?? '-'}</Text>
+    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+      <Box flex={1}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <VStack space="md">
+            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>My Votes</Heading>
+            <Text color={futuristicTheme.colors.textMuted}>Szukaj projektow i glosuj bezposrednio z tej zakladki.</Text>
+            <Text color={futuristicTheme.colors.accent}>Pozostale glosy: {votesRemaining ?? '-'}</Text>
 
-          <Input>
-            <InputField
-              placeholder="Szukaj po tytule, opisie lub miejscowosci..."
-              value={search}
-              onChangeText={setSearch}
-            />
-          </Input>
+            <Input style={styles.input}>
+              <InputField
+                placeholder="Szukaj po tytule, opisie lub miejscowosci..."
+                value={search}
+                onChangeText={setSearch}
+                color={futuristicTheme.colors.textPrimary}
+                placeholderTextColor={futuristicTheme.colors.textMuted}
+              />
+            </Input>
 
-          {loading ? <LoadingState label="Laduje projekty do glosowania..." /> : null}
+            {loading ? <LoadingState label="Laduje projekty do glosowania..." /> : null}
 
-          {error ? (
-            <ErrorState
-              message={error}
-              actionLabel="Sprobuj ponownie"
-              onActionPress={() => void fetchProjects(true, null, [])}
-            />
-          ) : null}
+            {error ? (
+              <ErrorState
+                message={error}
+                actionLabel="Sprobuj ponownie"
+                onActionPress={() => void fetchProjects(true, null, [])}
+              />
+            ) : null}
 
-          {!loading && !error && filteredItems.length === 0 ? (
-            <EmptyState
-              title="Brak projektow"
-              description="Sprobuj zmienic fraze wyszukiwania."
-              actionLabel="Wyczysc"
-              onActionPress={() => setSearch('')}
-            />
-          ) : null}
+            {!loading && !error && filteredItems.length === 0 ? (
+              <EmptyState
+                title="Brak projektow"
+                description="Sprobuj zmienic fraze wyszukiwania."
+                actionLabel="Wyczysc"
+                onActionPress={() => setSearch('')}
+              />
+            ) : null}
 
-          {filteredItems.map((project, index) => {
-            const alreadyVoted = votedIds.includes(project.id);
-            const disabled = alreadyVoted || votingProjectId === project.id || votesRemaining === 0;
+            {filteredItems.map((project, index) => {
+              const alreadyVoted = votedIds.includes(project.id);
+              const disabled = alreadyVoted || votingProjectId === project.id || votesRemaining === 0;
 
-            return (
-              <Animated.View key={project.id} entering={FadeInDown.delay(index * 35).duration(230)}>
-                <VStack space="sm">
-                  <ProjectCard project={project} onOpenDetails={(projectId) => router.push(`/(drawer)/project/${projectId}`)} />
-                  <Button
-                    size="sm"
-                    action={alreadyVoted ? 'secondary' : 'primary'}
-                    variant={alreadyVoted ? 'outline' : 'solid'}
-                    isDisabled={disabled}
-                    onPress={() => void handleVote(project)}>
-                    <ButtonText>
-                      {alreadyVoted
-                        ? 'Juz zaglosowano'
-                        : votingProjectId === project.id
-                          ? 'Glosowanie...'
-                          : 'Glosuj na projekt'}
-                    </ButtonText>
-                  </Button>
-                </VStack>
-              </Animated.View>
-            );
-          })}
+              return (
+                <Animated.View key={project.id} entering={FadeInDown.delay(index * 35).duration(230)}>
+                  <VStack space="sm">
+                    <ProjectCard project={project} onOpenDetails={(projectId) => router.push(`/(drawer)/project/${projectId}`)} />
+                    <Button
+                      size="sm"
+                      action={alreadyVoted ? 'secondary' : 'primary'}
+                      variant={alreadyVoted ? 'outline' : 'solid'}
+                      style={alreadyVoted ? styles.ghostButton : styles.primaryButton}
+                      isDisabled={disabled}
+                      onPress={() => void handleVote(project)}>
+                      <ButtonText color={alreadyVoted ? futuristicTheme.colors.textPrimary : futuristicTheme.colors.textDark}>
+                        {alreadyVoted
+                          ? 'Juz zaglosowano'
+                          : votingProjectId === project.id
+                            ? 'Glosowanie...'
+                            : 'Glosuj na projekt'}
+                      </ButtonText>
+                    </Button>
+                  </VStack>
+                </Animated.View>
+              );
+            })}
 
-          {hasMore ? (
-            <Button onPress={() => void fetchProjects(false, cursor, items)} isDisabled={loadingMore}>
-              <ButtonText>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
-            </Button>
-          ) : null}
-        </VStack>
-      </ScrollView>
-    </Box>
+            {hasMore ? (
+              <Button onPress={() => void fetchProjects(false, cursor, items)} isDisabled={loadingMore} style={styles.ghostButton}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
+              </Button>
+            ) : null}
+          </VStack>
+        </ScrollView>
+      </Box>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   content: {
     padding: 16,
     paddingBottom: 36,
+  },
+  input: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 14,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 12,
+    ...futuristicShadows.glow,
+  },
+  ghostButton: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
   },
 });

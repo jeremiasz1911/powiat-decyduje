@@ -16,7 +16,7 @@ type InlineSegment = {
 
 const parseInline = (value: string): InlineSegment[] => {
   const segments: InlineSegment[] = [];
-  const regex = /(\*\*[^*]+\*\*|_[^_]+_)/g;
+  const regex = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|_[^_]+_)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -27,7 +27,9 @@ const parseInline = (value: string): InlineSegment[] => {
     }
 
     const token = match[0];
-    if (token.startsWith('**') && token.endsWith('**')) {
+    if (token.startsWith('***') && token.endsWith('***')) {
+      segments.push({ text: token.slice(3, -3), bold: true, italic: true });
+    } else if (token.startsWith('**') && token.endsWith('**')) {
       segments.push({ text: token.slice(2, -2), bold: true });
     } else if (token.startsWith('_') && token.endsWith('_')) {
       segments.push({ text: token.slice(1, -1), italic: true });

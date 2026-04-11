@@ -10,6 +10,7 @@ export const projectSubmissionSchema = z.object({
     .min(20, 'Opis musi miec minimum 20 znakow')
     .max(5000, 'Opis jest za dlugi'),
   category: z.string().min(2, 'Wybierz kategorie projektu'),
+  locationLabel: z.string().max(140, 'Adres lub nazwa miejsca jest za dluga'),
   commune: z.string().min(2, 'Podaj gmine'),
   village: z.string().min(2, 'Podaj miejscowosc'),
   cost: z
@@ -20,7 +21,10 @@ export const projectSubmissionSchema = z.object({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
   }),
-  imageUris: z.array(z.string().min(1)).min(1, 'Dodaj co najmniej jedno zdjecie projektu'),
+  imageUris: z
+    .array(z.string().min(1))
+    .min(1, 'Dodaj co najmniej jedno zdjecie projektu')
+    .max(5, 'Mozesz dodac maksymalnie 5 zdjec'),
   icon: z
     .string()
     .refine((value) => PROJECT_ICON_IDS.includes(value), 'Wybierz ikonke projektu'),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -7,6 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
+import { RichDescriptionPreview } from '@/src/features/projects/components/rich-description-preview';
 import { DEFAULT_PROJECT_ICON, PROJECT_ICON_OPTIONS } from '@/src/features/projects/project-icons';
 import {
   projectSubmissionSchema,
@@ -14,15 +16,17 @@ import {
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
-const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
-
+const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 export default function EditProjectScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { notify } = useAppFeedback();
   const [loading, setLoading] = useState(true);
   const [screenError, setScreenError] = useState<string | null>(null);
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -30,6 +34,7 @@ export default function EditProjectScreen() {
       description: '',
       category: CATEGORIES[0],
       icon: DEFAULT_PROJECT_ICON,
+      locationLabel: '',
       commune: 'Mlawa',
       village: 'Mlawa',
       cost: '',
@@ -71,6 +76,7 @@ export default function EditProjectScreen() {
         setValue('description', project.description);
         setValue('category', project.category);
         setValue('icon', project.icon);
+        setValue('locationLabel', project.locationLabel ?? '');
         setValue('commune', project.commune);
         setValue('village', project.village);
         setValue('cost', String(project.cost));
@@ -99,6 +105,7 @@ export default function EditProjectScreen() {
         description: values.description,
         category: values.category,
         icon: values.icon,
+        locationLabel: values.locationLabel,
         commune: values.commune,
         village: values.village,
         cost: Number(values.cost),
@@ -150,31 +157,28 @@ export default function EditProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text>Opis</Text>
-                <View style={styles.editorToolbar}>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
-                    <ButtonText>•</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}1. `)}>
-                    <ButtonText>1.</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}**pogrubienie**`)}>
-                    <ButtonText>B</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
-                    <ButtonText>I</ButtonText>
-                  </Button>
-                </View>
-                <Input>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    multiline
-                    numberOfLines={16}
-                    textAlignVertical="top"
+                <Pressable
+                  onPress={() => setIsDescriptionModalOpen(true)}
+                  style={styles.textareaPreview}
+                  accessibilityRole="button"
+                  accessibilityLabel="Otworz edytor opisu">
+                  <RichDescriptionPreview
+                    content={value}
+                    emptyPlaceholder="Tapnij, aby edytowac opis..."
+                    compact
                   />
-                </Input>
+                </Pressable>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
+                <DescriptionEditorModal
+                  visible={isDescriptionModalOpen}
+                  value={value}
+                  onChange={onChange}
+                  onClose={() => {
+                    onBlur();
+                    setIsDescriptionModalOpen(false);
+                  }}
+                  title="Opis projektu"
+                />
               </VStack>
             )}
           />
@@ -188,8 +192,11 @@ export default function EditProjectScreen() {
                   size="sm"
                   variant={selectedCategory === category ? 'solid' : 'outline'}
                   action={selectedCategory === category ? 'primary' : 'secondary'}
+                  style={selectedCategory === category ? styles.categoryButtonActive : undefined}
                   onPress={() => setValue('category', category, { shouldValidate: true })}>
-                  <ButtonText>{category}</ButtonText>
+                  <ButtonText color={selectedCategory === category ? futuristicTheme.colors.textDark : undefined}>
+                    {category}
+                  </ButtonText>
                 </Button>
               ))}
             </VStack>
@@ -197,21 +204,55 @@ export default function EditProjectScreen() {
 
           <VStack space="xs">
             <Text>Ikona projektu</Text>
-            <VStack space="xs" style={styles.iconGrid}>
-              {PROJECT_ICON_OPTIONS.map((option) => (
-                <Button
-                  key={option.id}
-                  size="sm"
-                  variant={selectedIcon === option.id ? 'solid' : 'outline'}
-                  action={selectedIcon === option.id ? 'primary' : 'secondary'}
-                  style={styles.iconOnlyButton}
-                  onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
-                  <Ionicons name={option.id} size={20} />
-                </Button>
-              ))}
-            </VStack>
+            <Button
+              size="sm"
+              variant="outline"
+              action="secondary"
+              style={styles.iconSelectTrigger}
+              onPress={() => setIsIconPickerOpen((prev) => !prev)}>
+              <Ionicons name={selectedIcon} size={18} />
+              <ButtonText>{isIconPickerOpen ? 'Zwin ikony' : 'Rozwin ikony'}</ButtonText>
+              <Ionicons name={isIconPickerOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={16} />
+            </Button>
+            {isIconPickerOpen ? (
+              <VStack space="xs" style={styles.iconGrid}>
+                {PROJECT_ICON_OPTIONS.map((option) => (
+                  <Button
+                    key={option.id}
+                    size="sm"
+                    variant={selectedIcon === option.id ? 'solid' : 'outline'}
+                    action={selectedIcon === option.id ? 'primary' : 'secondary'}
+                    style={styles.iconOnlyButton}
+                    onPress={() => {
+                      setValue('icon', option.id, { shouldValidate: true, shouldDirty: true });
+                      setIsIconPickerOpen(false);
+                    }}>
+                    <Ionicons name={option.id} size={20} />
+                  </Button>
+                ))}
+              </VStack>
+            ) : null}
             {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
+
+          <Controller
+            control={control}
+            name="locationLabel"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Adres / nazwa miejsca</Text>
+                <Input>
+                  <InputField
+                    placeholder="Np. Szkola Podstawowa nr 2, ul. Szkolna 10"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                  />
+                </Input>
+                {errors.locationLabel ? <Text color="$error600">{errors.locationLabel.message}</Text> : null}
+              </VStack>
+            )}
+          />
 
           <Controller
             control={control}
@@ -279,13 +320,22 @@ const styles = StyleSheet.create({
     height: 46,
     paddingHorizontal: 0,
   },
-  editorButton: {
-    minWidth: 48,
+  iconSelectTrigger: {
+    justifyContent: 'space-between',
   },
-  editorToolbar: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 2,
+  textareaPreview: {
+    borderColor: '#d1d5db',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 120,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  categoryButtonActive: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderColor: futuristicTheme.colors.accentStrong,
+    borderWidth: 1.5,
+    ...futuristicShadows.glow,
   },
 });

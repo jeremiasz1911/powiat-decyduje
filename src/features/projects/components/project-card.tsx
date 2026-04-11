@@ -20,6 +20,9 @@ function ProjectCardComponent({ project, onOpenDetails }: ProjectCardProps) {
         <Text color={futuristicTheme.colors.textMuted}>
           {project.category} • {project.commune} • {project.village}
         </Text>
+        {project.locationLabel ? (
+          <Text color={futuristicTheme.colors.textMuted}>Miejsce: {project.locationLabel}</Text>
+        ) : null}
         <Text color={futuristicTheme.colors.textMuted}>Koszt: {project.cost.toLocaleString('pl-PL')} PLN</Text>
         <Text color={futuristicTheme.colors.accent}>Glosy: {project.votesCount}</Text>
         <Button

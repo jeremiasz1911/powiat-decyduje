@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { RichDescriptionPreview } from './rich-description-preview';
 
 const DESCRIPTION_ACTIONS = [
   { key: 'text', label: 'TXT', template: '' },
@@ -87,6 +88,17 @@ export function DescriptionEditorModal({
             />
           </View>
 
+          <View style={styles.previewWrap}>
+            <Text color={futuristicTheme.colors.accent} style={styles.previewTitle}>
+              Podglad formatowania
+            </Text>
+            <RichDescriptionPreview
+              content={value}
+              emptyPlaceholder="Podglad pojawi sie po wpisaniu tresci."
+              compact
+            />
+          </View>
+
           <Text color={futuristicTheme.colors.textMuted}>
             Uzyj: B, I, list i H1-H5. To pole wspiera strukture i czytelny opis.
           </Text>
@@ -159,6 +171,19 @@ const styles = StyleSheet.create({
     color: futuristicTheme.colors.textPrimary,
     fontSize: 16,
     lineHeight: 24,
+  },
+  previewWrap: {
+    borderColor: futuristicTheme.colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    padding: 10,
+    gap: 6,
+  },
+  previewTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   doneButtonWrap: {
     marginTop: 4,

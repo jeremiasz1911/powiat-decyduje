@@ -21,6 +21,7 @@ import {
 
 import { ErrorState } from '@/src/components/feedback-state';
 import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
+import { RichDescriptionPreview } from '@/src/features/projects/components/rich-description-preview';
 import {
   DEFAULT_PROJECT_ICON,
   PROJECT_ICON_OPTIONS,
@@ -206,9 +207,11 @@ export default function SubmitProjectScreen() {
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
                 <View style={styles.textareaPreview}>
-                  <Text color={value ? futuristicTheme.colors.textPrimary : futuristicTheme.colors.textMuted}>
-                    {value || 'Tapnij, aby otworzyc pelnoekranowy edytor opisu...'}
-                  </Text>
+                  <RichDescriptionPreview
+                    content={value}
+                    emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
+                    compact
+                  />
                 </View>
                 <Button
                   size="sm"

@@ -8,6 +8,7 @@ import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } fro
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
+import { RichDescriptionPreview } from '@/src/features/projects/components/rich-description-preview';
 import { DEFAULT_PROJECT_ICON, PROJECT_ICON_OPTIONS } from '@/src/features/projects/project-icons';
 import {
   projectSubmissionSchema,
@@ -153,7 +154,11 @@ export default function EditProjectScreen() {
               <VStack space="xs">
                 <Text>Opis</Text>
                 <View style={styles.textareaPreview}>
-                  <Text>{value || 'Tapnij, aby otworzyc pelnoekranowy edytor opisu...'}</Text>
+                  <RichDescriptionPreview
+                    content={value}
+                    emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
+                    compact
+                  />
                 </View>
                 <Button
                   size="sm"

@@ -150,8 +150,22 @@ export default function EditProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text>Opis</Text>
+                <VStack space="xs">
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
+                    <ButtonText>•</ButtonText>
+                  </Button>
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}1. `)}>
+                    <ButtonText>1.</ButtonText>
+                  </Button>
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}**pogrubienie**`)}>
+                    <ButtonText>B</ButtonText>
+                  </Button>
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
+                    <ButtonText>I</ButtonText>
+                  </Button>
+                </VStack>
                 <Input>
-                  <InputField value={value} onBlur={onBlur} onChangeText={onChange} multiline numberOfLines={4} />
+                  <InputField value={value} onBlur={onBlur} onChangeText={onChange} multiline numberOfLines={10} />
                 </Input>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
               </VStack>
@@ -176,16 +190,16 @@ export default function EditProjectScreen() {
 
           <VStack space="xs">
             <Text>Ikona projektu</Text>
-            <VStack space="xs">
+            <VStack space="xs" style={styles.iconGrid}>
               {PROJECT_ICON_OPTIONS.map((option) => (
                 <Button
                   key={option.id}
                   size="sm"
                   variant={selectedIcon === option.id ? 'solid' : 'outline'}
                   action={selectedIcon === option.id ? 'primary' : 'secondary'}
+                  style={styles.iconOnlyButton}
                   onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
-                  <Ionicons name={option.id} size={16} />
-                  <ButtonText>{option.label}</ButtonText>
+                  <Ionicons name={option.id} size={20} />
                 </Button>
               ))}
             </VStack>
@@ -247,5 +261,18 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 36,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  iconOnlyButton: {
+    width: 46,
+    height: 46,
+    paddingHorizontal: 0,
+  },
+  editorButton: {
+    minWidth: 44,
   },
 });

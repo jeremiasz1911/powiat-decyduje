@@ -203,6 +203,30 @@ export default function SubmitProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
+                <View style={styles.editorToolbar}>
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
+                    <ButtonText color={futuristicTheme.colors.textPrimary}>•</ButtonText>
+                  </Button>
+                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}1. `)}>
+                    <ButtonText color={futuristicTheme.colors.textPrimary}>1.</ButtonText>
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    action="secondary"
+                    style={styles.editorButton}
+                    onPress={() => onChange(`${value}${value ? ' ' : ''}**pogrubienie**`)}>
+                    <ButtonText color={futuristicTheme.colors.textPrimary}>B</ButtonText>
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    action="secondary"
+                    style={styles.editorButton}
+                    onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
+                    <ButtonText color={futuristicTheme.colors.textPrimary}>I</ButtonText>
+                  </Button>
+                </View>
                 <Input style={styles.input}>
                   <InputField
                     placeholder="Opisz projekt i uzasadnienie"
@@ -210,7 +234,7 @@ export default function SubmitProjectScreen() {
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={4}
+                    numberOfLines={10}
                     color={futuristicTheme.colors.textPrimary}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
@@ -244,7 +268,7 @@ export default function SubmitProjectScreen() {
 
           <VStack space="xs">
             <Text color={futuristicTheme.colors.textPrimary}>Ikona projektu</Text>
-            <View style={styles.categoryWrap}>
+            <View style={styles.iconGrid}>
               {PROJECT_ICON_OPTIONS.map((option) => {
                 const selected = selectedIcon === option.id;
                 return (
@@ -253,17 +277,14 @@ export default function SubmitProjectScreen() {
                     size="sm"
                     variant={selected ? 'solid' : 'outline'}
                     action={selected ? 'primary' : 'secondary'}
-                    borderRadius="$full"
-                    style={styles.categoryButton}
+                    borderRadius="$md"
+                    style={styles.iconOnlyButton}
                     onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
                     <Ionicons
                       name={option.id}
-                      size={16}
+                      size={20}
                       color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
                     />
-                    <ButtonText color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
-                      {option.label}
-                    </ButtonText>
                   </Button>
                 );
               })}
@@ -377,6 +398,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryButton: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  iconOnlyButton: {
+    width: 46,
+    height: 46,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
+    paddingHorizontal: 0,
+  },
+  editorToolbar: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editorButton: {
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
   },

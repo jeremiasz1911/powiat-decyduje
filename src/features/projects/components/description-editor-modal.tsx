@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
-import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 import { RichDescriptionPreview } from './rich-description-preview';
 
@@ -51,65 +51,44 @@ export function DescriptionEditorModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.panel}>
-          <View style={styles.header}>
-            <Text color={futuristicTheme.colors.textPrimary} style={styles.title}>
-              {title}
-            </Text>
-            <Button onPress={onClose} size="sm" variant="outline" action="secondary" style={styles.headerButton}>
-              <Ionicons name="close" size={16} color={futuristicTheme.colors.textPrimary} />
-              <ButtonText color={futuristicTheme.colors.textPrimary}>Zamknij</ButtonText>
-            </Button>
+          <View style={styles.topNav}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
+              {DESCRIPTION_ACTIONS.map((action) => (
+                <Button
+                  key={action.key}
+                  size="xs"
+                  variant="outline"
+                  action="secondary"
+                  style={styles.toolbarButton}
+                  onPress={() => onChange(applyTemplate(value, action.template))}>
+                  <ButtonText color={futuristicTheme.colors.textPrimary}>{action.label}</ButtonText>
+                </Button>
+              ))}
+            </ScrollView>
+            <Pressable onPress={onClose} style={styles.closeIconButton}>
+              <Ionicons name="close" size={20} color={futuristicTheme.colors.textPrimary} />
+            </Pressable>
           </View>
 
-          <View style={styles.toolbar}>
-            {DESCRIPTION_ACTIONS.map((action) => (
-              <Button
-                key={action.key}
-                size="xs"
-                variant="outline"
-                action="secondary"
-                style={styles.toolbarButton}
-                onPress={() => onChange(applyTemplate(value, action.template))}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>{action.label}</ButtonText>
-              </Button>
-            ))}
-          </View>
+          <Text color={futuristicTheme.colors.textPrimary} style={styles.title}>
+            {title}
+          </Text>
 
-          <View style={styles.editorWrap}>
+          <View style={styles.previewEditorWrap}>
+            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
             <TextInput
               value={value}
               onChangeText={onChange}
               multiline
-              numberOfLines={12}
+              autoFocus
+              numberOfLines={16}
               textAlignVertical="top"
+              selectionColor={futuristicTheme.colors.accent}
               placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
-              placeholderTextColor={futuristicTheme.colors.textMuted}
-              style={styles.editorInput}
+              placeholderTextColor="transparent"
+              style={styles.overlayInput}
             />
           </View>
-
-          <View style={styles.previewWrap}>
-            <Text color={futuristicTheme.colors.accent} style={styles.previewTitle}>
-              Podglad formatowania
-            </Text>
-            <RichDescriptionPreview
-              content={value}
-              emptyPlaceholder="Podglad pojawi sie po wpisaniu tresci."
-              compact
-            />
-          </View>
-
-          <Text color={futuristicTheme.colors.textMuted}>
-            Uzyj: B, I, list i H1-H5. To pole wspiera strukture i czytelny opis.
-          </Text>
-
-          <Pressable onPress={onClose} style={styles.doneButtonWrap}>
-            <View style={styles.doneButton}>
-              <Text color={futuristicTheme.colors.textDark} style={styles.doneButtonText}>
-                Zapisz i wroc
-              </Text>
-            </View>
-          </Pressable>
         </View>
       </View>
     </Modal>
@@ -132,71 +111,55 @@ const styles = StyleSheet.create({
     gap: 12,
     ...futuristicShadows.soft,
   },
-  header: {
+  topNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: 8,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
-  headerButton: {
+  closeIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
     borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
+    backgroundColor: futuristicTheme.colors.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   toolbar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    paddingRight: 10,
   },
   toolbarButton: {
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
     minWidth: 48,
   },
-  editorWrap: {
+  previewEditorWrap: {
     borderColor: futuristicTheme.colors.border,
     borderWidth: 1,
     borderRadius: 14,
     backgroundColor: futuristicTheme.colors.panel,
-    minHeight: 320,
+    minHeight: 420,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    position: 'relative',
   },
-  editorInput: {
-    flex: 1,
-    minHeight: 300,
-    color: futuristicTheme.colors.textPrimary,
+  overlayInput: {
+    position: 'absolute',
+    top: 10,
+    right: 12,
+    bottom: 10,
+    left: 12,
+    color: 'transparent',
     fontSize: 16,
     lineHeight: 24,
-  },
-  previewWrap: {
-    borderColor: futuristicTheme.colors.border,
-    borderWidth: 1,
-    borderRadius: 12,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    padding: 10,
-    gap: 6,
-  },
-  previewTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  doneButtonWrap: {
-    marginTop: 4,
-  },
-  doneButton: {
-    borderRadius: 12,
-    backgroundColor: futuristicTheme.colors.accent,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...futuristicShadows.glow,
-  },
-  doneButtonText: {
-    fontWeight: '700',
+    backgroundColor: 'transparent',
   },
 });

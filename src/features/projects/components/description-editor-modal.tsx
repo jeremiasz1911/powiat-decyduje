@@ -119,6 +119,7 @@ export function DescriptionEditorModal({
   title = 'Edytor opisu projektu',
 }: DescriptionEditorModalProps) {
   const [modes, setModes] = useState<EditorModes>(DEFAULT_MODES);
+  const [editorHeight, setEditorHeight] = useState(300);
   const previousValueRef = useRef(value);
 
   useEffect(() => {
@@ -128,6 +129,7 @@ export function DescriptionEditorModal({
   useEffect(() => {
     if (!visible) {
       setModes(DEFAULT_MODES);
+      setEditorHeight(300);
     }
   }, [visible]);
 
@@ -265,12 +267,14 @@ export function DescriptionEditorModal({
               autoFocus
               numberOfLines={18}
               textAlignVertical="top"
-              scrollEnabled
-              nestedScrollEnabled
+              scrollEnabled={false}
               selectionColor={futuristicTheme.colors.accent}
               placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
               placeholderTextColor={futuristicTheme.colors.textMuted}
-              style={styles.editorInput}
+              style={[styles.editorInput, { height: Math.max(300, editorHeight) }]}
+              onContentSizeChange={(event) => {
+                setEditorHeight(event.nativeEvent.contentSize.height + 10);
+              }}
             />
           </View>
 
@@ -278,13 +282,7 @@ export function DescriptionEditorModal({
             Podglad formatowania
           </Text>
           <View style={styles.previewWrap}>
-            <ScrollView
-              style={styles.previewScroll}
-              contentContainerStyle={styles.previewScrollContent}
-              nestedScrollEnabled
-              showsVerticalScrollIndicator>
-              <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
-            </ScrollView>
+            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
           </View>
         </View>
         </ScrollView>
@@ -376,7 +374,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(4, 32, 56, 0.95)',
     minHeight: 320,
-    maxHeight: 360,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -399,14 +396,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(7, 39, 66, 0.88)',
     minHeight: 140,
-    maxHeight: 240,
     paddingHorizontal: 12,
     paddingVertical: 10,
-  },
-  previewScroll: {
-    flex: 1,
-  },
-  previewScrollContent: {
-    paddingBottom: 8,
   },
 });

@@ -234,7 +234,8 @@ export default function SubmitProjectScreen() {
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={10}
+                    numberOfLines={16}
+                    textAlignVertical="top"
                     color={futuristicTheme.colors.textPrimary}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
@@ -391,6 +392,7 @@ const styles = StyleSheet.create({
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panel,
     borderRadius: 14,
+    borderWidth: 1,
   },
   categoryWrap: {
     flexDirection: 'row',
@@ -416,11 +418,14 @@ const styles = StyleSheet.create({
   },
   editorToolbar: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+    marginBottom: 2,
   },
   editorButton: {
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
+    minWidth: 48,
   },
   preview: {
     width: '100%',

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -150,7 +150,7 @@ export default function EditProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text>Opis</Text>
-                <VStack space="xs">
+                <View style={styles.editorToolbar}>
                   <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
                     <ButtonText>•</ButtonText>
                   </Button>
@@ -163,9 +163,16 @@ export default function EditProjectScreen() {
                   <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
                     <ButtonText>I</ButtonText>
                   </Button>
-                </VStack>
+                </View>
                 <Input>
-                  <InputField value={value} onBlur={onBlur} onChangeText={onChange} multiline numberOfLines={10} />
+                  <InputField
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    multiline
+                    numberOfLines={16}
+                    textAlignVertical="top"
+                  />
                 </Input>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
               </VStack>
@@ -273,6 +280,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   editorButton: {
-    minWidth: 44,
+    minWidth: 48,
+  },
+  editorToolbar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 2,
   },
 });

@@ -214,7 +214,12 @@ export function DescriptionEditorModal({
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
-        <View style={styles.panel}>
+        <ScrollView
+          style={styles.panelScroll}
+          contentContainerStyle={styles.panelScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.panel}>
           <View style={styles.navSection}>
             <View style={styles.topNav}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
@@ -260,6 +265,8 @@ export function DescriptionEditorModal({
               autoFocus
               numberOfLines={18}
               textAlignVertical="top"
+              scrollEnabled
+              nestedScrollEnabled
               selectionColor={futuristicTheme.colors.accent}
               placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
               placeholderTextColor={futuristicTheme.colors.textMuted}
@@ -271,11 +278,16 @@ export function DescriptionEditorModal({
             Podglad formatowania
           </Text>
           <View style={styles.previewWrap}>
-            <ScrollView style={styles.previewScroll} contentContainerStyle={styles.previewScrollContent}>
+            <ScrollView
+              style={styles.previewScroll}
+              contentContainerStyle={styles.previewScrollContent}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator>
               <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
             </ScrollView>
           </View>
         </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -287,6 +299,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(2, 10, 24, 0.88)',
     justifyContent: 'center',
     padding: 12,
+  },
+  panelScroll: {
+    flex: 1,
+  },
+  panelScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   panel: {
     borderRadius: 18,
@@ -357,6 +376,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(4, 32, 56, 0.95)',
     minHeight: 320,
+    maxHeight: 360,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },

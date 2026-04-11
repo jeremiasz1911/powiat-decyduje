@@ -4,6 +4,7 @@ import {
   MLAWA_BOUNDARY_RINGS,
   MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
+import { resolveProjectIcon } from '@/src/features/projects/project-icons';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
 import { Ionicons } from '@expo/vector-icons';
@@ -308,7 +309,7 @@ export default function MapScreen() {
               description={project.category}>
               <View style={[styles.projectMarker, isSelected ? styles.projectMarkerActive : null]}>
                 <Ionicons
-                  name={isSelected ? 'sparkles' : 'radio-button-on'}
+                  name={isSelected ? 'sparkles' : resolveProjectIcon(project.icon)}
                   size={14}
                   color={isSelected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
                 />

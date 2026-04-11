@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { DEFAULT_PROJECT_ICON, PROJECT_ICON_OPTIONS } from '@/src/features/projects/project-icons';
 import {
   projectSubmissionSchema,
   type ProjectSubmissionFormValues,
@@ -27,6 +29,7 @@ export default function EditProjectScreen() {
       title: '',
       description: '',
       category: CATEGORIES[0],
+      icon: DEFAULT_PROJECT_ICON,
       commune: 'Mlawa',
       village: 'Mlawa',
       cost: '',
@@ -52,6 +55,7 @@ export default function EditProjectScreen() {
   });
 
   const selectedCategory = watch('category');
+  const selectedIcon = watch('icon');
 
   useEffect(() => {
     const load = async () => {
@@ -66,6 +70,7 @@ export default function EditProjectScreen() {
         setValue('title', project.title);
         setValue('description', project.description);
         setValue('category', project.category);
+        setValue('icon', project.icon);
         setValue('commune', project.commune);
         setValue('village', project.village);
         setValue('cost', String(project.cost));
@@ -93,6 +98,7 @@ export default function EditProjectScreen() {
         title: values.title,
         description: values.description,
         category: values.category,
+        icon: values.icon,
         commune: values.commune,
         village: values.village,
         cost: Number(values.cost),
@@ -166,6 +172,24 @@ export default function EditProjectScreen() {
                 </Button>
               ))}
             </VStack>
+          </VStack>
+
+          <VStack space="xs">
+            <Text>Ikona projektu</Text>
+            <VStack space="xs">
+              {PROJECT_ICON_OPTIONS.map((option) => (
+                <Button
+                  key={option.id}
+                  size="sm"
+                  variant={selectedIcon === option.id ? 'solid' : 'outline'}
+                  action={selectedIcon === option.id ? 'primary' : 'secondary'}
+                  onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
+                  <Ionicons name={option.id} size={16} />
+                  <ButtonText>{option.label}</ButtonText>
+                </Button>
+              ))}
+            </VStack>
+            {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
 
           <Controller

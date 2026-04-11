@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FirebaseError } from 'firebase/app';
+import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -19,6 +20,10 @@ import {
 } from '@gluestack-ui/themed';
 
 import { ErrorState } from '@/src/components/feedback-state';
+import {
+  DEFAULT_PROJECT_ICON,
+  PROJECT_ICON_OPTIONS,
+} from '@/src/features/projects/project-icons';
 import {
   projectSubmissionSchema,
   type ProjectSubmissionFormValues,
@@ -45,6 +50,7 @@ export default function SubmitProjectScreen() {
       title: '',
       description: '',
       category: CATEGORIES[0],
+      icon: DEFAULT_PROJECT_ICON,
       commune: 'Mlawa',
       village: 'Mlawa',
       cost: '',
@@ -71,6 +77,7 @@ export default function SubmitProjectScreen() {
 
   const location = watch('location');
   const selectedCategory = watch('category');
+  const selectedIcon = watch('icon');
 
   const handlePickImagesFromLibrary = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -135,6 +142,7 @@ export default function SubmitProjectScreen() {
         title: values.title,
         description: values.description,
         category: values.category,
+        icon: values.icon,
         commune: values.commune,
         village: values.village,
         cost: Number(values.cost),
@@ -232,6 +240,35 @@ export default function SubmitProjectScreen() {
               })}
             </View>
             {errors.category ? <Text color="$error600">{errors.category.message}</Text> : null}
+          </VStack>
+
+          <VStack space="xs">
+            <Text color={futuristicTheme.colors.textPrimary}>Ikona projektu</Text>
+            <View style={styles.categoryWrap}>
+              {PROJECT_ICON_OPTIONS.map((option) => {
+                const selected = selectedIcon === option.id;
+                return (
+                  <Button
+                    key={option.id}
+                    size="sm"
+                    variant={selected ? 'solid' : 'outline'}
+                    action={selected ? 'primary' : 'secondary'}
+                    borderRadius="$full"
+                    style={styles.categoryButton}
+                    onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
+                    <Ionicons
+                      name={option.id}
+                      size={16}
+                      color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
+                    />
+                    <ButtonText color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
+                      {option.label}
+                    </ButtonText>
+                  </Button>
+                );
+              })}
+            </View>
+            {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
 
           <Controller

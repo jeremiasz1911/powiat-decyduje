@@ -33,6 +33,16 @@ import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
+const DESCRIPTION_ACTIONS = [
+  { key: 'text', label: 'TXT', template: '' },
+  { key: 'bullet', label: '•', template: '• ' },
+  { key: 'number', label: '1.', template: '1. ' },
+  { key: 'h1', label: 'H1', template: '# ' },
+  { key: 'h2', label: 'H2', template: '## ' },
+  { key: 'h3', label: 'H3', template: '### ' },
+  { key: 'h4', label: 'H4', template: '#### ' },
+  { key: 'h5', label: 'H5', template: '##### ' },
+] as const;
 
 export default function SubmitProjectScreen() {
   const router = useRouter();
@@ -164,6 +174,17 @@ export default function SubmitProjectScreen() {
     }
   };
 
+  const applyDescriptionTemplate = (
+    currentValue: string,
+    template: (typeof DESCRIPTION_ACTIONS)[number]['template']
+  ) => {
+    if (!template) {
+      return currentValue;
+    }
+
+    return `${currentValue}${currentValue ? '\n' : ''}${template}`;
+  };
+
   return (
     <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
       <Box flex={1}>
@@ -204,28 +225,17 @@ export default function SubmitProjectScreen() {
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
                 <View style={styles.editorToolbar}>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>•</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}1. `)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>1.</ButtonText>
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    action="secondary"
-                    style={styles.editorButton}
-                    onPress={() => onChange(`${value}${value ? ' ' : ''}**pogrubienie**`)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>B</ButtonText>
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    action="secondary"
-                    style={styles.editorButton}
-                    onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>I</ButtonText>
-                  </Button>
+                  {DESCRIPTION_ACTIONS.map((action) => (
+                    <Button
+                      key={action.key}
+                      size="xs"
+                      variant="outline"
+                      action="secondary"
+                      style={styles.editorButton}
+                      onPress={() => onChange(applyDescriptionTemplate(value, action.template))}>
+                      <ButtonText color={futuristicTheme.colors.textPrimary}>{action.label}</ButtonText>
+                    </Button>
+                  ))}
                 </View>
                 <Input style={styles.input}>
                   <InputField

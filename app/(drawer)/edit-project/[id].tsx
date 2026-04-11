@@ -16,6 +16,16 @@ import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
+const DESCRIPTION_ACTIONS = [
+  { key: 'text', label: 'TXT', template: '' },
+  { key: 'bullet', label: '•', template: '• ' },
+  { key: 'number', label: '1.', template: '1. ' },
+  { key: 'h1', label: 'H1', template: '# ' },
+  { key: 'h2', label: 'H2', template: '## ' },
+  { key: 'h3', label: 'H3', template: '### ' },
+  { key: 'h4', label: 'H4', template: '#### ' },
+  { key: 'h5', label: 'H5', template: '##### ' },
+] as const;
 
 export default function EditProjectScreen() {
   const router = useRouter();
@@ -112,6 +122,17 @@ export default function EditProjectScreen() {
     }
   };
 
+  const applyDescriptionTemplate = (
+    currentValue: string,
+    template: (typeof DESCRIPTION_ACTIONS)[number]['template']
+  ) => {
+    if (!template) {
+      return currentValue;
+    }
+
+    return `${currentValue}${currentValue ? '\n' : ''}${template}`;
+  };
+
   if (loading) {
     return <LoadingState label="Ladowanie projektu do edycji..." />;
   }
@@ -151,18 +172,17 @@ export default function EditProjectScreen() {
               <VStack space="xs">
                 <Text>Opis</Text>
                 <View style={styles.editorToolbar}>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}• `)}>
-                    <ButtonText>•</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? '\n' : ''}1. `)}>
-                    <ButtonText>1.</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}**pogrubienie**`)}>
-                    <ButtonText>B</ButtonText>
-                  </Button>
-                  <Button size="xs" variant="outline" action="secondary" style={styles.editorButton} onPress={() => onChange(`${value}${value ? ' ' : ''}_kursywa_`)}>
-                    <ButtonText>I</ButtonText>
-                  </Button>
+                  {DESCRIPTION_ACTIONS.map((action) => (
+                    <Button
+                      key={action.key}
+                      size="xs"
+                      variant="outline"
+                      action="secondary"
+                      style={styles.editorButton}
+                      onPress={() => onChange(applyDescriptionTemplate(value, action.template))}>
+                      <ButtonText>{action.label}</ButtonText>
+                    </Button>
+                  ))}
                 </View>
                 <Input>
                   <InputField

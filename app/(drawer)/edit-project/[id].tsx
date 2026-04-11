@@ -164,7 +164,7 @@ export default function EditProjectScreen() {
                   accessibilityLabel="Otworz edytor opisu">
                   <RichDescriptionPreview
                     content={value}
-                    emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
+                    emptyPlaceholder="Tapnij, aby edytowac opis..."
                     compact
                   />
                 </Pressable>

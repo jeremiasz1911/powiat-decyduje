@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -185,17 +185,17 @@ export default function EditProjectScreen() {
                     </Button>
                   ))}
                 </View>
-                <Input>
-                  <InputField
+                <View style={styles.textareaContainer}>
+                  <TextInput
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
                     numberOfLines={6}
                     textAlignVertical="top"
-                    style={styles.descriptionField}
+                    style={styles.textareaInput}
                   />
-                </Input>
+                </View>
                 <Text>Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.</Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
               </VStack>
@@ -329,9 +329,20 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 2,
   },
-  descriptionField: {
+  textareaContainer: {
+    borderColor: '#1f3b5d',
+    backgroundColor: '#03182f',
+    borderRadius: 14,
+    borderWidth: 1,
     minHeight: 190,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  textareaInput: {
+    flex: 1,
+    minHeight: 160,
+    color: '#f8fafc',
+    fontSize: 16,
+    lineHeight: 22,
   },
 });

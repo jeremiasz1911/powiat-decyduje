@@ -207,36 +207,38 @@ export function DescriptionEditorModal({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.panel}>
-          <View style={styles.topNav}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
-              {DESCRIPTION_ACTIONS.map((action) => {
-                const active = activeActionMap[action.key];
-                return (
-                  <Button
-                    key={action.key}
-                    size="xs"
-                    variant={active ? 'solid' : 'outline'}
-                    action={active ? 'primary' : 'secondary'}
-                    style={styles.toolbarButton}
-                    onPress={() => handleToggleAction(action.key)}>
-                    <ButtonText color={active ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
-                      {action.label}
-                    </ButtonText>
-                  </Button>
-                );
-              })}
-            </ScrollView>
-            <Pressable onPress={onClose} style={styles.closeIconButton}>
-              <Ionicons name="close" size={20} color={futuristicTheme.colors.textPrimary} />
-            </Pressable>
+          <View style={styles.navSection}>
+            <View style={styles.topNav}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
+                {DESCRIPTION_ACTIONS.map((action) => {
+                  const active = activeActionMap[action.key];
+                  return (
+                    <Button
+                      key={action.key}
+                      size="xs"
+                      variant={active ? 'solid' : 'outline'}
+                      action={active ? 'primary' : 'secondary'}
+                      style={styles.toolbarButton}
+                      onPress={() => handleToggleAction(action.key)}>
+                      <ButtonText
+                        color={active ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
+                        {action.label}
+                      </ButtonText>
+                    </Button>
+                  );
+                })}
+              </ScrollView>
+              <Pressable onPress={onClose} style={styles.closeIconButton}>
+                <Ionicons name="close" size={20} color={futuristicTheme.colors.textPrimary} />
+              </Pressable>
+            </View>
           </View>
 
           <Text color={futuristicTheme.colors.textPrimary} style={styles.title}>
             {title}
           </Text>
 
-          <View style={styles.previewEditorWrap}>
-            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
+          <View style={styles.editorWrap}>
             <TextInput
               value={value}
               onChangeText={handleChangeText}
@@ -244,12 +246,18 @@ export function DescriptionEditorModal({
               autoFocus
               numberOfLines={18}
               textAlignVertical="top"
-              caretHidden={false}
               selectionColor={futuristicTheme.colors.accent}
               placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
-              placeholderTextColor="transparent"
-              style={styles.overlayInput}
+              placeholderTextColor={futuristicTheme.colors.textMuted}
+              style={styles.editorInput}
             />
+          </View>
+
+          <Text color={futuristicTheme.colors.textMuted} style={styles.previewLabel}>
+            Podglad formatowania
+          </Text>
+          <View style={styles.previewWrap}>
+            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
           </View>
         </View>
       </View>
@@ -272,6 +280,13 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
     ...futuristicShadows.soft,
+  },
+  navSection: {
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    borderRadius: 12,
+    backgroundColor: futuristicTheme.colors.panel,
+    padding: 8,
   },
   topNav: {
     flexDirection: 'row',
@@ -303,25 +318,35 @@ const styles = StyleSheet.create({
     backgroundColor: futuristicTheme.colors.panelSoft,
     minWidth: 48,
   },
-  previewEditorWrap: {
+  editorWrap: {
     borderColor: futuristicTheme.colors.border,
     borderWidth: 1,
     borderRadius: 14,
     backgroundColor: futuristicTheme.colors.panel,
-    minHeight: 460,
+    minHeight: 320,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    position: 'relative',
   },
-  overlayInput: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
-    bottom: 10,
-    left: 12,
-    color: 'rgba(255, 255, 255, 0.01)',
+  editorInput: {
+    color: futuristicTheme.colors.textPrimary,
     fontSize: 16,
     lineHeight: 24,
     backgroundColor: 'transparent',
+    minHeight: 300,
+  },
+  previewLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  previewWrap: {
+    borderColor: futuristicTheme.colors.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    minHeight: 140,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 });

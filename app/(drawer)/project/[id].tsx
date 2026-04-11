@@ -135,6 +135,9 @@ export default function ProjectDetailsScreen() {
               <Text color={futuristicTheme.colors.textMuted}>
                 Lokalizacja: {project.commune}, {project.village}
               </Text>
+              {project.locationLabel ? (
+                <Text color={futuristicTheme.colors.textMuted}>Miejsce: {project.locationLabel}</Text>
+              ) : null}
               <Text color={futuristicTheme.colors.textMuted}>
                 Koordynaty: {project.location.latitude.toFixed(5)}, {project.location.longitude.toFixed(5)}
               </Text>

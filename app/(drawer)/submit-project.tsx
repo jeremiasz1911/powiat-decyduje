@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -55,6 +55,7 @@ export default function SubmitProjectScreen() {
       description: '',
       category: CATEGORIES[0],
       icon: DEFAULT_PROJECT_ICON,
+      locationLabel: '',
       commune: 'Mlawa',
       village: 'Mlawa',
       cost: '',
@@ -164,6 +165,7 @@ export default function SubmitProjectScreen() {
         description: values.description,
         category: values.category,
         icon: values.icon,
+        locationLabel: values.locationLabel,
         commune: values.commune,
         village: values.village,
         cost: Number(values.cost),
@@ -224,22 +226,17 @@ export default function SubmitProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
-                <View style={styles.textareaPreview}>
+                <Pressable
+                  onPress={() => setIsDescriptionModalOpen(true)}
+                  style={styles.textareaPreview}
+                  accessibilityRole="button"
+                  accessibilityLabel="Otworz edytor opisu">
                   <RichDescriptionPreview
                     content={value}
                     emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
                     compact
                   />
-                </View>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  action="secondary"
-                  style={styles.openEditorButton}
-                  onPress={() => setIsDescriptionModalOpen(true)}>
-                  <Ionicons name="create-outline" size={16} color={futuristicTheme.colors.textPrimary} />
-                  <ButtonText color={futuristicTheme.colors.textPrimary}>Edytuj opis na pelnym ekranie</ButtonText>
-                </Button>
+                </Pressable>
                 <Text color={futuristicTheme.colors.textMuted}>
                   Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.
                 </Text>
@@ -328,6 +325,27 @@ export default function SubmitProjectScreen() {
             ) : null}
             {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
+
+          <Controller
+            control={control}
+            name="locationLabel"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text color={futuristicTheme.colors.textPrimary}>Adres / nazwa miejsca</Text>
+                <Input style={styles.input}>
+                  <InputField
+                    placeholder="Np. Szkola Podstawowa nr 2, ul. Szkolna 10"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
+                  />
+                </Input>
+                {errors.locationLabel ? <Text color="$error600">{errors.locationLabel.message}</Text> : null}
+              </VStack>
+            )}
+          />
 
           <Controller
             control={control}
@@ -449,11 +467,6 @@ const styles = StyleSheet.create({
     minHeight: 120,
     paddingHorizontal: 12,
     paddingVertical: 10,
-  },
-  openEditorButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    borderWidth: 1,
   },
   categoryWrap: {
     flexDirection: 'row',

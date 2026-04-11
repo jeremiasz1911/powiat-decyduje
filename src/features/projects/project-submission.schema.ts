@@ -10,6 +10,7 @@ export const projectSubmissionSchema = z.object({
     .min(20, 'Opis musi miec minimum 20 znakow')
     .max(5000, 'Opis jest za dlugi'),
   category: z.string().min(2, 'Wybierz kategorie projektu'),
+  locationLabel: z.string().max(140, 'Adres lub nazwa miejsca jest za dluga'),
   commune: z.string().min(2, 'Podaj gmine'),
   village: z.string().min(2, 'Podaj miejscowosc'),
   cost: z

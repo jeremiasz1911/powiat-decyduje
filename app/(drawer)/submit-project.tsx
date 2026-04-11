@@ -237,9 +237,6 @@ export default function SubmitProjectScreen() {
                     compact
                   />
                 </Pressable>
-                <Text color={futuristicTheme.colors.textMuted}>
-                  Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.
-                </Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
                 <DescriptionEditorModal
                   visible={isDescriptionModalOpen}

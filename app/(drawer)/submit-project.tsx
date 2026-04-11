@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -238,8 +238,8 @@ export default function SubmitProjectScreen() {
                     </Button>
                   ))}
                 </View>
-                <Input style={styles.input}>
-                  <InputField
+                <View style={styles.textareaContainer}>
+                  <TextInput
                     placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
                     value={value}
                     onBlur={onBlur}
@@ -247,11 +247,10 @@ export default function SubmitProjectScreen() {
                     multiline
                     numberOfLines={6}
                     textAlignVertical="top"
-                    color={futuristicTheme.colors.textPrimary}
+                    style={styles.textareaInput}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
-                    style={styles.descriptionField}
                   />
-                </Input>
+                </View>
                 <Text color={futuristicTheme.colors.textMuted}>
                   Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.
                 </Text>
@@ -430,10 +429,21 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  descriptionField: {
+  textareaContainer: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 14,
+    borderWidth: 1,
     minHeight: 190,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  textareaInput: {
+    flex: 1,
+    minHeight: 160,
+    color: futuristicTheme.colors.textPrimary,
+    fontSize: 16,
+    lineHeight: 22,
   },
   categoryWrap: {
     flexDirection: 'row',

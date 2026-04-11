@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   panelScrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    paddingVertical: 16,
   },
   panel: {
     borderRadius: 18,
@@ -311,7 +311,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34, 211, 238, 0.65)',
     backgroundColor: 'rgba(2, 22, 40, 0.96)',
     padding: 14,
-    maxHeight: '92%',
     gap: 12,
     ...futuristicShadows.soft,
   },

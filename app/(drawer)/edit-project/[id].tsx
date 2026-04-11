@@ -191,8 +191,9 @@ export default function EditProjectScreen() {
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={20}
+                    numberOfLines={6}
                     textAlignVertical="top"
+                    style={styles.descriptionField}
                   />
                 </Input>
                 <Text>Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.</Text>
@@ -327,5 +328,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 2,
+  },
+  descriptionField: {
+    minHeight: 190,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
 });

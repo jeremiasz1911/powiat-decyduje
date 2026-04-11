@@ -245,10 +245,11 @@ export default function SubmitProjectScreen() {
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={20}
+                    numberOfLines={6}
                     textAlignVertical="top"
                     color={futuristicTheme.colors.textPrimary}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
+                    style={styles.descriptionField}
                   />
                 </Input>
                 <Text color={futuristicTheme.colors.textMuted}>
@@ -428,6 +429,11 @@ const styles = StyleSheet.create({
     backgroundColor: futuristicTheme.colors.panel,
     borderRadius: 14,
     borderWidth: 1,
+  },
+  descriptionField: {
+    minHeight: 190,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   categoryWrap: {
     flexDirection: 'row',

@@ -147,6 +147,14 @@ export function DescriptionEditorModal({
     [modes]
   );
 
+  const activeModeLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (modes.bold) parts.push('B');
+    if (modes.italic) parts.push('I');
+    if (modes.block !== 'text') parts.push(modes.block.toUpperCase());
+    return parts.length ? `Tryb aktywny: ${parts.join(' + ')}` : 'Tryb aktywny: TXT';
+  }, [modes]);
+
   const handleToggleAction = (actionKey: ActionKey) => {
     if (actionKey === 'text') {
       setModes(DEFAULT_MODES);
@@ -218,7 +226,10 @@ export function DescriptionEditorModal({
                       size="xs"
                       variant={active ? 'solid' : 'outline'}
                       action={active ? 'primary' : 'secondary'}
-                      style={styles.toolbarButton}
+                      style={[
+                        styles.toolbarButton,
+                        active ? styles.toolbarButtonActive : styles.toolbarButtonInactive,
+                      ]}
                       onPress={() => handleToggleAction(action.key)}>
                       <ButtonText
                         color={active ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
@@ -236,6 +247,9 @@ export function DescriptionEditorModal({
 
           <Text color={futuristicTheme.colors.textPrimary} style={styles.title}>
             {title}
+          </Text>
+          <Text color={futuristicTheme.colors.accent} style={styles.modeLabel}>
+            {activeModeLabel}
           </Text>
 
           <View style={styles.editorWrap}>
@@ -274,9 +288,9 @@ const styles = StyleSheet.create({
   },
   panel: {
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: '#03182f',
+    borderWidth: 1.5,
+    borderColor: 'rgba(34, 211, 238, 0.65)',
+    backgroundColor: 'rgba(2, 22, 40, 0.96)',
     padding: 14,
     gap: 12,
     ...futuristicShadows.soft,
@@ -296,6 +310,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  modeLabel: {
+    fontSize: 12,
     fontWeight: '700',
   },
   closeIconButton: {
@@ -314,15 +333,26 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   toolbarButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
     minWidth: 48,
   },
-  editorWrap: {
+  toolbarButtonInactive: {
     borderColor: futuristicTheme.colors.border,
+    backgroundColor: 'rgba(9, 45, 76, 0.72)',
+  },
+  toolbarButtonActive: {
+    borderColor: futuristicTheme.colors.accent,
+    backgroundColor: futuristicTheme.colors.accentStrong,
+    shadowColor: futuristicTheme.colors.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 10,
+    elevation: 9,
+  },
+  editorWrap: {
+    borderColor: 'rgba(34, 211, 238, 0.58)',
     borderWidth: 1,
     borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.panel,
+    backgroundColor: 'rgba(4, 32, 56, 0.95)',
     minHeight: 320,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -341,10 +371,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   previewWrap: {
-    borderColor: futuristicTheme.colors.border,
+    borderColor: 'rgba(34, 211, 238, 0.5)',
     borderWidth: 1,
     borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.panelSoft,
+    backgroundColor: 'rgba(7, 39, 66, 0.88)',
     minHeight: 140,
     paddingHorizontal: 12,
     paddingVertical: 10,

@@ -32,7 +32,7 @@ import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
-const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
+const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const DESCRIPTION_ACTIONS = [
   { key: 'text', label: 'TXT', template: '' },
   { key: 'bullet', label: '•', template: '• ' },
@@ -54,6 +54,7 @@ export default function SubmitProjectScreen() {
 
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -239,17 +240,20 @@ export default function SubmitProjectScreen() {
                 </View>
                 <Input style={styles.input}>
                   <InputField
-                    placeholder="Opisz projekt i uzasadnienie"
+                    placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={16}
+                    numberOfLines={20}
                     textAlignVertical="top"
                     color={futuristicTheme.colors.textPrimary}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
+                <Text color={futuristicTheme.colors.textMuted}>
+                  Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.
+                </Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
               </VStack>
             )}
@@ -279,27 +283,48 @@ export default function SubmitProjectScreen() {
 
           <VStack space="xs">
             <Text color={futuristicTheme.colors.textPrimary}>Ikona projektu</Text>
-            <View style={styles.iconGrid}>
-              {PROJECT_ICON_OPTIONS.map((option) => {
-                const selected = selectedIcon === option.id;
-                return (
-                  <Button
-                    key={option.id}
-                    size="sm"
-                    variant={selected ? 'solid' : 'outline'}
-                    action={selected ? 'primary' : 'secondary'}
-                    borderRadius="$md"
-                    style={styles.iconOnlyButton}
-                    onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
-                    <Ionicons
-                      name={option.id}
-                      size={20}
-                      color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
-                    />
-                  </Button>
-                );
-              })}
-            </View>
+            <Button
+              size="sm"
+              variant="outline"
+              action="secondary"
+              style={styles.iconSelectTrigger}
+              onPress={() => setIsIconPickerOpen((prev) => !prev)}>
+              <Ionicons name={selectedIcon} size={18} color={futuristicTheme.colors.textPrimary} />
+              <ButtonText color={futuristicTheme.colors.textPrimary}>
+                {isIconPickerOpen ? 'Zwin ikony' : 'Rozwin ikony'}
+              </ButtonText>
+              <Ionicons
+                name={isIconPickerOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={16}
+                color={futuristicTheme.colors.textPrimary}
+              />
+            </Button>
+            {isIconPickerOpen ? (
+              <View style={styles.iconGrid}>
+                {PROJECT_ICON_OPTIONS.map((option) => {
+                  const selected = selectedIcon === option.id;
+                  return (
+                    <Button
+                      key={option.id}
+                      size="sm"
+                      variant={selected ? 'solid' : 'outline'}
+                      action={selected ? 'primary' : 'secondary'}
+                      borderRadius="$md"
+                      style={styles.iconOnlyButton}
+                      onPress={() => {
+                        setValue('icon', option.id, { shouldValidate: true, shouldDirty: true });
+                        setIsIconPickerOpen(false);
+                      }}>
+                      <Ionicons
+                        name={option.id}
+                        size={20}
+                        color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
+                      />
+                    </Button>
+                  );
+                })}
+              </View>
+            ) : null}
             {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
 
@@ -417,6 +442,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  iconSelectTrigger: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
+    justifyContent: 'space-between',
   },
   iconOnlyButton: {
     width: 46,

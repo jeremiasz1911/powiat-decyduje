@@ -21,7 +21,7 @@ import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
-const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
+const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const COMMUNES = ['Mlawa', 'Lipowiec Koscielny', 'Szydlowo', 'Wieczfnia Koscielna'] as const;
 
 export default function ProjectsScreen() {

@@ -15,7 +15,7 @@ import {
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
 
-const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura'] as const;
+const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const DESCRIPTION_ACTIONS = [
   { key: 'text', label: 'TXT', template: '' },
   { key: 'bullet', label: '•', template: '• ' },
@@ -33,6 +33,7 @@ export default function EditProjectScreen() {
   const { notify } = useAppFeedback();
   const [loading, setLoading] = useState(true);
   const [screenError, setScreenError] = useState<string | null>(null);
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -190,10 +191,11 @@ export default function EditProjectScreen() {
                     onBlur={onBlur}
                     onChangeText={onChange}
                     multiline
-                    numberOfLines={16}
+                    numberOfLines={20}
                     textAlignVertical="top"
                   />
                 </Input>
+                <Text>Uzyj TXT, list i H1-H5, aby zbudowac czytelna strukture opisu.</Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
               </VStack>
             )}
@@ -217,19 +219,34 @@ export default function EditProjectScreen() {
 
           <VStack space="xs">
             <Text>Ikona projektu</Text>
-            <VStack space="xs" style={styles.iconGrid}>
-              {PROJECT_ICON_OPTIONS.map((option) => (
-                <Button
-                  key={option.id}
-                  size="sm"
-                  variant={selectedIcon === option.id ? 'solid' : 'outline'}
-                  action={selectedIcon === option.id ? 'primary' : 'secondary'}
-                  style={styles.iconOnlyButton}
-                  onPress={() => setValue('icon', option.id, { shouldValidate: true, shouldDirty: true })}>
-                  <Ionicons name={option.id} size={20} />
-                </Button>
-              ))}
-            </VStack>
+            <Button
+              size="sm"
+              variant="outline"
+              action="secondary"
+              style={styles.iconSelectTrigger}
+              onPress={() => setIsIconPickerOpen((prev) => !prev)}>
+              <Ionicons name={selectedIcon} size={18} />
+              <ButtonText>{isIconPickerOpen ? 'Zwin ikony' : 'Rozwin ikony'}</ButtonText>
+              <Ionicons name={isIconPickerOpen ? 'chevron-up-outline' : 'chevron-down-outline'} size={16} />
+            </Button>
+            {isIconPickerOpen ? (
+              <VStack space="xs" style={styles.iconGrid}>
+                {PROJECT_ICON_OPTIONS.map((option) => (
+                  <Button
+                    key={option.id}
+                    size="sm"
+                    variant={selectedIcon === option.id ? 'solid' : 'outline'}
+                    action={selectedIcon === option.id ? 'primary' : 'secondary'}
+                    style={styles.iconOnlyButton}
+                    onPress={() => {
+                      setValue('icon', option.id, { shouldValidate: true, shouldDirty: true });
+                      setIsIconPickerOpen(false);
+                    }}>
+                    <Ionicons name={option.id} size={20} />
+                  </Button>
+                ))}
+              </VStack>
+            ) : null}
             {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
 
@@ -298,6 +315,9 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     paddingHorizontal: 0,
+  },
+  iconSelectTrigger: {
+    justifyContent: 'space-between',
   },
   editorButton: {
     minWidth: 48,

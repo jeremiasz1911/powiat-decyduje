@@ -16,6 +16,7 @@ import {
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 export default function EditProjectScreen() {
@@ -194,8 +195,11 @@ export default function EditProjectScreen() {
                   size="sm"
                   variant={selectedCategory === category ? 'solid' : 'outline'}
                   action={selectedCategory === category ? 'primary' : 'secondary'}
+                  style={selectedCategory === category ? styles.categoryButtonActive : undefined}
                   onPress={() => setValue('category', category, { shouldValidate: true })}>
-                  <ButtonText>{category}</ButtonText>
+                  <ButtonText color={selectedCategory === category ? futuristicTheme.colors.textDark : undefined}>
+                    {category}
+                  </ButtonText>
                 </Button>
               ))}
             </VStack>
@@ -314,5 +318,11 @@ const styles = StyleSheet.create({
   },
   openEditorButton: {
     justifyContent: 'flex-start',
+  },
+  categoryButtonActive: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderColor: futuristicTheme.colors.accentStrong,
+    borderWidth: 1.5,
+    ...futuristicShadows.glow,
   },
 });

@@ -6,16 +6,16 @@ import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 import { RichDescriptionPreview } from './rich-description-preview';
 
 const DESCRIPTION_ACTIONS = [
-  { key: 'text', label: 'TXT' },
-  { key: 'bold', label: 'B' },
-  { key: 'italic', label: 'I' },
-  { key: 'bullet', label: '•' },
-  { key: 'number', label: '1.' },
-  { key: 'h1', label: 'H1' },
-  { key: 'h2', label: 'H2' },
-  { key: 'h3', label: 'H3' },
-  { key: 'h4', label: 'H4' },
-  { key: 'h5', label: 'H5' },
+  { key: 'text', label: 'Tekst' },
+  { key: 'bold', label: 'Pogrubienie' },
+  { key: 'italic', label: 'Kursywa' },
+  { key: 'bullet', label: 'Lista punktowa' },
+  { key: 'number', label: 'Lista numerowana' },
+  { key: 'h1', label: 'Naglowek 1' },
+  { key: 'h2', label: 'Naglowek 2' },
+  { key: 'h3', label: 'Naglowek 3' },
+  { key: 'h4', label: 'Naglowek 4' },
+  { key: 'h5', label: 'Naglowek 5' },
 ] as const;
 
 type BlockMode = 'text' | 'bullet' | 'number' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5';
@@ -43,6 +43,17 @@ const blockPrefixMap: Record<BlockMode, string> = {
   h3: '### ',
   h4: '#### ',
   h5: '##### ',
+};
+
+const blockModeLabelMap: Record<BlockMode, string> = {
+  text: 'Tekst',
+  bullet: 'Lista punktowa',
+  number: 'Lista numerowana',
+  h1: 'Naglowek 1',
+  h2: 'Naglowek 2',
+  h3: 'Naglowek 3',
+  h4: 'Naglowek 4',
+  h5: 'Naglowek 5',
 };
 
 const findCommonPrefixLength = (a: string, b: string) => {
@@ -151,10 +162,10 @@ export function DescriptionEditorModal({
 
   const activeModeLabel = useMemo(() => {
     const parts: string[] = [];
-    if (modes.bold) parts.push('B');
-    if (modes.italic) parts.push('I');
-    if (modes.block !== 'text') parts.push(modes.block.toUpperCase());
-    return parts.length ? `Tryb aktywny: ${parts.join(' + ')}` : 'Tryb aktywny: TXT';
+    if (modes.bold) parts.push('Pogrubienie');
+    if (modes.italic) parts.push('Kursywa');
+    if (modes.block !== 'text') parts.push(blockModeLabelMap[modes.block]);
+    return parts.length ? `Tryb aktywny: ${parts.join(' + ')}` : 'Tryb aktywny: Tekst';
   }, [modes]);
 
   const handleToggleAction = (actionKey: ActionKey) => {

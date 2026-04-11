@@ -270,9 +270,11 @@ export default function SubmitProjectScreen() {
                     variant={selected ? 'solid' : 'outline'}
                     action={selected ? 'primary' : 'secondary'}
                     borderRadius="$full"
-                    style={styles.categoryButton}
+                    style={[styles.categoryButton, selected ? styles.categoryButtonActive : null]}
                     onPress={() => setValue('category', category, { shouldValidate: true })}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>{category}</ButtonText>
+                    <ButtonText color={selected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
+                      {category}
+                    </ButtonText>
                   </Button>
                 );
               })}
@@ -461,6 +463,12 @@ const styles = StyleSheet.create({
   categoryButton: {
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
+  },
+  categoryButtonActive: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderColor: futuristicTheme.colors.accentStrong,
+    borderWidth: 1.5,
+    ...futuristicShadows.glow,
   },
   iconGrid: {
     flexDirection: 'row',

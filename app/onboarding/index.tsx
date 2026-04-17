@@ -18,6 +18,7 @@ import Animated, {
 
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -53,7 +54,9 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0f172a', '#1e3a8a', '#38bdf8']} style={styles.gradient}>
+    <LinearGradient
+      colors={[futuristicTheme.colors.bgTop, '#0a2a48', futuristicTheme.colors.bgBottom]}
+      style={styles.gradient}>
       <SafeAreaView style={styles.safeArea}>
         <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
           <Animated.View style={[styles.glow, glowStyle]} />
@@ -97,37 +100,38 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: '#93c5fd',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(34, 211, 238, 0.35)',
   },
   logo: {
     width: 120,
     height: 120,
     borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: futuristicTheme.colors.panel,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: futuristicTheme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
+    ...futuristicShadows.glow,
   },
   logoText: {
-    color: '#fff',
+    color: futuristicTheme.colors.accent,
     fontSize: 42,
     fontWeight: '800',
     letterSpacing: 1,
   },
   title: {
-    color: '#ffffff',
+    color: futuristicTheme.colors.textPrimary,
     fontSize: 34,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 12,
   },
   description: {
-    color: 'rgba(255,255,255,0.9)',
+    color: futuristicTheme.colors.textMuted,
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
@@ -135,18 +139,14 @@ const styles = StyleSheet.create({
     maxWidth: 360,
   },
   button: {
-    backgroundColor: '#ffffff',
+    backgroundColor: futuristicTheme.colors.accent,
     paddingHorizontal: 34,
     paddingVertical: 14,
     borderRadius: 999,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    ...futuristicShadows.glow,
   },
   buttonText: {
-    color: '#0f172a',
+    color: futuristicTheme.colors.textDark,
     fontWeight: '700',
     fontSize: 16,
   },

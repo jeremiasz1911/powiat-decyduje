@@ -1,5 +1,6 @@
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
 import {
   Box,
   Button,
@@ -21,9 +22,13 @@ import {
   type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { checkResidentRegistrationAvailability } from '@/src/services';
+import {
+  checkResidentRegistrationAvailability,
+  sendResidentPhoneVerificationCode,
+} from '@/src/services';
 
 export default function RegisterResidentScreen() {
+  const router = useRouter();
   const { notify } = useAppFeedback();
   const {
     control,
@@ -63,11 +68,20 @@ export default function RegisterResidentScreen() {
       return;
     }
 
-    await notify(
-      'Dane poprawne',
-      'Numer telefonu i PESEL sa wolne. Mozesz przejsc do kolejnego kroku rejestracji.',
-      'success'
-    );
+    const verification = await sendResidentPhoneVerificationCode({
+      phoneNumber: values.phoneNumber,
+    });
+
+    await notify('Kod wyslany', `Wyslalismy SMS na numer ${verification.normalizedPhoneNumber}.`, 'success');
+
+    router.push({
+      pathname: '/verify-resident-phone',
+      params: {
+        phoneNumber: verification.normalizedPhoneNumber,
+        verificationId: verification.verificationId,
+        pesel: values.pesel,
+      },
+    });
   };
 
   return (

@@ -1,5 +1,13 @@
 import { FirebaseError } from 'firebase/app';
-import { createUserWithEmailAndPassword, signInAnonymously, type Auth, type User } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  RecaptchaVerifier,
+  signInAnonymously,
+  signInWithPhoneNumber,
+  type Auth,
+  type ConfirmationResult,
+  type User,
+} from 'firebase/auth';
 import {
   collection,
   doc,
@@ -47,6 +55,15 @@ export type ResidentRegistrationAvailabilityResult = {
   peselTaken: boolean;
 };
 
+export type ResidentPhoneVerificationPayload = {
+  phoneNumber: string;
+};
+
+export type ResidentPhoneVerificationResult = {
+  verificationId: string;
+  normalizedPhoneNumber: string;
+};
+
 function normalizePhoneNumber(rawPhoneNumber: string): string {
   const compact = rawPhoneNumber.replace(/[\s-]/g, '');
 
@@ -59,6 +76,34 @@ function normalizePhoneNumber(rawPhoneNumber: string): string {
   }
 
   return compact;
+}
+
+let recaptchaVerifier: RecaptchaVerifier | null = null;
+
+function getOrCreateRecaptchaVerifier(authInstance: Auth): RecaptchaVerifier {
+  if (typeof document === 'undefined') {
+    throw new Error('Weryfikacja SMS wymaga uruchomienia aplikacji w przegladarce (web).');
+  }
+
+  if (recaptchaVerifier) {
+    return recaptchaVerifier;
+  }
+
+  const containerId = 'resident-phone-recaptcha';
+  let container = document.getElementById(containerId);
+
+  if (!container) {
+    container = document.createElement('div');
+    container.id = containerId;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = '1px';
+    container.style.height = '1px';
+    document.body.appendChild(container);
+  }
+
+  recaptchaVerifier = new RecaptchaVerifier(authInstance, containerId, { size: 'invisible' });
+  return recaptchaVerifier;
 }
 
 export async function ensureAnonymousAuth(): Promise<User> {
@@ -114,5 +159,23 @@ export async function checkResidentRegistrationAvailability(
   return {
     phoneTaken: !phoneNumberSnapshot.empty || !legacyPhoneSnapshot.empty,
     peselTaken: !peselSnapshot.empty,
+  };
+}
+
+export async function sendResidentPhoneVerificationCode(
+  payload: ResidentPhoneVerificationPayload
+): Promise<ResidentPhoneVerificationResult> {
+  const authInstance = requireAuth();
+  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  const verifier = getOrCreateRecaptchaVerifier(authInstance);
+  const confirmationResult: ConfirmationResult = await signInWithPhoneNumber(
+    authInstance,
+    normalizedPhoneNumber,
+    verifier
+  );
+
+  return {
+    verificationId: confirmationResult.verificationId,
+    normalizedPhoneNumber,
   };
 }

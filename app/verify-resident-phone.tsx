@@ -7,7 +7,11 @@ import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@glues
 
 import { ScreenContainer } from '@/src/components/screen-container';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { confirmResidentPhoneVerificationCode, sendResidentPhoneVerificationCode } from '@/src/services';
+import {
+  confirmResidentPhoneLoginCode,
+  confirmResidentPhoneVerificationCode,
+  sendResidentPhoneVerificationCode,
+} from '@/src/services';
 
 const smsCodeSchema = z.object({
   smsCode: z
@@ -22,6 +26,7 @@ export default function VerifyResidentPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const params = useLocalSearchParams<{
+    mode?: string;
     phoneNumber?: string;
     verificationId?: string;
     pesel?: string;
@@ -29,9 +34,11 @@ export default function VerifyResidentPhoneScreen() {
   const [currentVerificationId, setCurrentVerificationId] = useState(params.verificationId ?? '');
   const [isResending, setIsResending] = useState(false);
 
+  const mode = useMemo(() => params.mode ?? 'register', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const pesel = useMemo(() => params.pesel ?? '', [params.pesel]);
-  const canProceed = Boolean(phoneNumber && pesel && currentVerificationId);
+  const isRegisterMode = mode !== 'login';
+  const canProceed = Boolean(phoneNumber && currentVerificationId && (!isRegisterMode || pesel));
 
   const {
     control,
@@ -54,14 +61,25 @@ export default function VerifyResidentPhoneScreen() {
     }
 
     try {
-      await confirmResidentPhoneVerificationCode({
-        verificationId: currentVerificationId,
-        smsCode: values.smsCode,
-        phoneNumber,
-        pesel,
-      });
+      if (isRegisterMode) {
+        await confirmResidentPhoneVerificationCode({
+          verificationId: currentVerificationId,
+          smsCode: values.smsCode,
+          phoneNumber,
+          pesel,
+        });
 
-      await notify('Rejestracja zakonczona', 'Numer telefonu zostal potwierdzony. Mozesz korzystac z aplikacji.', 'success');
+        await notify('Rejestracja zakonczona', 'Numer telefonu zostal potwierdzony. Mozesz korzystac z aplikacji.', 'success');
+      } else {
+        await confirmResidentPhoneLoginCode({
+          verificationId: currentVerificationId,
+          smsCode: values.smsCode,
+          phoneNumber,
+        });
+
+        await notify('Zalogowano', 'Logowanie telefonem zakonczone powodzeniem.', 'success');
+      }
+
       router.replace('/(drawer)/(tabs)/projects');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udalo sie potwierdzic kodu SMS.';

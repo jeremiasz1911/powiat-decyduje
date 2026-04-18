@@ -13,6 +13,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
         <Stack.Screen name="register-resident" options={{ title: 'Rejestracja' }} />
+        <Stack.Screen name="login-phone" options={{ title: 'Logowanie' }} />
         <Stack.Screen name="verify-resident-phone" options={{ title: 'Kod SMS' }} />
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       </Stack>

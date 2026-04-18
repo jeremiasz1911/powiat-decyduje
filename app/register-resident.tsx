@@ -77,6 +77,7 @@ export default function RegisterResidentScreen() {
     router.push({
       pathname: '/verify-resident-phone',
       params: {
+        mode: 'register',
         phoneNumber: verification.normalizedPhoneNumber,
         verificationId: verification.verificationId,
         pesel: values.pesel,

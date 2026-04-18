@@ -6,6 +6,7 @@ import {
   signInAnonymously,
   signInWithCredential,
   signInWithPhoneNumber,
+  signOut,
   type Auth,
   type ConfirmationResult,
   type User,
@@ -72,6 +73,12 @@ export type ConfirmResidentPhoneVerificationPayload = {
   smsCode: string;
   phoneNumber: string;
   pesel: string;
+};
+
+export type ConfirmResidentPhoneLoginPayload = {
+  verificationId: string;
+  smsCode: string;
+  phoneNumber: string;
 };
 
 function normalizePhoneNumber(rawPhoneNumber: string): string {
@@ -248,6 +255,38 @@ export async function confirmResidentPhoneVerificationCode(
     },
     { merge: true }
   );
+
+  return signedInUser;
+}
+
+export async function confirmResidentPhoneLoginCode(
+  payload: ConfirmResidentPhoneLoginPayload
+): Promise<User> {
+  const authInstance = requireAuth();
+  const dbInstance = requireDb();
+  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+
+  const credential = PhoneAuthProvider.credential(payload.verificationId, payload.smsCode.trim());
+  const credentials = await signInWithCredential(authInstance, credential);
+  const signedInUser = credentials.user;
+
+  const userRef = doc(dbInstance, 'users', signedInUser.uid);
+  const userSnapshot = await getDoc(userRef);
+
+  if (!userSnapshot.exists()) {
+    await signOut(authInstance);
+    throw new Error('Konto nie jest powiazane z profilem mieszkanca.');
+  }
+
+  const userData = userSnapshot.data();
+  const hasPesel = typeof userData.pesel === 'string' && userData.pesel.trim().length > 0;
+  const hasMatchingPhone =
+    userData.phoneNumber === normalizedPhoneNumber || userData.phone === normalizedPhoneNumber;
+
+  if (!hasPesel || !hasMatchingPhone) {
+    await signOut(authInstance);
+    throw new Error('Konto nie jest poprawnie powiazane z numerem telefonu i numerem PESEL.');
+  }
 
   return signedInUser;
 }

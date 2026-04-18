@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
@@ -19,6 +20,7 @@ import {
 } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { sendResidentPhoneVerificationCode } from '@/src/services';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 type RecoverAccessFormValues = Pick<ResidentRegistrationFormValues, 'phoneNumber'>;
 
@@ -69,15 +71,19 @@ export default function RecoverAccessPhoneScreen() {
     <ScreenContainer
       title="Odzyskaj dostep przez SMS"
       description="Podaj numer telefonu, aby otrzymac kod SMS i odzyskac dostep do konta.">
-      <Box>
+      <Box style={styles.formCard}>
         <VStack space="md">
+          <Text color={futuristicTheme.colors.textMuted}>
+            Po potwierdzeniu kodu SMS odzyskasz dostep do istniejącego konta mieszkanca.
+          </Text>
+
           <Controller
             control={control}
             name="phoneNumber"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Numer telefonu</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>Numer telefonu</Text>
+                <Input style={styles.input}>
                   <InputField
                     value={value}
                     onBlur={onBlur}
@@ -85,6 +91,8 @@ export default function RecoverAccessPhoneScreen() {
                     keyboardType="phone-pad"
                     autoComplete="tel"
                     placeholder="+48 500 600 700"
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.phoneNumber ? <Text color="$error600">{errors.phoneNumber.message}</Text> : null}
@@ -92,11 +100,33 @@ export default function RecoverAccessPhoneScreen() {
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode}>
-            <ButtonText>{isSendingCode ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS'}</ButtonText>
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode} style={styles.primaryButton}>
+            <ButtonText color={futuristicTheme.colors.textDark}>{isSendingCode ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS'}</ButtonText>
           </Button>
         </VStack>
       </Box>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  formCard: {
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 16,
+    padding: 14,
+    ...futuristicShadows.soft,
+  },
+  input: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 12,
+    ...futuristicShadows.glow,
+  },
+});

@@ -1,6 +1,7 @@
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
+import { StyleSheet } from 'react-native';
 import {
   Box,
   Button,
@@ -26,6 +27,7 @@ import {
   checkResidentRegistrationAvailability,
   sendResidentPhoneVerificationCode,
 } from '@/src/services';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function RegisterResidentScreen() {
   const router = useRouter();
@@ -87,15 +89,19 @@ export default function RegisterResidentScreen() {
 
   return (
     <ScreenContainer title="Rejestracja mieszkanca" description="Uzupelnij dane, aby kontynuowac.">
-      <Box>
+      <Box style={styles.formCard}>
         <VStack space="md">
+          <Text color={futuristicTheme.colors.textMuted}>
+            Uzyj numeru telefonu i numeru PESEL, aby utworzyc konto mieszkanca i potwierdzic je kodem SMS.
+          </Text>
+
           <Controller
             control={control}
             name="phoneNumber"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>Numer telefonu</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>Numer telefonu</Text>
+                <Input style={styles.input}>
                   <InputField
                     value={value}
                     onBlur={onBlur}
@@ -103,6 +109,8 @@ export default function RegisterResidentScreen() {
                     keyboardType="phone-pad"
                     autoComplete="tel"
                     placeholder="+48 500 600 700"
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.phoneNumber ? <Text color="$error600">{errors.phoneNumber.message}</Text> : null}
@@ -115,8 +123,8 @@ export default function RegisterResidentScreen() {
             name="pesel"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text>PESEL</Text>
-                <Input>
+                <Text color={futuristicTheme.colors.textPrimary}>PESEL</Text>
+                <Input style={styles.input}>
                   <InputField
                     value={value}
                     onBlur={onBlur}
@@ -125,6 +133,8 @@ export default function RegisterResidentScreen() {
                     maxLength={11}
                     autoComplete="off"
                     placeholder="00000000000"
+                    color={futuristicTheme.colors.textPrimary}
+                    placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
                 {errors.pesel ? <Text color="$error600">{errors.pesel.message}</Text> : null}
@@ -141,7 +151,7 @@ export default function RegisterResidentScreen() {
                   <CheckboxIndicator mr="$2">
                     <CheckboxIcon as={CheckIcon} />
                   </CheckboxIndicator>
-                  <CheckboxLabel>Akceptuje regulamin</CheckboxLabel>
+                  <CheckboxLabel color={futuristicTheme.colors.textPrimary}>Akceptuje regulamin</CheckboxLabel>
                 </Checkbox>
                 {errors.acceptedRegulations ? (
                   <Text color="$error600">{errors.acceptedRegulations.message}</Text>
@@ -150,11 +160,33 @@ export default function RegisterResidentScreen() {
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting}>
-            <ButtonText>{isSubmitting ? 'Zapisywanie...' : 'Kontynuuj'}</ButtonText>
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
+            <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Zapisywanie...' : 'Kontynuuj'}</ButtonText>
           </Button>
         </VStack>
       </Box>
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  formCard: {
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panel,
+    borderRadius: 16,
+    padding: 14,
+    ...futuristicShadows.soft,
+  },
+  input: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  primaryButton: {
+    backgroundColor: futuristicTheme.colors.accent,
+    borderRadius: 12,
+    ...futuristicShadows.glow,
+  },
+});

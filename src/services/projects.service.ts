@@ -25,6 +25,9 @@ import { db, storage } from '@/src/lib/firebase';
 
 export type CreateProjectPayload = {
   userId: string;
+  residentAccountId: string;
+  residentPesel: string;
+  residentLabel: string;
   title: string;
   description: string;
   category: string;
@@ -43,6 +46,9 @@ export type CreateProjectPayload = {
 export type ProjectItem = {
   id: string;
   createdBy: string;
+  createdByResidentAccountId: string;
+  createdByResidentPesel: string;
+  createdByResidentLabel: string;
   title: string;
   description: string;
   category: string;
@@ -114,6 +120,9 @@ function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectIte
   return {
     id: docSnap.id,
     createdBy: data.createdBy ?? '',
+    createdByResidentAccountId: data.createdByResidentAccountId ?? '',
+    createdByResidentPesel: data.createdByResidentPesel ?? '',
+    createdByResidentLabel: data.createdByResidentLabel ?? '',
     title: data.title,
     description: data.description,
     category: data.category,
@@ -221,6 +230,10 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
   const primaryImageUrl = imageUrls[0];
 
   const docRef = await addDoc(collection(db, 'projects'), {
+    createdBy: payload.userId,
+    createdByResidentAccountId: payload.residentAccountId,
+    createdByResidentPesel: payload.residentPesel,
+    createdByResidentLabel: payload.residentLabel,
     title: payload.title,
     description: payload.description,
     category: payload.category,
@@ -232,7 +245,6 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     imageUrl: primaryImageUrl,
     imageUrls,
     icon: payload.icon,
-    createdBy: payload.userId,
     createdAt: serverTimestamp(),
     status: 'submitted',
     votesCount: 0,
@@ -469,6 +481,9 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
   return {
     id: snapshot.id,
     createdBy: data.createdBy ?? '',
+    createdByResidentAccountId: data.createdByResidentAccountId ?? '',
+    createdByResidentPesel: data.createdByResidentPesel ?? '',
+    createdByResidentLabel: data.createdByResidentLabel ?? '',
     title: data.title,
     description: data.description,
     category: data.category,

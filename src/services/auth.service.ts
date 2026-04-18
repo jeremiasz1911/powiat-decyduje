@@ -18,6 +18,7 @@ import {
   getDocs,
   limit,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   type Firestore,
@@ -99,6 +100,14 @@ function normalizePesel(rawPesel: string): string {
   return rawPesel.trim();
 }
 
+function phoneIndexRef(dbInstance: Firestore, normalizedPhoneNumber: string) {
+  return doc(dbInstance, 'auth_index_phone', normalizedPhoneNumber);
+}
+
+function peselIndexRef(dbInstance: Firestore, normalizedPesel: string) {
+  return doc(dbInstance, 'auth_index_pesel', normalizedPesel);
+}
+
 let recaptchaVerifier: RecaptchaVerifier | null = null;
 
 function getOrCreateRecaptchaVerifier(authInstance: Auth): RecaptchaVerifier {
@@ -169,7 +178,19 @@ export async function checkResidentRegistrationAvailability(
   const dbInstance = requireDb();
   const usersRef = collection(dbInstance, 'users');
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
-  const normalizedPesel = payload.pesel.trim();
+  const normalizedPesel = normalizePesel(payload.pesel);
+
+  const [phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
+    getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber)),
+    getDoc(peselIndexRef(dbInstance, normalizedPesel)),
+  ]);
+
+  if (phoneIndexSnapshot.exists() || peselIndexSnapshot.exists()) {
+    return {
+      phoneTaken: phoneIndexSnapshot.exists(),
+      peselTaken: peselIndexSnapshot.exists(),
+    };
+  }
 
   const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([
     getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(1))),
@@ -238,23 +259,54 @@ export async function confirmResidentPhoneVerificationCode(
   }
 
   const userRef = doc(dbInstance, 'users', signedInUser.uid);
-  const existingUserSnapshot = await getDoc(userRef);
+  const userPhoneIndexRef = phoneIndexRef(dbInstance, normalizedPhoneNumber);
+  const userPeselIndexRef = peselIndexRef(dbInstance, normalizedPesel);
 
-  await setDoc(
-    userRef,
-    {
-      phoneNumber: normalizedPhoneNumber,
-      phone: normalizedPhoneNumber,
-      pesel: normalizedPesel,
-      phoneVerified: true,
-      canVote: true,
-      residentStatus: 'verified_resident',
-      commune: 'Mlawa',
-      updatedAt: serverTimestamp(),
-      ...(existingUserSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
-    },
-    { merge: true }
-  );
+  await runTransaction(dbInstance, async (transaction) => {
+    const [existingUserSnapshot, phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(userPhoneIndexRef),
+      transaction.get(userPeselIndexRef),
+    ]);
+
+    if (phoneIndexSnapshot.exists() && phoneIndexSnapshot.data().uid !== signedInUser.uid) {
+      throw new Error('Ten numer telefonu jest juz przypisany do innego konta.');
+    }
+
+    if (peselIndexSnapshot.exists() && peselIndexSnapshot.data().uid !== signedInUser.uid) {
+      throw new Error('Dla tego numeru PESEL istnieje juz konto mieszkanca.');
+    }
+
+    transaction.set(
+      userRef,
+      {
+        phoneNumber: normalizedPhoneNumber,
+        phone: normalizedPhoneNumber,
+        pesel: normalizedPesel,
+        phoneVerified: true,
+        canVote: true,
+        residentStatus: 'verified_resident',
+        commune: 'Mlawa',
+        updatedAt: serverTimestamp(),
+        ...(existingUserSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true }
+    );
+
+    if (!phoneIndexSnapshot.exists()) {
+      transaction.set(userPhoneIndexRef, {
+        uid: signedInUser.uid,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    if (!peselIndexSnapshot.exists()) {
+      transaction.set(userPeselIndexRef, {
+        uid: signedInUser.uid,
+        createdAt: serverTimestamp(),
+      });
+    }
+  });
 
   return signedInUser;
 }

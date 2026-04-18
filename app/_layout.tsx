@@ -12,6 +12,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ animation: 'fade' }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
+        <Stack.Screen name="register-resident" options={{ title: 'Rejestracja' }} />
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="light" />

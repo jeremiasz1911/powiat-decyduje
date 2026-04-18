@@ -52,6 +52,15 @@ export default function RegisterResidentScreen() {
       pesel: values.pesel,
     });
 
+    if (availability.phoneLimitReached) {
+      await notify(
+        'Limit kont na numerze',
+        'Na ten numer telefonu utworzono juz maksymalna liczbe kont',
+        'error'
+      );
+      return;
+    }
+
     if (availability.phoneTaken) {
       await notify(
         'Numer zajety',

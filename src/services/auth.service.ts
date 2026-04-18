@@ -58,6 +58,8 @@ export type ResidentRegistrationAvailabilityPayload = {
 export type ResidentRegistrationAvailabilityResult = {
   phoneTaken: boolean;
   peselTaken: boolean;
+  phoneAccountsCount: number;
+  phoneLimitReached: boolean;
 };
 
 export type ResidentPhoneVerificationPayload = {
@@ -81,6 +83,14 @@ export type ConfirmResidentPhoneLoginPayload = {
   smsCode: string;
   phoneNumber: string;
 };
+
+export type PhoneRegistrationLimitResult = {
+  accountCount: number;
+  limitReached: boolean;
+  maxAccounts: number;
+};
+
+const MAX_PHONE_ACCOUNTS = 5;
 
 function normalizePhoneNumber(rawPhoneNumber: string): string {
   const compact = rawPhoneNumber.replace(/[\s-]/g, '');
@@ -106,6 +116,19 @@ function phoneIndexRef(dbInstance: Firestore, normalizedPhoneNumber: string) {
 
 function peselIndexRef(dbInstance: Firestore, normalizedPesel: string) {
   return doc(dbInstance, 'auth_index_pesel', normalizedPesel);
+}
+
+async function getPhoneAccountUids(
+  dbInstance: Firestore,
+  normalizedPhoneNumber: string
+): Promise<string[]> {
+  const usersRef = collection(dbInstance, 'users');
+  const [phoneNumberSnapshot, legacyPhoneSnapshot] = await Promise.all([
+    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
+    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
+  ]);
+
+  return Array.from(new Set([...phoneNumberSnapshot.docs, ...legacyPhoneSnapshot.docs].map((docSnapshot) => docSnapshot.id)));
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -176,9 +199,10 @@ export async function checkResidentRegistrationAvailability(
   payload: ResidentRegistrationAvailabilityPayload
 ): Promise<ResidentRegistrationAvailabilityResult> {
   const dbInstance = requireDb();
-  const usersRef = collection(dbInstance, 'users');
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
+  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
+  const phoneLimitReached = phoneAccountUids.length >= MAX_PHONE_ACCOUNTS;
 
   const [phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
     getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber)),
@@ -187,20 +211,33 @@ export async function checkResidentRegistrationAvailability(
 
   if (phoneIndexSnapshot.exists() || peselIndexSnapshot.exists()) {
     return {
-      phoneTaken: phoneIndexSnapshot.exists(),
+      phoneTaken: phoneIndexSnapshot.exists() || phoneAccountUids.length > 0,
       peselTaken: peselIndexSnapshot.exists(),
+      phoneAccountsCount: phoneAccountUids.length,
+      phoneLimitReached,
     };
   }
 
-  const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([
-    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(1))),
-    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(1))),
-    getDocs(query(usersRef, where('pesel', '==', normalizedPesel), limit(1))),
-  ]);
+  const usersRef = collection(dbInstance, 'users');
+  const peselSnapshot = await getDocs(query(usersRef, where('pesel', '==', normalizedPesel), limit(1)));
 
   return {
-    phoneTaken: !phoneNumberSnapshot.empty || !legacyPhoneSnapshot.empty,
+    phoneTaken: phoneAccountUids.length > 0,
     peselTaken: !peselSnapshot.empty,
+    phoneAccountsCount: phoneAccountUids.length,
+    phoneLimitReached,
+  };
+}
+
+export async function checkPhoneRegistrationLimit(phoneNumber: string): Promise<PhoneRegistrationLimitResult> {
+  const dbInstance = requireDb();
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
+
+  return {
+    accountCount: phoneAccountUids.length,
+    limitReached: phoneAccountUids.length >= MAX_PHONE_ACCOUNTS,
+    maxAccounts: MAX_PHONE_ACCOUNTS,
   };
 }
 
@@ -233,6 +270,12 @@ export async function confirmResidentPhoneVerificationCode(
   const credential = PhoneAuthProvider.credential(payload.verificationId, payload.smsCode.trim());
   const credentials = await signInWithCredential(authInstance, credential);
   const signedInUser = credentials.user;
+  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
+  const alreadyLinkedToCurrentUser = phoneAccountUids.includes(signedInUser.uid);
+
+  if (!alreadyLinkedToCurrentUser && phoneAccountUids.length >= MAX_PHONE_ACCOUNTS) {
+    throw new Error('Na ten numer telefonu utworzono juz maksymalna liczbe kont');
+  }
 
   const usersRef = collection(dbInstance, 'users');
   const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([

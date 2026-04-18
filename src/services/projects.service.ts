@@ -28,6 +28,7 @@ export type CreateProjectPayload = {
   title: string;
   description: string;
   category: string;
+  locationLabel: string;
   commune: string;
   village: string;
   cost: number;
@@ -45,6 +46,7 @@ export type ProjectItem = {
   title: string;
   description: string;
   category: string;
+  locationLabel?: string;
   commune: string;
   village: string;
   cost: number;
@@ -88,6 +90,7 @@ export type UpdateProjectPayload = {
   title: string;
   description: string;
   category: string;
+  locationLabel: string;
   commune: string;
   village: string;
   cost: number;
@@ -107,6 +110,7 @@ function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectIte
     title: data.title,
     description: data.description,
     category: data.category,
+    locationLabel: data.locationLabel ?? '',
     commune: data.commune,
     village: data.village,
     cost: data.cost,
@@ -213,6 +217,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     title: payload.title,
     description: payload.description,
     category: payload.category,
+    locationLabel: payload.locationLabel,
     commune: payload.commune,
     village: payload.village,
     cost: payload.cost,
@@ -448,6 +453,7 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
     title: data.title,
     description: data.description,
     category: data.category,
+    locationLabel: data.locationLabel ?? '',
     commune: data.commune,
     village: data.village,
     cost: data.cost,
@@ -487,6 +493,7 @@ export async function updateProject(
     title: payload.title,
     description: payload.description,
     category: payload.category,
+    locationLabel: payload.locationLabel,
     commune: payload.commune,
     village: payload.village,
     cost: payload.cost,

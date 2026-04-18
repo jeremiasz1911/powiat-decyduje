@@ -34,6 +34,7 @@ export default function EditProjectScreen() {
       description: '',
       category: CATEGORIES[0],
       icon: DEFAULT_PROJECT_ICON,
+      locationLabel: '',
       commune: 'Mlawa',
       village: 'Mlawa',
       cost: '',
@@ -75,6 +76,7 @@ export default function EditProjectScreen() {
         setValue('description', project.description);
         setValue('category', project.category);
         setValue('icon', project.icon);
+        setValue('locationLabel', project.locationLabel ?? '');
         setValue('commune', project.commune);
         setValue('village', project.village);
         setValue('cost', String(project.cost));
@@ -103,6 +105,7 @@ export default function EditProjectScreen() {
         description: values.description,
         category: values.category,
         icon: values.icon,
+        locationLabel: values.locationLabel,
         commune: values.commune,
         village: values.village,
         cost: Number(values.cost),
@@ -237,6 +240,25 @@ export default function EditProjectScreen() {
             ) : null}
             {errors.icon ? <Text color="$error600">{errors.icon.message}</Text> : null}
           </VStack>
+
+          <Controller
+            control={control}
+            name="locationLabel"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Adres / nazwa miejsca</Text>
+                <Input>
+                  <InputField
+                    placeholder="Np. Szkola Podstawowa nr 2, ul. Szkolna 10"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                  />
+                </Input>
+                {errors.locationLabel ? <Text color="$error600">{errors.locationLabel.message}</Text> : null}
+              </VStack>
+            )}
+          />
 
           <Controller
             control={control}

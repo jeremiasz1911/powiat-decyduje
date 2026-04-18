@@ -59,14 +59,14 @@ export default function LoginPhoneScreen() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu SMS.';
-      await notify('Blad logowania', message, 'error');
+      await notify('Blad logowania numerem telefonu', message, 'error');
     } finally {
       setIsSendingCode(false);
     }
   };
 
   return (
-    <ScreenContainer title="Logowanie telefonem" description="Podaj numer telefonu, aby otrzymac kod SMS.">
+    <ScreenContainer title="Zaloguj numerem telefonu" description="Podaj numer telefonu, aby otrzymac kod SMS.">
       <Box>
         <VStack space="md">
           <Controller
@@ -91,7 +91,7 @@ export default function LoginPhoneScreen() {
           />
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode}>
-            <ButtonText>{isSendingCode ? 'Wysylanie...' : 'Wyslij kod SMS'}</ButtonText>
+            <ButtonText>{isSendingCode ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS'}</ButtonText>
           </Button>
 
           <Button
@@ -99,7 +99,7 @@ export default function LoginPhoneScreen() {
             action="secondary"
             onPress={() => router.push('/recover-access-phone')}
             isDisabled={isSendingCode}>
-            <ButtonText>Nie masz dostepu? Odzyskaj przez SMS</ButtonText>
+            <ButtonText>Odzyskaj dostep przez SMS</ButtonText>
           </Button>
         </VStack>
       </Box>

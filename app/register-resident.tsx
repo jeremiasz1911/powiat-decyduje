@@ -53,7 +53,7 @@ export default function RegisterResidentScreen() {
     if (availability.phoneTaken) {
       await notify(
         'Numer zajety',
-        'Ten numer telefonu jest juz przypisany do innego konta. Uzyj innego numeru lub zaloguj sie.',
+        'Ten numer telefonu jest juz przypisany do innego konta. Zaloguj numerem telefonu.',
         'error'
       );
       return;

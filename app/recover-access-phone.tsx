@@ -59,7 +59,7 @@ export default function RecoverAccessPhoneScreen() {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu SMS.';
-      await notify('Blad odzyskiwania', message, 'error');
+      await notify('Blad odzyskiwania dostepu przez SMS', message, 'error');
     } finally {
       setIsSendingCode(false);
     }
@@ -67,8 +67,8 @@ export default function RecoverAccessPhoneScreen() {
 
   return (
     <ScreenContainer
-      title="Odzyskiwanie dostepu"
-      description="Podaj numer telefonu, aby odzyskac dostep przez kod SMS.">
+      title="Odzyskaj dostep przez SMS"
+      description="Podaj numer telefonu, aby otrzymac kod SMS i odzyskac dostep do konta.">
       <Box>
         <VStack space="md">
           <Controller
@@ -93,7 +93,7 @@ export default function RecoverAccessPhoneScreen() {
           />
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode}>
-            <ButtonText>{isSendingCode ? 'Wysylanie...' : 'Wyslij kod SMS'}</ButtonText>
+            <ButtonText>{isSendingCode ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS'}</ButtonText>
           </Button>
         </VStack>
       </Box>

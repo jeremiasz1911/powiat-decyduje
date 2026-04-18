@@ -81,7 +81,7 @@ export default function VerifyResidentPhoneScreen() {
         if (isRecoverMode) {
           await notify('Dostep odzyskany', 'Kod SMS zostal potwierdzony. Odzyskales dostep do konta.', 'success');
         } else {
-          await notify('Zalogowano', 'Logowanie telefonem zakonczone powodzeniem.', 'success');
+          await notify('Zalogowano', 'Zalogowano numerem telefonu po potwierdzeniu kodu SMS.', 'success');
         }
       }
 
@@ -114,8 +114,8 @@ export default function VerifyResidentPhoneScreen() {
 
   return (
     <ScreenContainer
-      title="Weryfikacja SMS"
-      description="Wpisz kod SMS wyslany na Twoj numer telefonu.">
+      title="Potwierdz kod SMS"
+      description="Wpisz kod SMS wyslany na Twoj numer telefonu, aby sie zalogowac lub odzyskac dostep.">
       <Box>
         <VStack space="md">
           <Text>Numer telefonu: {phoneNumber || '-'}</Text>
@@ -143,11 +143,11 @@ export default function VerifyResidentPhoneScreen() {
           />
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting || !canProceed}>
-            <ButtonText>{isSubmitting ? 'Potwierdzanie...' : 'Potwierdz kod'}</ButtonText>
+            <ButtonText>{isSubmitting ? 'Potwierdzanie kodu SMS...' : 'Potwierdz kod SMS'}</ButtonText>
           </Button>
 
           <Button variant="outline" action="secondary" onPress={handleResendCode} isDisabled={isResending}>
-            <ButtonText>{isResending ? 'Wysylanie...' : 'Wyslij kod ponownie'}</ButtonText>
+            <ButtonText>{isResending ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS ponownie'}</ButtonText>
           </Button>
         </VStack>
       </Box>

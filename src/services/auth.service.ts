@@ -13,6 +13,7 @@ import {
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   query,
@@ -229,8 +230,11 @@ export async function confirmResidentPhoneVerificationCode(
     throw new Error('Dla tego numeru PESEL istnieje juz konto mieszkanca.');
   }
 
+  const userRef = doc(dbInstance, 'users', signedInUser.uid);
+  const existingUserSnapshot = await getDoc(userRef);
+
   await setDoc(
-    doc(dbInstance, 'users', signedInUser.uid),
+    userRef,
     {
       phoneNumber: normalizedPhoneNumber,
       phone: normalizedPhoneNumber,
@@ -240,7 +244,7 @@ export async function confirmResidentPhoneVerificationCode(
       residentStatus: 'verified_resident',
       commune: 'Mlawa',
       updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
+      ...(existingUserSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
     },
     { merge: true }
   );

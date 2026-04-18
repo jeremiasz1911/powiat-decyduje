@@ -13,6 +13,7 @@ import {
   confirmResidentPhoneVerificationCode,
   sendResidentPhoneVerificationCode,
 } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const smsCodeSchema = z.object({
@@ -27,6 +28,7 @@ type SmsCodeFormValues = z.infer<typeof smsCodeSchema>;
 export default function VerifyResidentPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
   const params = useLocalSearchParams<{
     mode?: string;
     phoneNumber?: string;
@@ -73,6 +75,8 @@ export default function VerifyResidentPhoneScreen() {
         });
 
         await notify('Rejestracja zakonczona', 'Numer telefonu zostal potwierdzony. Mozesz korzystac z aplikacji.', 'success');
+        await refreshResidentAccounts();
+        router.replace('/(drawer)/(tabs)/projects');
       } else {
         await confirmResidentPhoneLoginCode({
           verificationId: currentVerificationId,
@@ -85,9 +89,20 @@ export default function VerifyResidentPhoneScreen() {
         } else {
           await notify('Zalogowano', 'Zalogowano numerem telefonu po potwierdzeniu kodu SMS.', 'success');
         }
-      }
 
-      router.replace('/(drawer)/(tabs)/projects');
+        const accountsAfterRefresh = await refreshResidentAccounts();
+
+        if (accountsAfterRefresh.length <= 1) {
+          const singleAccount = accountsAfterRefresh[0];
+          if (singleAccount) {
+            await setActiveResidentAccountId(singleAccount.id);
+          }
+          router.replace('/(drawer)/(tabs)/projects');
+          return;
+        }
+
+        router.replace('/select-resident-account');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udalo sie potwierdzic kodu SMS.';
       await notify('Blad weryfikacji', message, 'error');

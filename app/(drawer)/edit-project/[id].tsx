@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Controller, useForm } from 'react-hook-form';
@@ -157,17 +157,23 @@ export default function EditProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text>Opis</Text>
-                <Pressable
-                  onPress={() => setIsDescriptionModalOpen(true)}
-                  style={styles.textareaPreview}
-                  accessibilityRole="button"
-                  accessibilityLabel="Otworz edytor opisu">
+                <View style={styles.textareaPreview}>
                   <RichDescriptionPreview
                     content={value}
-                    emptyPlaceholder="Tapnij, aby edytowac opis..."
+                    emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
                     compact
                   />
-                </Pressable>
+                </View>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  action="secondary"
+                  style={styles.openEditorButton}
+                  onPress={() => setIsDescriptionModalOpen(true)}>
+                  <Ionicons name="create-outline" size={16} />
+                  <ButtonText>Edytuj opis na pelnym ekranie</ButtonText>
+                </Button>
+                <Text>Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.</Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
                 <DescriptionEditorModal
                   visible={isDescriptionModalOpen}
@@ -331,6 +337,9 @@ const styles = StyleSheet.create({
     minHeight: 120,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  openEditorButton: {
+    justifyContent: 'flex-start',
   },
   categoryButtonActive: {
     backgroundColor: futuristicTheme.colors.accent,

@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { PROJECT_ICON_OPTIONS } from './project-icons';
-
-const PROJECT_ICON_IDS = PROJECT_ICON_OPTIONS.map((option) => option.id);
+import { isProjectIconId, type ProjectIconId } from './project-icons';
 
 export const projectSubmissionSchema = z.object({
   title: z.string().min(3, 'Tytul musi miec minimum 3 znaki').max(100, 'Tytul jest za dlugi'),
@@ -25,9 +23,10 @@ export const projectSubmissionSchema = z.object({
     .array(z.string().min(1))
     .min(1, 'Dodaj co najmniej jedno zdjecie projektu')
     .max(5, 'Mozesz dodac maksymalnie 5 zdjec'),
-  icon: z
-    .string()
-    .refine((value) => PROJECT_ICON_IDS.includes(value), 'Wybierz ikonke projektu'),
+  icon: z.custom<ProjectIconId>(
+    (value) => typeof value === 'string' && isProjectIconId(value),
+    'Wybierz ikonke projektu'
+  ),
 });
 
 export type ProjectSubmissionFormValues = z.infer<typeof projectSubmissionSchema>;

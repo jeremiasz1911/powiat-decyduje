@@ -87,7 +87,7 @@ export default function SubmitProjectScreen() {
   const handlePickImagesFromLibrary = async () => {
     const remainingSlots = MAX_PROJECT_IMAGES - imagePreviews.length;
     if (remainingSlots <= 0) {
-      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'info');
       return;
     }
 
@@ -120,13 +120,13 @@ export default function SubmitProjectScreen() {
     await notify(
       'Zdjecia dodane',
       `Lacznie: ${merged.length}/${MAX_PROJECT_IMAGES} zdjec.`,
-      merged.length === MAX_PROJECT_IMAGES ? 'warning' : 'success'
+      merged.length === MAX_PROJECT_IMAGES ? 'info' : 'success'
     );
   };
 
   const handleTakePhoto = async () => {
     if (imagePreviews.length >= MAX_PROJECT_IMAGES) {
-      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'info');
       return;
     }
 
@@ -226,17 +226,25 @@ export default function SubmitProjectScreen() {
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
                 <Text color={futuristicTheme.colors.textPrimary}>Opis</Text>
-                <Pressable
-                  onPress={() => setIsDescriptionModalOpen(true)}
-                  style={styles.textareaPreview}
-                  accessibilityRole="button"
-                  accessibilityLabel="Otworz edytor opisu">
+                <View style={styles.textareaPreview}>
                   <RichDescriptionPreview
                     content={value}
-                    emptyPlaceholder="Tapnij, aby edytowac opis..."
+                    emptyPlaceholder="Tapnij, aby otworzyc pelnoekranowy edytor opisu..."
                     compact
                   />
-                </Pressable>
+                </View>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  action="secondary"
+                  style={styles.openEditorButton}
+                  onPress={() => setIsDescriptionModalOpen(true)}>
+                  <Ionicons name="create-outline" size={16} color={futuristicTheme.colors.textPrimary} />
+                  <ButtonText color={futuristicTheme.colors.textPrimary}>Edytuj opis na pelnym ekranie</ButtonText>
+                </Button>
+                <Text color={futuristicTheme.colors.textMuted}>
+                  Edytor wspiera: pogrubienie, kursywe, listy i naglowki H1-H5.
+                </Text>
                 {errors.description ? <Text color="$error600">{errors.description.message}</Text> : null}
                 <DescriptionEditorModal
                   visible={isDescriptionModalOpen}
@@ -464,6 +472,11 @@ const styles = StyleSheet.create({
     minHeight: 120,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  openEditorButton: {
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: futuristicTheme.colors.panelSoft,
+    borderWidth: 1,
   },
   categoryWrap: {
     flexDirection: 'row',

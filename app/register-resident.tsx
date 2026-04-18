@@ -1,6 +1,7 @@
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import {
   Box,
@@ -27,6 +28,7 @@ import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 export default function RegisterResidentScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const [limitError, setLimitError] = useState<string | null>(null);
   const {
     control,
     handleSubmit,
@@ -41,15 +43,20 @@ export default function RegisterResidentScreen() {
   });
 
   const onSubmit = async (values: ResidentRegistrationFormValues) => {
+    setLimitError(null);
+
     const availability = await checkResidentRegistrationAvailability({
       phoneNumber: values.phoneNumber,
       pesel: values.pesel,
     });
 
     if (availability.phoneLimitReached) {
+      const message =
+        'Na ten numer telefonu zostało już utworzonych 5 kont mieszkańców. Nie można dodać kolejnego konta.';
+      setLimitError(message);
       await notify(
         'Limit kont na numerze',
-        'Na ten numer telefonu utworzono juz maksymalna liczbe kont',
+        message,
         'error'
       );
       return;
@@ -103,7 +110,12 @@ export default function RegisterResidentScreen() {
                   <InputField
                     value={value}
                     onBlur={onBlur}
-                    onChangeText={onChange}
+                    onChangeText={(nextValue) => {
+                      if (limitError) {
+                        setLimitError(null);
+                      }
+                      onChange(nextValue);
+                    }}
                     keyboardType="phone-pad"
                     autoComplete="tel"
                     placeholder="+48 500 600 700"
@@ -126,7 +138,12 @@ export default function RegisterResidentScreen() {
                   <InputField
                     value={value}
                     onBlur={onBlur}
-                    onChangeText={onChange}
+                    onChangeText={(nextValue) => {
+                      if (limitError) {
+                        setLimitError(null);
+                      }
+                      onChange(nextValue);
+                    }}
                     keyboardType="number-pad"
                     maxLength={11}
                     autoComplete="off"
@@ -139,6 +156,12 @@ export default function RegisterResidentScreen() {
               </VStack>
             )}
           />
+
+          {limitError ? (
+            <Box style={styles.limitAlert}>
+              <Text style={styles.limitAlertText}>{limitError}</Text>
+            </Box>
+          ) : null}
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
             <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Zapisywanie...' : 'Kontynuuj'}</ButtonText>
@@ -175,5 +198,19 @@ const styles = StyleSheet.create({
     color: futuristicTheme.colors.danger,
     fontSize: 16,
     lineHeight: 22,
+  },
+  limitAlert: {
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  limitAlertText: {
+    color: futuristicTheme.colors.danger,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600',
   },
 });

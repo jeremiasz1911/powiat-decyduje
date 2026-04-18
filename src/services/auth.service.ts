@@ -90,6 +90,14 @@ export type PhoneRegistrationLimitResult = {
   maxAccounts: number;
 };
 
+export type ResidentAccount = {
+  id: string;
+  label: string;
+  pesel: string;
+  phoneNumber: string;
+  phoneVerified: boolean;
+};
+
 const MAX_PHONE_ACCOUNTS = 5;
 
 function normalizePhoneNumber(rawPhoneNumber: string): string {
@@ -143,6 +151,88 @@ async function getPhoneAccountUids(
       ...[...phoneNumberSnapshot.docs, ...legacyPhoneSnapshot.docs].map((docSnapshot) => docSnapshot.id),
     ])
   );
+}
+
+function mapResidentAccountsFromUserDoc(data: Record<string, unknown> | undefined): ResidentAccount[] {
+  if (!data) {
+    return [];
+  }
+
+  const accounts = Array.isArray(data.residentAccounts) ? data.residentAccounts : [];
+  const mapped = accounts
+    .map((account) => {
+      if (!account || typeof account !== 'object') {
+        return null;
+      }
+
+      const raw = account as Record<string, unknown>;
+      const id = typeof raw.id === 'string' ? raw.id : null;
+      const pesel = typeof raw.pesel === 'string' ? raw.pesel : null;
+      const phoneNumber = typeof raw.phoneNumber === 'string' ? raw.phoneNumber : null;
+
+      if (!id || !pesel || !phoneNumber) {
+        return null;
+      }
+
+      return {
+        id,
+        pesel,
+        phoneNumber,
+        label:
+          typeof raw.label === 'string' && raw.label.trim().length > 0
+            ? raw.label.trim()
+            : `Konto ${pesel.slice(-4)}`,
+        phoneVerified: raw.phoneVerified === true,
+      } satisfies ResidentAccount;
+    })
+    .filter((account): account is ResidentAccount => Boolean(account));
+
+  if (mapped.length > 0) {
+    return mapped;
+  }
+
+  if (typeof data.pesel !== 'string' || typeof data.phoneNumber !== 'string') {
+    return [];
+  }
+
+  return [
+    {
+      id: data.pesel,
+      pesel: data.pesel,
+      phoneNumber: data.phoneNumber,
+      label: `Konto ${data.pesel.slice(-4)}`,
+      phoneVerified: data.phoneVerified === true,
+    },
+  ];
+}
+
+async function getPhoneAccountsCount(dbInstance: Firestore, normalizedPhoneNumber: string): Promise<number> {
+  const phoneIndexSnapshot = await getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber));
+  const accountCount = phoneIndexSnapshot.data()?.accountCount;
+
+  if (typeof accountCount === 'number' && Number.isFinite(accountCount)) {
+    return accountCount;
+  }
+
+  const usersRef = collection(dbInstance, 'users');
+  const [phoneNumberSnapshot, legacyPhoneSnapshot] = await Promise.all([
+    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
+    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
+  ]);
+
+  const uniqueUserDocs = new Map<string, Record<string, unknown>>();
+
+  for (const docSnapshot of [...phoneNumberSnapshot.docs, ...legacyPhoneSnapshot.docs]) {
+    uniqueUserDocs.set(docSnapshot.id, docSnapshot.data() as Record<string, unknown>);
+  }
+
+  let totalAccounts = 0;
+  for (const data of uniqueUserDocs.values()) {
+    const residentAccounts = mapResidentAccountsFromUserDoc(data);
+    totalAccounts += residentAccounts.length > 0 ? residentAccounts.length : 1;
+  }
+
+  return totalAccounts;
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -215,8 +305,11 @@ export async function checkResidentRegistrationAvailability(
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
-  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
-  const phoneLimitReached = phoneAccountUids.length >= MAX_PHONE_ACCOUNTS;
+  const [phoneAccountUids, phoneAccountsCount] = await Promise.all([
+    getPhoneAccountUids(dbInstance, normalizedPhoneNumber),
+    getPhoneAccountsCount(dbInstance, normalizedPhoneNumber),
+  ]);
+  const phoneLimitReached = phoneAccountsCount >= MAX_PHONE_ACCOUNTS;
 
   const [phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
     getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber)),
@@ -227,7 +320,7 @@ export async function checkResidentRegistrationAvailability(
     return {
       phoneTaken: phoneAccountUids.length > 0,
       peselTaken: peselIndexSnapshot.exists(),
-      phoneAccountsCount: phoneAccountUids.length,
+      phoneAccountsCount,
       phoneLimitReached,
     };
   }
@@ -238,7 +331,7 @@ export async function checkResidentRegistrationAvailability(
   return {
     phoneTaken: phoneAccountUids.length > 0,
     peselTaken: !peselSnapshot.empty,
-    phoneAccountsCount: phoneAccountUids.length,
+    phoneAccountsCount,
     phoneLimitReached,
   };
 }
@@ -246,13 +339,29 @@ export async function checkResidentRegistrationAvailability(
 export async function checkPhoneRegistrationLimit(phoneNumber: string): Promise<PhoneRegistrationLimitResult> {
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
+  const phoneAccountCount = await getPhoneAccountsCount(dbInstance, normalizedPhoneNumber);
 
   return {
-    accountCount: phoneAccountUids.length,
-    limitReached: phoneAccountUids.length >= MAX_PHONE_ACCOUNTS,
+    accountCount: phoneAccountCount,
+    limitReached: phoneAccountCount >= MAX_PHONE_ACCOUNTS,
     maxAccounts: MAX_PHONE_ACCOUNTS,
   };
+}
+
+export async function getResidentAccountsForSignedInUser(): Promise<ResidentAccount[]> {
+  const authInstance = requireAuth();
+  const dbInstance = requireDb();
+
+  if (!authInstance.currentUser) {
+    return [];
+  }
+
+  const userSnapshot = await getDoc(doc(dbInstance, 'users', authInstance.currentUser.uid));
+  if (!userSnapshot.exists()) {
+    return [];
+  }
+
+  return mapResidentAccountsFromUserDoc(userSnapshot.data() as Record<string, unknown>);
 }
 
 export async function sendResidentPhoneVerificationCode(
@@ -280,14 +389,17 @@ export async function confirmResidentPhoneVerificationCode(
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
-  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
+  const [phoneAccountUids, phoneAccountCount] = await Promise.all([
+    getPhoneAccountUids(dbInstance, normalizedPhoneNumber),
+    getPhoneAccountsCount(dbInstance, normalizedPhoneNumber),
+  ]);
 
   const credential = PhoneAuthProvider.credential(payload.verificationId, payload.smsCode.trim());
   const credentials = await signInWithCredential(authInstance, credential);
   const signedInUser = credentials.user;
   const alreadyLinkedToCurrentUser = phoneAccountUids.includes(signedInUser.uid);
 
-  if (!alreadyLinkedToCurrentUser && phoneAccountUids.length >= MAX_PHONE_ACCOUNTS) {
+  if (!alreadyLinkedToCurrentUser && phoneAccountCount >= MAX_PHONE_ACCOUNTS) {
     throw new Error('Na ten numer telefonu utworzono juz maksymalna liczbe kont');
   }
 
@@ -312,8 +424,30 @@ export async function confirmResidentPhoneVerificationCode(
     const nextPhoneUids = basePhoneUids.includes(signedInUser.uid)
       ? basePhoneUids
       : [...basePhoneUids, signedInUser.uid];
+    const existingUserData = existingUserSnapshot.data() as Record<string, unknown> | undefined;
+    const existingResidentAccounts = mapResidentAccountsFromUserDoc(existingUserData);
+    const nextResidentAccountId = normalizedPesel;
+    const hasResidentAccount = existingResidentAccounts.some((account) => account.id === nextResidentAccountId);
+    const nextResidentAccounts = hasResidentAccount
+      ? existingResidentAccounts
+      : [
+          ...existingResidentAccounts,
+          {
+            id: nextResidentAccountId,
+            label: `Konto ${normalizedPesel.slice(-4)}`,
+            pesel: normalizedPesel,
+            phoneNumber: normalizedPhoneNumber,
+            phoneVerified: true,
+          },
+        ];
+    const phoneAccountCountFromIndex = phoneIndexSnapshot.data()?.accountCount;
+    const fallbackCount =
+      typeof phoneAccountCountFromIndex === 'number' && Number.isFinite(phoneAccountCountFromIndex)
+        ? phoneAccountCountFromIndex
+        : phoneAccountCount;
+    const nextPhoneAccountCount = Math.max(fallbackCount, nextResidentAccounts.length);
 
-    if (nextPhoneUids.length > MAX_PHONE_ACCOUNTS) {
+    if (nextPhoneAccountCount > MAX_PHONE_ACCOUNTS) {
       throw new Error('Na ten numer telefonu utworzono juz maksymalna liczbe kont');
     }
 
@@ -335,6 +469,11 @@ export async function confirmResidentPhoneVerificationCode(
         verificationStatus: 'verified',
         residentStatus: 'verified_resident',
         commune: 'Mlawa',
+        residentAccounts: nextResidentAccounts,
+        activeResidentAccountId:
+          typeof existingUserData?.activeResidentAccountId === 'string'
+            ? existingUserData.activeResidentAccountId
+            : nextResidentAccountId,
         updatedAt: serverTimestamp(),
         ...(existingUserSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
       },
@@ -345,7 +484,7 @@ export async function confirmResidentPhoneVerificationCode(
       userPhoneIndexRef,
       {
         uids: nextPhoneUids,
-        accountCount: nextPhoneUids.length,
+        accountCount: nextPhoneAccountCount,
         updatedAt: serverTimestamp(),
         ...(phoneIndexSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
       },

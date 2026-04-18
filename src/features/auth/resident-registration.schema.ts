@@ -23,17 +23,14 @@ export const residentRegistrationSchema = z.object({
   phoneNumber: z
     .string()
     .trim()
-    .min(1, 'Numer telefonu jest wymagany.')
-    .refine(isValidPhoneNumber, 'Podaj poprawny numer telefonu (np. +48500100200).'),
+    .min(1, 'Wpisz numer telefonu.')
+    .refine(isValidPhoneNumber, 'Wpisz poprawny numer telefonu, np. +48 500 600 700.'),
   pesel: z
     .string()
     .trim()
-    .min(1, 'PESEL jest wymagany.')
-    .regex(/^\d{11}$/, 'PESEL musi miec dokladnie 11 cyfr.')
-    .refine(isValidPeselChecksum, 'Niepoprawny PESEL (blad sumy kontrolnej).'),
-  acceptedRegulations: z.boolean().refine((value) => value, {
-    message: 'Musisz zaakceptowac regulamin.',
-  }),
+    .min(1, 'Wpisz numer PESEL.')
+    .regex(/^\d{11}$/, 'PESEL musi miec 11 cyfr.')
+    .refine(isValidPeselChecksum, 'Wpisany PESEL jest niepoprawny. Sprawdz cyfry i sume kontrolna.'),
 });
 
 export type ResidentRegistrationFormValues = z.infer<typeof residentRegistrationSchema>;

@@ -6,11 +6,6 @@ import {
   Box,
   Button,
   ButtonText,
-  Checkbox,
-  CheckboxIcon,
-  CheckboxIndicator,
-  CheckboxLabel,
-  CheckIcon,
   Input,
   InputField,
   Text,
@@ -41,7 +36,6 @@ export default function RegisterResidentScreen() {
     defaultValues: {
       phoneNumber: '',
       pesel: '',
-      acceptedRegulations: false,
     },
     mode: 'onBlur',
   });
@@ -101,7 +95,7 @@ export default function RegisterResidentScreen() {
       <Box style={styles.formCard}>
         <VStack space="md">
           <Text color={futuristicTheme.colors.textMuted}>
-            Uzyj numeru telefonu i numeru PESEL, aby utworzyc konto mieszkanca i potwierdzic je kodem SMS.
+            Wpisz numer telefonu i PESEL, a potem potwierdz kod SMS.
           </Text>
 
           <Controller
@@ -122,7 +116,7 @@ export default function RegisterResidentScreen() {
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
-                {errors.phoneNumber ? <Text color="$error600">{errors.phoneNumber.message}</Text> : null}
+                {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
               </VStack>
             )}
           />
@@ -146,25 +140,7 @@ export default function RegisterResidentScreen() {
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                   />
                 </Input>
-                {errors.pesel ? <Text color="$error600">{errors.pesel.message}</Text> : null}
-              </VStack>
-            )}
-          />
-
-          <Controller
-            control={control}
-            name="acceptedRegulations"
-            render={({ field: { onChange, value } }) => (
-              <VStack space="xs">
-                <Checkbox value="accepted" isChecked={Boolean(value)} onChange={onChange}>
-                  <CheckboxIndicator mr="$2">
-                    <CheckboxIcon as={CheckIcon} />
-                  </CheckboxIndicator>
-                  <CheckboxLabel color={futuristicTheme.colors.textPrimary}>Akceptuje regulamin</CheckboxLabel>
-                </Checkbox>
-                {errors.acceptedRegulations ? (
-                  <Text color="$error600">{errors.acceptedRegulations.message}</Text>
-                ) : null}
+                {errors.pesel ? <Text style={styles.errorText}>{errors.pesel.message}</Text> : null}
               </VStack>
             )}
           />
@@ -192,10 +168,17 @@ const styles = StyleSheet.create({
     backgroundColor: futuristicTheme.colors.panelSoft,
     borderRadius: 12,
     borderWidth: 1,
+    minHeight: 62,
+    justifyContent: 'center',
   },
   primaryButton: {
     backgroundColor: futuristicTheme.colors.accent,
     borderRadius: 12,
     ...futuristicShadows.glow,
+  },
+  errorText: {
+    color: futuristicTheme.colors.danger,
+    fontSize: 16,
+    lineHeight: 22,
   },
 });

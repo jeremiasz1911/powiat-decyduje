@@ -1,7 +1,8 @@
 import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword, signInAnonymously, type Auth, type User } from 'firebase/auth';
+import { doc, serverTimestamp, setDoc, type Firestore } from 'firebase/firestore';
 
-import { auth } from '@/src/lib/firebase';
+import { auth, db } from '@/src/lib/firebase';
 
 function requireAuth(): Auth {
   if (!auth) {
@@ -10,6 +11,21 @@ function requireAuth(): Auth {
 
   return auth;
 }
+
+function requireDb(): Firestore {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured. Check EXPO_PUBLIC_FIREBASE_* values.');
+  }
+
+  return db;
+}
+
+export type RegisterPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+};
 
 export async function ensureAnonymousAuth(): Promise<User> {
   const authInstance = requireAuth();
@@ -32,8 +48,17 @@ export async function ensureAnonymousAuth(): Promise<User> {
   }
 }
 
-export async function register(email: string, password: string): Promise<User> {
+export async function register(payload: RegisterPayload): Promise<User> {
   const authInstance = requireAuth();
-  const credentials = await createUserWithEmailAndPassword(authInstance, email, password);
+  const dbInstance = requireDb();
+  const credentials = await createUserWithEmailAndPassword(authInstance, payload.email, payload.password);
+
+  await setDoc(doc(dbInstance, 'users', credentials.user.uid), {
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    email: payload.email,
+    createdAt: serverTimestamp(),
+  });
+
   return credentials.user;
 }

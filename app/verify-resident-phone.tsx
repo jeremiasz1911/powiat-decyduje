@@ -1,24 +1,131 @@
-import { useLocalSearchParams } from 'expo-router';
-import { Box, Text, VStack } from '@gluestack-ui/themed';
+import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 
 import { ScreenContainer } from '@/src/components/screen-container';
+import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { confirmResidentPhoneVerificationCode, sendResidentPhoneVerificationCode } from '@/src/services';
+
+const smsCodeSchema = z.object({
+  smsCode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Kod SMS musi miec dokladnie 6 cyfr.'),
+});
+
+type SmsCodeFormValues = z.infer<typeof smsCodeSchema>;
 
 export default function VerifyResidentPhoneScreen() {
+  const router = useRouter();
+  const { notify } = useAppFeedback();
   const params = useLocalSearchParams<{
     phoneNumber?: string;
     verificationId?: string;
     pesel?: string;
   }>();
+  const [currentVerificationId, setCurrentVerificationId] = useState(params.verificationId ?? '');
+  const [isResending, setIsResending] = useState(false);
+
+  const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
+  const pesel = useMemo(() => params.pesel ?? '', [params.pesel]);
+  const canProceed = Boolean(phoneNumber && pesel && currentVerificationId);
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SmsCodeFormValues>({
+    resolver: zodResolver(smsCodeSchema),
+    defaultValues: { smsCode: '' },
+    mode: 'onBlur',
+  });
+
+  const onSubmit = async (values: SmsCodeFormValues) => {
+    if (!canProceed) {
+      await notify(
+        'Brak danych weryfikacji',
+        'Brakuje numeru telefonu lub identyfikatora weryfikacji. Wroc do poprzedniego kroku.',
+        'error'
+      );
+      return;
+    }
+
+    try {
+      await confirmResidentPhoneVerificationCode({
+        verificationId: currentVerificationId,
+        smsCode: values.smsCode,
+        phoneNumber,
+        pesel,
+      });
+
+      await notify('Rejestracja zakonczona', 'Numer telefonu zostal potwierdzony. Mozesz korzystac z aplikacji.', 'success');
+      router.replace('/(drawer)/(tabs)/projects');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nie udalo sie potwierdzic kodu SMS.';
+      await notify('Blad weryfikacji', message, 'error');
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!phoneNumber) {
+      await notify('Brak numeru', 'Nie mozna ponowic wysylki bez numeru telefonu.', 'error');
+      return;
+    }
+
+    setIsResending(true);
+
+    try {
+      const verification = await sendResidentPhoneVerificationCode({ phoneNumber });
+      setCurrentVerificationId(verification.verificationId);
+      await notify('Kod wyslany ponownie', `Nowy kod wyslano na ${verification.normalizedPhoneNumber}.`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu ponownie.';
+      await notify('Blad wysylki', message, 'error');
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   return (
     <ScreenContainer
       title="Weryfikacja SMS"
-      description="To jest placeholder kroku weryfikacji kodu SMS.">
+      description="Wpisz kod SMS wyslany na Twoj numer telefonu.">
       <Box>
-        <VStack space="sm">
-          <Text>Numer telefonu: {params.phoneNumber ?? '-'}</Text>
-          <Text>Verification ID: {params.verificationId ? 'otrzymany' : 'brak'}</Text>
-          <Text>PESEL: {params.pesel ?? '-'}</Text>
+        <VStack space="md">
+          <Text>Numer telefonu: {phoneNumber || '-'}</Text>
+
+          <Controller
+            control={control}
+            name="smsCode"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <VStack space="xs">
+                <Text>Kod SMS</Text>
+                <Input>
+                  <InputField
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                  />
+                </Input>
+                {errors.smsCode ? <Text color="$error600">{errors.smsCode.message}</Text> : null}
+              </VStack>
+            )}
+          />
+
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting || !canProceed}>
+            <ButtonText>{isSubmitting ? 'Potwierdzanie...' : 'Potwierdz kod'}</ButtonText>
+          </Button>
+
+          <Button variant="outline" action="secondary" onPress={handleResendCode} isDisabled={isResending}>
+            <ButtonText>{isResending ? 'Wysylanie...' : 'Wyslij kod ponownie'}</ButtonText>
+          </Button>
         </VStack>
       </Box>
     </ScreenContainer>

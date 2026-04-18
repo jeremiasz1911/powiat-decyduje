@@ -1,8 +1,10 @@
 import { FirebaseError } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
+  PhoneAuthProvider,
   RecaptchaVerifier,
   signInAnonymously,
+  signInWithCredential,
   signInWithPhoneNumber,
   type Auth,
   type ConfirmationResult,
@@ -64,6 +66,13 @@ export type ResidentPhoneVerificationResult = {
   normalizedPhoneNumber: string;
 };
 
+export type ConfirmResidentPhoneVerificationPayload = {
+  verificationId: string;
+  smsCode: string;
+  phoneNumber: string;
+  pesel: string;
+};
+
 function normalizePhoneNumber(rawPhoneNumber: string): string {
   const compact = rawPhoneNumber.replace(/[\s-]/g, '');
 
@@ -76,6 +85,10 @@ function normalizePhoneNumber(rawPhoneNumber: string): string {
   }
 
   return compact;
+}
+
+function normalizePesel(rawPesel: string): string {
+  return rawPesel.trim();
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -178,4 +191,59 @@ export async function sendResidentPhoneVerificationCode(
     verificationId: confirmationResult.verificationId,
     normalizedPhoneNumber,
   };
+}
+
+export async function confirmResidentPhoneVerificationCode(
+  payload: ConfirmResidentPhoneVerificationPayload
+): Promise<User> {
+  const authInstance = requireAuth();
+  const dbInstance = requireDb();
+  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  const normalizedPesel = normalizePesel(payload.pesel);
+
+  const credential = PhoneAuthProvider.credential(payload.verificationId, payload.smsCode.trim());
+  const credentials = await signInWithCredential(authInstance, credential);
+  const signedInUser = credentials.user;
+
+  const usersRef = collection(dbInstance, 'users');
+  const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([
+    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(1))),
+    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(1))),
+    getDocs(query(usersRef, where('pesel', '==', normalizedPesel), limit(1))),
+  ]);
+
+  const phoneTakenByAnotherUser =
+    !phoneNumberSnapshot.empty &&
+    phoneNumberSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
+  const legacyPhoneTakenByAnotherUser =
+    !legacyPhoneSnapshot.empty &&
+    legacyPhoneSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
+  const peselTakenByAnotherUser =
+    !peselSnapshot.empty && peselSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
+
+  if (phoneTakenByAnotherUser || legacyPhoneTakenByAnotherUser) {
+    throw new Error('Ten numer telefonu jest juz przypisany do innego konta.');
+  }
+
+  if (peselTakenByAnotherUser) {
+    throw new Error('Dla tego numeru PESEL istnieje juz konto mieszkanca.');
+  }
+
+  await setDoc(
+    doc(dbInstance, 'users', signedInUser.uid),
+    {
+      phoneNumber: normalizedPhoneNumber,
+      phone: normalizedPhoneNumber,
+      pesel: normalizedPesel,
+      phoneVerified: true,
+      canVote: true,
+      residentStatus: 'verified_resident',
+      commune: 'Mlawa',
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return signedInUser;
 }

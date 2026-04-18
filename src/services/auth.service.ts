@@ -122,13 +122,27 @@ async function getPhoneAccountUids(
   dbInstance: Firestore,
   normalizedPhoneNumber: string
 ): Promise<string[]> {
+  const phoneIndexSnapshot = await getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber));
+  const phoneIndexData = phoneIndexSnapshot.data();
+  const indexedUids =
+    phoneIndexSnapshot.exists() && Array.isArray(phoneIndexData?.uids)
+      ? (phoneIndexData.uids as string[]).filter((value) => typeof value === 'string')
+      : phoneIndexSnapshot.exists() && typeof phoneIndexData?.uid === 'string'
+        ? [phoneIndexData.uid as string]
+        : [];
+
   const usersRef = collection(dbInstance, 'users');
   const [phoneNumberSnapshot, legacyPhoneSnapshot] = await Promise.all([
     getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
     getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(MAX_PHONE_ACCOUNTS + 1))),
   ]);
 
-  return Array.from(new Set([...phoneNumberSnapshot.docs, ...legacyPhoneSnapshot.docs].map((docSnapshot) => docSnapshot.id)));
+  return Array.from(
+    new Set([
+      ...indexedUids,
+      ...[...phoneNumberSnapshot.docs, ...legacyPhoneSnapshot.docs].map((docSnapshot) => docSnapshot.id),
+    ])
+  );
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -211,7 +225,7 @@ export async function checkResidentRegistrationAvailability(
 
   if (phoneIndexSnapshot.exists() || peselIndexSnapshot.exists()) {
     return {
-      phoneTaken: phoneIndexSnapshot.exists() || phoneAccountUids.length > 0,
+      phoneTaken: phoneAccountUids.length > 0,
       peselTaken: peselIndexSnapshot.exists(),
       phoneAccountsCount: phoneAccountUids.length,
       phoneLimitReached,
@@ -266,39 +280,15 @@ export async function confirmResidentPhoneVerificationCode(
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
+  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
 
   const credential = PhoneAuthProvider.credential(payload.verificationId, payload.smsCode.trim());
   const credentials = await signInWithCredential(authInstance, credential);
   const signedInUser = credentials.user;
-  const phoneAccountUids = await getPhoneAccountUids(dbInstance, normalizedPhoneNumber);
   const alreadyLinkedToCurrentUser = phoneAccountUids.includes(signedInUser.uid);
 
   if (!alreadyLinkedToCurrentUser && phoneAccountUids.length >= MAX_PHONE_ACCOUNTS) {
     throw new Error('Na ten numer telefonu utworzono juz maksymalna liczbe kont');
-  }
-
-  const usersRef = collection(dbInstance, 'users');
-  const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([
-    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(1))),
-    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(1))),
-    getDocs(query(usersRef, where('pesel', '==', normalizedPesel), limit(1))),
-  ]);
-
-  const phoneTakenByAnotherUser =
-    !phoneNumberSnapshot.empty &&
-    phoneNumberSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
-  const legacyPhoneTakenByAnotherUser =
-    !legacyPhoneSnapshot.empty &&
-    legacyPhoneSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
-  const peselTakenByAnotherUser =
-    !peselSnapshot.empty && peselSnapshot.docs.some((docSnapshot) => docSnapshot.id !== signedInUser.uid);
-
-  if (phoneTakenByAnotherUser || legacyPhoneTakenByAnotherUser) {
-    throw new Error('Ten numer telefonu jest juz przypisany do innego konta.');
-  }
-
-  if (peselTakenByAnotherUser) {
-    throw new Error('To konto mieszkanca zostalo juz zarejestrowane');
   }
 
   const userRef = doc(dbInstance, 'users', signedInUser.uid);
@@ -311,9 +301,20 @@ export async function confirmResidentPhoneVerificationCode(
       transaction.get(userPhoneIndexRef),
       transaction.get(userPeselIndexRef),
     ]);
+    const phoneIndexData = phoneIndexSnapshot.data();
+    const phoneIndexUids =
+      phoneIndexSnapshot.exists() && Array.isArray(phoneIndexData?.uids)
+        ? (phoneIndexData.uids as string[]).filter((value) => typeof value === 'string')
+        : phoneIndexSnapshot.exists() && typeof phoneIndexData?.uid === 'string'
+          ? [phoneIndexData.uid as string]
+          : [];
+    const basePhoneUids = Array.from(new Set([...phoneAccountUids, ...phoneIndexUids]));
+    const nextPhoneUids = basePhoneUids.includes(signedInUser.uid)
+      ? basePhoneUids
+      : [...basePhoneUids, signedInUser.uid];
 
-    if (phoneIndexSnapshot.exists() && phoneIndexSnapshot.data().uid !== signedInUser.uid) {
-      throw new Error('Ten numer telefonu jest juz przypisany do innego konta.');
+    if (nextPhoneUids.length > MAX_PHONE_ACCOUNTS) {
+      throw new Error('Na ten numer telefonu utworzono juz maksymalna liczbe kont');
     }
 
     if (peselIndexSnapshot.exists() && peselIndexSnapshot.data().uid !== signedInUser.uid) {
@@ -340,12 +341,16 @@ export async function confirmResidentPhoneVerificationCode(
       { merge: true }
     );
 
-    if (!phoneIndexSnapshot.exists()) {
-      transaction.set(userPhoneIndexRef, {
-        uid: signedInUser.uid,
-        createdAt: serverTimestamp(),
-      });
-    }
+    transaction.set(
+      userPhoneIndexRef,
+      {
+        uids: nextPhoneUids,
+        accountCount: nextPhoneUids.length,
+        updatedAt: serverTimestamp(),
+        ...(phoneIndexSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true }
+    );
 
     if (!peselIndexSnapshot.exists()) {
       transaction.set(userPeselIndexRef, {

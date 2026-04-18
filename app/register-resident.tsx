@@ -55,15 +55,6 @@ export default function RegisterResidentScreen() {
       return;
     }
 
-    if (availability.phoneTaken) {
-      await notify(
-        'Numer zajety',
-        'Ten numer telefonu jest juz przypisany do innego konta. Zaloguj numerem telefonu.',
-        'error'
-      );
-      return;
-    }
-
     if (availability.peselTaken) {
       await notify(
         'PESEL zajety',
@@ -95,7 +86,11 @@ export default function RegisterResidentScreen() {
       <Box style={styles.formCard}>
         <VStack space="md">
           <Text color={futuristicTheme.colors.textMuted}>
-            Wpisz numer telefonu i PESEL, a potem potwierdz kod SMS.
+            1. Wpisz numer telefonu
+            {'\n'}
+            2. Wpisz numer PESEL
+            {'\n'}
+            3. Sprawdzimy dane i wyslemy kod SMS
           </Text>
 
           <Controller

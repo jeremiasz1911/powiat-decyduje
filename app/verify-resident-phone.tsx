@@ -37,7 +37,8 @@ export default function VerifyResidentPhoneScreen() {
   const mode = useMemo(() => params.mode ?? 'register', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const pesel = useMemo(() => params.pesel ?? '', [params.pesel]);
-  const isRegisterMode = mode !== 'login';
+  const isRegisterMode = mode === 'register';
+  const isRecoverMode = mode === 'recover';
   const canProceed = Boolean(phoneNumber && currentVerificationId && (!isRegisterMode || pesel));
 
   const {
@@ -77,7 +78,11 @@ export default function VerifyResidentPhoneScreen() {
           phoneNumber,
         });
 
-        await notify('Zalogowano', 'Logowanie telefonem zakonczone powodzeniem.', 'success');
+        if (isRecoverMode) {
+          await notify('Dostep odzyskany', 'Kod SMS zostal potwierdzony. Odzyskales dostep do konta.', 'success');
+        } else {
+          await notify('Zalogowano', 'Logowanie telefonem zakonczone powodzeniem.', 'success');
+        }
       }
 
       router.replace('/(drawer)/(tabs)/projects');

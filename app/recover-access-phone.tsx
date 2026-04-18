@@ -20,9 +20,9 @@ import {
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { sendResidentPhoneVerificationCode } from '@/src/services';
 
-type PhoneLoginFormValues = Pick<ResidentRegistrationFormValues, 'phoneNumber'>;
+type RecoverAccessFormValues = Pick<ResidentRegistrationFormValues, 'phoneNumber'>;
 
-export default function LoginPhoneScreen() {
+export default function RecoverAccessPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -31,7 +31,7 @@ export default function LoginPhoneScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<PhoneLoginFormValues>({
+  } = useForm<RecoverAccessFormValues>({
     resolver: zodResolver(residentRegistrationSchema.pick({ phoneNumber: true })),
     defaultValues: {
       phoneNumber: '',
@@ -39,7 +39,7 @@ export default function LoginPhoneScreen() {
     mode: 'onBlur',
   });
 
-  const onSubmit = async (values: PhoneLoginFormValues) => {
+  const onSubmit = async (values: RecoverAccessFormValues) => {
     setIsSendingCode(true);
 
     try {
@@ -52,21 +52,23 @@ export default function LoginPhoneScreen() {
       router.push({
         pathname: '/verify-resident-phone',
         params: {
-          mode: 'login',
+          mode: 'recover',
           phoneNumber: verification.normalizedPhoneNumber,
           verificationId: verification.verificationId,
         },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu SMS.';
-      await notify('Blad logowania', message, 'error');
+      await notify('Blad odzyskiwania', message, 'error');
     } finally {
       setIsSendingCode(false);
     }
   };
 
   return (
-    <ScreenContainer title="Logowanie telefonem" description="Podaj numer telefonu, aby otrzymac kod SMS.">
+    <ScreenContainer
+      title="Odzyskiwanie dostepu"
+      description="Podaj numer telefonu, aby odzyskac dostep przez kod SMS.">
       <Box>
         <VStack space="md">
           <Controller
@@ -92,14 +94,6 @@ export default function LoginPhoneScreen() {
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode}>
             <ButtonText>{isSendingCode ? 'Wysylanie...' : 'Wyslij kod SMS'}</ButtonText>
-          </Button>
-
-          <Button
-            variant="outline"
-            action="secondary"
-            onPress={() => router.push('/recover-access-phone')}
-            isDisabled={isSendingCode}>
-            <ButtonText>Nie masz dostepu? Odzyskaj przez SMS</ButtonText>
           </Button>
         </VStack>
       </Box>

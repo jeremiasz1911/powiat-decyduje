@@ -87,7 +87,7 @@ export default function SubmitProjectScreen() {
   const handlePickImagesFromLibrary = async () => {
     const remainingSlots = MAX_PROJECT_IMAGES - imagePreviews.length;
     if (remainingSlots <= 0) {
-      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'info');
       return;
     }
 
@@ -120,13 +120,13 @@ export default function SubmitProjectScreen() {
     await notify(
       'Zdjecia dodane',
       `Lacznie: ${merged.length}/${MAX_PROJECT_IMAGES} zdjec.`,
-      merged.length === MAX_PROJECT_IMAGES ? 'warning' : 'success'
+      merged.length === MAX_PROJECT_IMAGES ? 'info' : 'success'
     );
   };
 
   const handleTakePhoto = async () => {
     if (imagePreviews.length >= MAX_PROJECT_IMAGES) {
-      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'warning');
+      await notify('Limit zdjec', `Mozesz dodac maksymalnie ${MAX_PROJECT_IMAGES} zdjec.`, 'info');
       return;
     }
 

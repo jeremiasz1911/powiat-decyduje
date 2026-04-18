@@ -298,7 +298,7 @@ export async function confirmResidentPhoneVerificationCode(
   }
 
   if (peselTakenByAnotherUser) {
-    throw new Error('Dla tego numeru PESEL istnieje juz konto mieszkanca.');
+    throw new Error('To konto mieszkanca zostalo juz zarejestrowane');
   }
 
   const userRef = doc(dbInstance, 'users', signedInUser.uid);
@@ -317,7 +317,7 @@ export async function confirmResidentPhoneVerificationCode(
     }
 
     if (peselIndexSnapshot.exists() && peselIndexSnapshot.data().uid !== signedInUser.uid) {
-      throw new Error('Dla tego numeru PESEL istnieje juz konto mieszkanca.');
+      throw new Error('To konto mieszkanca zostalo juz zarejestrowane');
     }
 
     transaction.set(

@@ -73,7 +73,7 @@ export default function RegisterResidentScreen() {
     if (availability.peselTaken) {
       await notify(
         'PESEL zajety',
-        'Dla tego numeru PESEL istnieje juz konto mieszkanca. Skontaktuj sie z administratorem.',
+        'To konto mieszkanca zostalo juz zarejestrowane',
         'error'
       );
       return;

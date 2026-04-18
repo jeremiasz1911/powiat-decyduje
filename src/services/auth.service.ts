@@ -1,6 +1,16 @@
 import { FirebaseError } from 'firebase/app';
 import { createUserWithEmailAndPassword, signInAnonymously, type Auth, type User } from 'firebase/auth';
-import { doc, serverTimestamp, setDoc, type Firestore } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  type Firestore,
+  where,
+} from 'firebase/firestore';
 
 import { auth, db } from '@/src/lib/firebase';
 
@@ -26,6 +36,30 @@ export type RegisterPayload = {
   email: string;
   password: string;
 };
+
+export type ResidentRegistrationAvailabilityPayload = {
+  phoneNumber: string;
+  pesel: string;
+};
+
+export type ResidentRegistrationAvailabilityResult = {
+  phoneTaken: boolean;
+  peselTaken: boolean;
+};
+
+function normalizePhoneNumber(rawPhoneNumber: string): string {
+  const compact = rawPhoneNumber.replace(/[\s-]/g, '');
+
+  if (/^\d{9}$/.test(compact)) {
+    return `+48${compact}`;
+  }
+
+  if (/^48\d{9}$/.test(compact)) {
+    return `+${compact}`;
+  }
+
+  return compact;
+}
 
 export async function ensureAnonymousAuth(): Promise<User> {
   const authInstance = requireAuth();
@@ -61,4 +95,24 @@ export async function register(payload: RegisterPayload): Promise<User> {
   });
 
   return credentials.user;
+}
+
+export async function checkResidentRegistrationAvailability(
+  payload: ResidentRegistrationAvailabilityPayload
+): Promise<ResidentRegistrationAvailabilityResult> {
+  const dbInstance = requireDb();
+  const usersRef = collection(dbInstance, 'users');
+  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  const normalizedPesel = payload.pesel.trim();
+
+  const [phoneNumberSnapshot, legacyPhoneSnapshot, peselSnapshot] = await Promise.all([
+    getDocs(query(usersRef, where('phoneNumber', '==', normalizedPhoneNumber), limit(1))),
+    getDocs(query(usersRef, where('phone', '==', normalizedPhoneNumber), limit(1))),
+    getDocs(query(usersRef, where('pesel', '==', normalizedPesel), limit(1))),
+  ]);
+
+  return {
+    phoneTaken: !phoneNumberSnapshot.empty || !legacyPhoneSnapshot.empty,
+    peselTaken: !peselSnapshot.empty,
+  };
 }

@@ -32,6 +32,7 @@ import {
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { createProject, ensureAnonymousAuth } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
@@ -39,6 +40,7 @@ const MAX_PROJECT_IMAGES = 5;
 export default function SubmitProjectScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { activeResidentAccount } = useAuthContext();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
 
   const initialLatitude = Number(params.latitude ?? 53.1126);
@@ -158,9 +160,16 @@ export default function SubmitProjectScreen() {
   const onSubmit = async (values: ProjectSubmissionFormValues) => {
     setSubmitError(null);
     try {
+      if (!activeResidentAccount) {
+        throw new Error('Wybierz aktywne konto mieszkanca, aby zglosic projekt.');
+      }
+
       const user = await ensureAnonymousAuth();
       const projectId = await createProject({
         userId: user.uid,
+        residentAccountId: activeResidentAccount.id,
+        residentPesel: activeResidentAccount.pesel,
+        residentLabel: activeResidentAccount.label,
         title: values.title,
         description: values.description,
         category: values.category,

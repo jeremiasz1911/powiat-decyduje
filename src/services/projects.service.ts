@@ -25,6 +25,9 @@ import { db, storage } from '@/src/lib/firebase';
 
 export type CreateProjectPayload = {
   userId: string;
+  residentAccountId: string;
+  residentPesel: string;
+  residentLabel: string;
   title: string;
   description: string;
   category: string;
@@ -43,6 +46,9 @@ export type CreateProjectPayload = {
 export type ProjectItem = {
   id: string;
   createdBy: string;
+  createdByResidentAccountId: string;
+  createdByResidentPesel: string;
+  createdByResidentLabel: string;
   title: string;
   description: string;
   category: string;
@@ -86,6 +92,13 @@ export type VotesSummary = {
   votesRemaining: number;
 };
 
+export type VoteLimitCheckResult = {
+  votesUsed: number;
+  votesRemaining: number;
+  limitReached: boolean;
+  maxVotes: number;
+};
+
 export type UpdateProjectPayload = {
   title: string;
   description: string;
@@ -107,6 +120,9 @@ function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectIte
   return {
     id: docSnap.id,
     createdBy: data.createdBy ?? '',
+    createdByResidentAccountId: data.createdByResidentAccountId ?? '',
+    createdByResidentPesel: data.createdByResidentPesel ?? '',
+    createdByResidentLabel: data.createdByResidentLabel ?? '',
     title: data.title,
     description: data.description,
     category: data.category,
@@ -214,6 +230,10 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
   const primaryImageUrl = imageUrls[0];
 
   const docRef = await addDoc(collection(db, 'projects'), {
+    createdBy: payload.userId,
+    createdByResidentAccountId: payload.residentAccountId,
+    createdByResidentPesel: payload.residentPesel,
+    createdByResidentLabel: payload.residentLabel,
     title: payload.title,
     description: payload.description,
     category: payload.category,
@@ -225,7 +245,6 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     imageUrl: primaryImageUrl,
     imageUrls,
     icon: payload.icon,
-    createdBy: payload.userId,
     createdAt: serverTimestamp(),
     status: 'submitted',
     votesCount: 0,
@@ -419,6 +438,15 @@ export async function listProjectsVotedByUser(
 }
 
 export async function getVotesSummary(userId: string): Promise<VotesSummary> {
+  const limit = await checkUserVoteLimit(userId);
+
+  return {
+    votesUsed: limit.votesUsed,
+    votesRemaining: limit.votesRemaining,
+  };
+}
+
+export async function checkUserVoteLimit(userId: string): Promise<VoteLimitCheckResult> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
@@ -426,10 +454,13 @@ export async function getVotesSummary(userId: string): Promise<VotesSummary> {
   const userRef = doc(db, 'users', userId);
   const snapshot = await getDoc(userRef);
   const votesUsed = (snapshot.data()?.votesUsed as number | undefined) ?? 0;
+  const votesRemaining = Math.max(0, MAX_VOTES_PER_USER - votesUsed);
 
   return {
     votesUsed,
-    votesRemaining: Math.max(0, MAX_VOTES_PER_USER - votesUsed),
+    votesRemaining,
+    limitReached: votesRemaining === 0,
+    maxVotes: MAX_VOTES_PER_USER,
   };
 }
 
@@ -450,6 +481,9 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
   return {
     id: snapshot.id,
     createdBy: data.createdBy ?? '',
+    createdByResidentAccountId: data.createdByResidentAccountId ?? '',
+    createdByResidentPesel: data.createdByResidentPesel ?? '',
+    createdByResidentLabel: data.createdByResidentLabel ?? '',
     title: data.title,
     description: data.description,
     category: data.category,
@@ -515,6 +549,19 @@ export async function voteForProject(
   }
 
   const projectRef = doc(db, 'projects', projectId);
+  const voteLimit = await checkUserVoteLimit(userId);
+  if (voteLimit.limitReached) {
+    const projectSnapshot = await getDoc(projectRef);
+    const currentVotes = (projectSnapshot.data()?.votesCount as number | undefined) ?? 0;
+
+    return {
+      added: false,
+      votesCount: currentVotes,
+      remainingVotes: 0,
+      reason: 'vote_limit_reached',
+    };
+  }
+
   const userVoteRef = doc(db, 'projects', projectId, 'votes', userId);
   const installationVoteRef = doc(db, 'projects', projectId, 'installationVotes', installationId);
   const userVotesCounterRef = doc(db, 'users', userId);

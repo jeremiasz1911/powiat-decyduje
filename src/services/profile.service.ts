@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc, type Timestamp } from 'firebase/firestore';
 
 import { db } from '@/src/lib/firebase';
 
@@ -22,6 +22,13 @@ export type ResidentProfile = {
   residentStatus: 'verified_resident';
   createdAt?: unknown;
   updatedAt?: unknown;
+};
+
+export type ResidentVotingStatus = {
+  hasVoted: boolean;
+  votedAt: Timestamp | null;
+  eligibleToVote: boolean;
+  verificationStatus: 'pending' | 'verified' | 'rejected';
 };
 
 export async function getResidentProfile(uid: string): Promise<ResidentProfile | null> {
@@ -73,8 +80,32 @@ export async function upsertResidentProfile(payload: ResidentProfilePayload): Pr
       street: payload.street || null,
       commune: 'Mlawa',
       residentStatus: 'verified_resident',
+      hasVoted: false,
+      votedAt: null,
+      eligibleToVote: true,
+      verificationStatus: 'verified',
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+export async function updateResidentVotingStatus(uid: string, status: ResidentVotingStatus): Promise<void> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const ref = doc(db, 'users', uid);
+
+  await setDoc(
+    ref,
+    {
+      hasVoted: status.hasVoted,
+      votedAt: status.votedAt,
+      eligibleToVote: status.eligibleToVote,
+      verificationStatus: status.verificationStatus,
+      updatedAt: serverTimestamp(),
     },
     { merge: true }
   );

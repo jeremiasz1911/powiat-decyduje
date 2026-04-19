@@ -27,11 +27,17 @@ service cloud.firestore {
         'imageUrl',
         'imageUrls',
         'createdBy',
+        'createdByResidentAccountId',
+        'createdByResidentPesel',
+        'createdByResidentLabel',
         'createdAt',
         'status',
         'votesCount'
       ]) &&
       request.resource.data.createdBy == request.auth.uid &&
+      request.resource.data.createdByResidentAccountId is string &&
+      request.resource.data.createdByResidentPesel is string &&
+      request.resource.data.createdByResidentLabel is string &&
       request.resource.data.icon is string &&
       request.resource.data.status == 'submitted' &&
       request.resource.data.votesCount == 0;
@@ -129,9 +135,17 @@ service cloud.firestore {
               'fullName',
               'email',
               'phone',
-              'village',
-              'street',
-              'commune',
+                'phoneNumber',
+                'pesel',
+                'phoneVerified',
+                'canVote',
+                'hasVoted',
+                'votedAt',
+                'eligibleToVote',
+                'verificationStatus',
+                'village',
+                'street',
+                'commune',
               'residentStatus',
               'votesUsed',
               'createdAt',
@@ -158,6 +172,14 @@ service cloud.firestore {
           'fullName',
           'email',
           'phone',
+          'phoneNumber',
+          'pesel',
+          'phoneVerified',
+          'canVote',
+          'hasVoted',
+          'votedAt',
+          'eligibleToVote',
+          'verificationStatus',
           'village',
           'street',
           'commune',
@@ -193,6 +215,28 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+    }
+
+    match /auth_index_phone/{phoneNumber} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() &&
+        !exists(/databases/$(database)/documents/auth_index_phone/$(phoneNumber)) &&
+        request.resource.data.keys().hasOnly(['uid', 'createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /auth_index_pesel/{pesel} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() &&
+        !exists(/databases/$(database)/documents/auth_index_pesel/$(pesel)) &&
+        request.resource.data.keys().hasOnly(['uid', 'createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
 
     match /{document=**} {

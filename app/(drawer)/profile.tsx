@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,12 +35,14 @@ import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function DrawerProfileScreen() {
+  const router = useRouter();
   const { notify } = useAppFeedback();
-  const { activeResidentAccount, refreshResidentAccounts } = useAuthContext();
+  const { activeResidentAccount, refreshResidentAccounts, logout } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const defaultValues = useMemo<ResidentProfileFormValues>(
     () => ({
@@ -137,6 +140,21 @@ export default function DrawerProfileScreen() {
       const message = saveError instanceof Error ? saveError.message : 'Nie udalo sie zapisac profilu.';
       setError(message);
       await notify('Blad zapisu', message, 'error');
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      await notify('Wylogowano', 'Wylogowano z konta mieszkanca.', 'success');
+      router.replace('/login-phone');
+    } catch (logoutError) {
+      const message = logoutError instanceof Error ? logoutError.message : 'Nie udalo sie wylogowac.';
+      await notify('Blad wylogowania', message, 'error');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -288,6 +306,16 @@ export default function DrawerProfileScreen() {
             <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
               <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Zapisywanie...' : profileExists ? 'Aktualizuj profil' : 'Zarejestruj profil'}</ButtonText>
             </Button>
+
+            <Button
+              onPress={handleLogout}
+              isDisabled={isLoggingOut}
+              style={styles.dangerButton}
+              action="negative">
+              <ButtonText color={futuristicTheme.colors.textPrimary}>
+                {isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
+              </ButtonText>
+            </Button>
           </VStack>
         </ScrollView>
       </Box>
@@ -324,5 +352,11 @@ const styles = StyleSheet.create({
     backgroundColor: futuristicTheme.colors.accent,
     borderRadius: 14,
     ...futuristicShadows.glow,
+  },
+  dangerButton: {
+    borderColor: futuristicTheme.colors.danger,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderRadius: 14,
   },
 });

@@ -4,7 +4,7 @@ import { type User } from 'firebase/auth';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { useAuth } from '@/src/hooks/use-auth';
 import { secureStore } from '@/src/lib/secure-store';
-import { getResidentAccountsForSignedInUser, type ResidentAccount } from '@/src/services';
+import { getResidentAccountsForSignedInUser, logoutResidentSession, type ResidentAccount } from '@/src/services';
 
 type AuthContextValue = {
   user: User | null;
@@ -15,6 +15,7 @@ type AuthContextValue = {
   activeResidentAccountId: string | null;
   setActiveResidentAccountId: (accountId: string) => Promise<void>;
   refreshResidentAccounts: () => Promise<ResidentAccount[]>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -69,6 +70,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [user]);
 
+  const logout = useCallback(async () => {
+    await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+    setActiveResidentAccountIdState(null);
+    setResidentAccounts([]);
+    await logoutResidentSession();
+  }, []);
+
   useEffect(() => {
     void refreshResidentAccounts();
   }, [refreshResidentAccounts]);
@@ -84,6 +92,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         residentAccounts.find((account) => account.id === activeResidentAccountId) ?? null,
       setActiveResidentAccountId,
       refreshResidentAccounts,
+      logout,
     }),
     [
       activeResidentAccountId,
@@ -92,6 +101,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       refreshResidentAccounts,
       residentAccounts,
       setActiveResidentAccountId,
+      logout,
       user,
     ]
   );

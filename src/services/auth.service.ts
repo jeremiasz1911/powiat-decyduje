@@ -284,6 +284,11 @@ export async function ensureAnonymousAuth(): Promise<User> {
   }
 }
 
+export async function logoutResidentSession(): Promise<void> {
+  const authInstance = requireAuth();
+  await signOut(authInstance);
+}
+
 export async function register(payload: RegisterPayload): Promise<User> {
   const authInstance = requireAuth();
   const dbInstance = requireDb();

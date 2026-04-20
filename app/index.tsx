@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Redirect } from 'expo-router';
+import { useAuthContext } from '@/src/store/auth-context';
 
 import { secureStore } from '@/src/lib/secure-store';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { futuristicTheme } from '@/src/theme/futuristic';
 
 export default function AppEntryScreen() {
+  const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
 
@@ -30,6 +32,10 @@ export default function AppEntryScreen() {
 
   if (!completed) {
     return <Redirect href="/onboarding" />;
+  }
+
+  if (!user) {
+    return <Redirect href="/login-phone" />;
   }
 
   return <Redirect href="/(drawer)/(tabs)/projects" />;

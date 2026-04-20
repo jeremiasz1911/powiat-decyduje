@@ -25,11 +25,17 @@ import {
   type ResidentProfileFormValues,
 } from '@/src/features/profile/resident-profile.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { ensureAnonymousAuth, getResidentProfile, upsertResidentProfile } from '@/src/services';
+import {
+  ensureAnonymousAuth,
+  getResidentAccountProfile,
+  upsertResidentAccountProfile,
+} from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function DrawerProfileScreen() {
   const { notify } = useAppFeedback();
+  const { activeResidentAccount, refreshResidentAccounts } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [profileExists, setProfileExists] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +71,10 @@ export default function DrawerProfileScreen() {
     try {
       const user = await ensureAnonymousAuth();
       setUid(user.uid);
-      const profile = await getResidentProfile(user.uid);
+      if (!activeResidentAccount) {
+        throw new Error('Wybierz aktywne konto mieszkanca, aby edytowac profil.');
+      }
+      const profile = await getResidentAccountProfile(user.uid, activeResidentAccount.id);
 
       if (!profile) {
         setProfileExists(false);
@@ -89,7 +98,7 @@ export default function DrawerProfileScreen() {
     } finally {
       setLoading(false);
     }
-  }, [defaultValues, notify, reset]);
+  }, [activeResidentAccount, defaultValues, notify, reset]);
 
   useEffect(() => {
     void loadProfile();
@@ -101,15 +110,22 @@ export default function DrawerProfileScreen() {
       return;
     }
 
+    if (!activeResidentAccount) {
+      await notify('Brak profilu', 'Wybierz konto mieszkanca przed zapisem profilu.', 'error');
+      return;
+    }
+
     try {
-      await upsertResidentProfile({
+      await upsertResidentAccountProfile({
         uid,
+        residentAccountId: activeResidentAccount.id,
         fullName: values.fullName,
         email: values.email || undefined,
         phone: values.phone || undefined,
         village: values.village,
         street: values.street || undefined,
       });
+      await refreshResidentAccounts();
 
       setProfileExists(true);
       await notify(
@@ -149,6 +165,8 @@ export default function DrawerProfileScreen() {
             <Box style={styles.profileCard}>
               <VStack space="xs">
                 <Text style={styles.cardTitle}>Karta profilu</Text>
+                <Text color={futuristicTheme.colors.textMuted}>Konto: {activeResidentAccount?.label ?? '-'}</Text>
+                <Text color={futuristicTheme.colors.textMuted}>PESEL: {activeResidentAccount?.pesel ?? '-'}</Text>
                 <Text color={futuristicTheme.colors.textMuted}>Gmina: Mlawa</Text>
                 <Text color={futuristicTheme.colors.textMuted}>Status: {profileExists ? 'Mieszkaniec zarejestrowany' : 'Nieuzupelniony'}</Text>
                 <Text color={futuristicTheme.colors.textMuted}>UID: {uid ?? '-'}</Text>

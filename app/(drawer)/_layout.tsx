@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Drawer } from 'expo-router/drawer';
+import { futuristicTheme } from '@/src/theme/futuristic';
 
 export default function DrawerLayout() {
   return (
@@ -7,6 +8,20 @@ export default function DrawerLayout() {
       screenOptions={{
         headerShown: true,
         swipeEnabled: true,
+        headerStyle: {
+          backgroundColor: '#03182f',
+        },
+        headerTintColor: futuristicTheme.colors.textPrimary,
+        headerShadowVisible: false,
+        headerTitleStyle: {
+          fontWeight: '700',
+        },
+        drawerStyle: {
+          backgroundColor: '#041a2d',
+        },
+        drawerActiveTintColor: futuristicTheme.colors.accent,
+        drawerInactiveTintColor: futuristicTheme.colors.textMuted,
+        drawerActiveBackgroundColor: 'rgba(34, 211, 238, 0.14)',
       }}>
       <Drawer.Screen
         name="(tabs)"

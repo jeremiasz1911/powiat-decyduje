@@ -4,6 +4,7 @@ import { Redirect } from 'expo-router';
 
 import { secureStore } from '@/src/lib/secure-store';
 import { STORAGE_KEYS } from '@/src/constants/storage';
+import { futuristicTheme } from '@/src/theme/futuristic';
 
 export default function AppEntryScreen() {
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ export default function AppEntryScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color={futuristicTheme.colors.accent} />
       </View>
     );
   }

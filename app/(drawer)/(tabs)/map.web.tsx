@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/screen-container';
+import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
 
 export default function MapWebScreen() {
   const router = useRouter();
@@ -33,21 +34,21 @@ export default function MapWebScreen() {
         {isOpen ? (
           <>
             <View style={styles.actionButtonWrap}>
-              <Button onPress={handleOpenProjects} size="md" action="secondary" borderRadius="$full">
-                <ButtonText>Przegladaj projekty</ButtonText>
+              <Button onPress={handleOpenProjects} size="md" action="secondary" borderRadius="$full" bg={futuristicTheme.colors.panel}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>Przegladaj projekty</ButtonText>
               </Button>
             </View>
 
             <View style={styles.actionButtonWrap}>
-              <Button onPress={handleSubmitProject} size="md" action="secondary" borderRadius="$full">
-                <ButtonText>Zglos projekt</ButtonText>
+              <Button onPress={handleSubmitProject} size="md" action="secondary" borderRadius="$full" bg={futuristicTheme.colors.panel}>
+                <ButtonText color={futuristicTheme.colors.textPrimary}>Zglos projekt</ButtonText>
               </Button>
             </View>
           </>
         ) : null}
 
-        <Button onPress={() => setIsOpen((prev) => !prev)} size="lg" borderRadius="$full" bg="$blue600" style={styles.fabMain}>
-          <Ionicons name={isOpen ? 'close' : 'add'} size={26} color="#fff" />
+        <Button onPress={() => setIsOpen((prev) => !prev)} size="lg" borderRadius="$full" bg={futuristicTheme.colors.accent} style={styles.fabMain}>
+          <Ionicons name={isOpen ? 'close' : 'add'} size={26} color={futuristicTheme.colors.textDark} />
         </Button>
       </View>
     </ScreenContainer>
@@ -63,17 +64,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionButtonWrap: {
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
+    ...futuristicShadows.soft,
   },
   fabMain: {
-    shadowColor: '#111827',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 12,
-    elevation: 8,
+    ...futuristicShadows.glow,
   },
 });

@@ -22,6 +22,7 @@ service cloud.firestore {
         'village',
         'cost',
         'location',
+        'icon',
         'imageUrl',
         'imageUrls',
         'createdBy',
@@ -30,6 +31,7 @@ service cloud.firestore {
         'votesCount'
       ]) &&
       request.resource.data.createdBy == request.auth.uid &&
+      request.resource.data.icon is string &&
       request.resource.data.status == 'submitted' &&
       request.resource.data.votesCount == 0;
     }
@@ -61,6 +63,7 @@ service cloud.firestore {
               'village',
               'cost',
               'location',
+              'icon',
               'updatedAt'
             ]) &&
             request.resource.data.updatedAt == request.time &&
@@ -69,6 +72,7 @@ service cloud.firestore {
             request.resource.data.status == resource.data.status &&
             request.resource.data.imageUrl == resource.data.imageUrl &&
             request.resource.data.imageUrls == resource.data.imageUrls &&
+            request.resource.data.icon is string &&
             request.resource.data.createdAt == resource.data.createdAt
           )
         );
@@ -90,7 +94,9 @@ service cloud.firestore {
       }
 
       match /installationVotes/{installationId} {
-        allow read: if false;
+        // vote transaction reads this doc to prevent duplicate votes per installation
+        allow get: if isSignedIn();
+        allow list: if false;
 
         allow create: if isSignedIn() &&
           !exists(/databases/$(database)/documents/projects/$(projectId)/installationVotes/$(installationId)) &&

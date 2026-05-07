@@ -1,10 +1,10 @@
+import { useAuthContext } from '@/src/store/auth-context';
+import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Redirect } from 'expo-router';
-import { useAuthContext } from '@/src/store/auth-context';
 
-import { secureStore } from '@/src/lib/secure-store';
 import { STORAGE_KEYS } from '@/src/constants/storage';
+import { secureStore } from '@/src/lib/secure-store';
 import { futuristicTheme } from '@/src/theme/futuristic';
 
 export default function AppEntryScreen() {
@@ -34,7 +34,7 @@ export default function AppEntryScreen() {
     return <Redirect href="/onboarding" />;
   }
 
-  if (!user) {
+  if (!user || user.isAnonymous) {
     return <Redirect href="/login-phone" />;
   }
 

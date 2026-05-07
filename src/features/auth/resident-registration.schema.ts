@@ -1,9 +1,24 @@
 import { z } from 'zod';
 
-const normalizePhone = (value: string) => value.replace(/[\s-]/g, '');
+export const COUNTY_NAME = 'powiat mławski';
+export const COMMUNE_NAME = 'Mława';
 
-function isValidPhoneNumber(value: string): boolean {
-  return /^(?:\+48)?\d{9}$/.test(normalizePhone(value));
+export function normalizePhoneInput(value: string): string {
+  const compact = value.replace(/[\s-]/g, '');
+
+  if (/^\d{9}$/.test(compact)) {
+    return `+48${compact}`;
+  }
+
+  if (/^48\d{9}$/.test(compact)) {
+    return `+${compact}`;
+  }
+
+  return compact;
+}
+
+export function normalizePeselInput(value: string): string {
+  return value.trim();
 }
 
 function isValidPeselChecksum(pesel: string): boolean {
@@ -19,18 +34,74 @@ function isValidPeselChecksum(pesel: string): boolean {
   return checksum === digits[10];
 }
 
+const normalizedPhoneSchema = z
+  .string()
+  .trim()
+  .min(1, 'Wpisz numer telefonu.')
+  .refine((value) => /^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value)), 'Wpisz poprawny numer telefonu.');
+
+const peselSchema = z
+  .string()
+  .trim()
+  .min(1, 'Wpisz numer PESEL.')
+  .regex(/^\d{11}$/, 'PESEL musi miec 11 cyfr.')
+  .refine(isValidPeselChecksum, 'Wpisany PESEL jest niepoprawny.');
+
+const emailSchema = z.string().trim().email('Wpisz poprawny adres e-mail.');
+
+const consentSchema = z
+  .boolean()
+  .refine((value) => value, 'Musisz zaznaczyc te zgode.');
+
 export const residentRegistrationSchema = z.object({
-  phoneNumber: z
-    .string()
-    .trim()
-    .min(1, 'Wpisz numer telefonu.')
-    .refine(isValidPhoneNumber, 'Wpisz poprawny numer telefonu, np. +48 500 600 700.'),
-  pesel: z
-    .string()
-    .trim()
-    .min(1, 'Wpisz numer PESEL.')
-    .regex(/^\d{11}$/, 'PESEL musi miec 11 cyfr.')
-    .refine(isValidPeselChecksum, 'Wpisany PESEL jest niepoprawny. Sprawdz cyfry i sume kontrolna.'),
+  phoneNumber: normalizedPhoneSchema,
+  pesel: peselSchema,
+  email: emailSchema,
+  password: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
+  firstName: z.string().trim().min(2, 'Wpisz imie.'),
+  lastName: z.string().trim().min(2, 'Wpisz nazwisko.'),
+  address: z.object({
+    street: z.string().trim().min(2, 'Wpisz ulicę.'),
+    houseNumber: z.string().trim().min(1, 'Wpisz numer domu lub lokalu.'),
+    apartmentNumber: z.string().trim().optional().or(z.literal('')),
+    postalCode: z.string().trim().regex(/^\d{2}-\d{3}$/, 'Kod pocztowy musi miec format XX-XXX.'),
+    city: z.string().trim().min(2, 'Wpisz miejscowość.'),
+    commune: z.string().trim().min(2, 'Wpisz gminę.'),
+  }),
+  residentDeclaration: consentSchema,
+  termsAccepted: consentSchema,
+  privacyPolicyAccepted: consentSchema,
+  personalDataProcessingAccepted: consentSchema,
 });
 
 export type ResidentRegistrationFormValues = z.infer<typeof residentRegistrationSchema>;
+
+export const residentLoginSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Wpisz numer telefonu lub PESEL.')
+    .refine(
+      (value) => /^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value)) || /^\d{11}$/.test(normalizePeselInput(value)),
+      'Wpisz poprawny numer telefonu lub PESEL.'
+    ),
+  password: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
+});
+
+export type ResidentLoginFormValues = z.infer<typeof residentLoginSchema>;
+
+export const passwordResetSchema = z.object({
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Wpisz e-mail, numer telefonu lub PESEL.')
+    .refine(
+      (value) =>
+        z.string().email().safeParse(value).success ||
+        /^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value)) ||
+        /^\d{11}$/.test(normalizePeselInput(value)),
+      'Wpisz poprawny e-mail, numer telefonu lub PESEL.'
+    ),
+});
+
+export type PasswordResetFormValues = z.infer<typeof passwordResetSchema>;

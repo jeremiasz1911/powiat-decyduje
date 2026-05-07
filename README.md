@@ -19,6 +19,39 @@ npm install
 npx expo start
 ```
 
+## Phone Auth na Android/iOS (development build)
+
+Phone Auth w Expo Go nie dziala natywnie. Dla SMS na telefonie wymagany jest development build z RN Firebase:
+
+1. Dodaj konfiguracje natywna Firebase:
+   - Android: `google-services.json`
+   - iOS: `GoogleService-Info.plist`
+2. W Firebase Console (Android app) dodaj fingerprinty certyfikatow:
+   - SHA-1
+   - SHA-256
+3. Zbuduj i uruchom development build:
+
+```bash
+npx expo prebuild
+npx expo run:android
+# lub
+npx expo run:ios
+```
+
+Na web aplikacja dalej korzysta z Firebase JS SDK + reCAPTCHA.
+
+## Testing - Seeding testowego konta mieszkańca
+
+Aby szybko przetestować logowanie, uruchom skrypt do seeding'u:
+
+```bash
+npm run seed:test-resident
+```
+
+Skrypt utworzy testowe konto powiązane z numerem telefonu (`+48510490044`) i PESEL (`02021234567`).
+
+Szczegóły: [SEED_TEST_RESIDENT.md](./SEED_TEST_RESIDENT.md)
+
 ## Production checklist
 
 - [ ] Firebase Auth: Anonymous enabled

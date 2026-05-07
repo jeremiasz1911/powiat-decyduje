@@ -9,18 +9,16 @@ import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@glues
 import { ScreenContainer } from '@/src/components/screen-container';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
+  completeResidentRegistration,
   confirmResidentPhoneLoginCode,
-  confirmResidentPhoneVerificationCode,
   sendResidentPhoneVerificationCode,
 } from '@/src/services';
+import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const smsCodeSchema = z.object({
-  smsCode: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, 'Kod SMS musi miec dokladnie 6 cyfr.'),
+  smsCode: z.string().trim().regex(/^\d{6}$/, 'Kod SMS musi mieć dokładnie 6 cyfr.'),
 });
 
 type SmsCodeFormValues = z.infer<typeof smsCodeSchema>;
@@ -29,21 +27,17 @@ export default function VerifyResidentPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
+  const { consumeRegistration } = useAuthFlow();
   const params = useLocalSearchParams<{
     mode?: string;
     phoneNumber?: string;
     verificationId?: string;
-    pesel?: string;
   }>();
-  const [currentVerificationId, setCurrentVerificationId] = useState(params.verificationId ?? '');
+  const [verificationId, setVerificationId] = useState(params.verificationId ?? '');
   const [isResending, setIsResending] = useState(false);
-
-  const mode = useMemo(() => params.mode ?? 'register', [params.mode]);
+  const mode = useMemo(() => params.mode ?? 'login', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
-  const pesel = useMemo(() => params.pesel ?? '', [params.pesel]);
   const isRegisterMode = mode === 'register';
-  const isRecoverMode = mode === 'recover';
-  const canProceed = Boolean(phoneNumber && currentVerificationId && (!isRegisterMode || pesel));
 
   const {
     control,
@@ -56,62 +50,53 @@ export default function VerifyResidentPhoneScreen() {
   });
 
   const onSubmit = async (values: SmsCodeFormValues) => {
-    if (!canProceed) {
-      await notify(
-        'Brak danych weryfikacji',
-        'Brakuje numeru telefonu lub identyfikatora weryfikacji. Wroc do poprzedniego kroku.',
-        'error'
-      );
+    if (!verificationId || !phoneNumber) {
+      await notify('Brak danych', 'Brakuje numeru telefonu lub identyfikatora weryfikacji.', 'error');
       return;
     }
 
     try {
       if (isRegisterMode) {
-        await confirmResidentPhoneVerificationCode({
-          verificationId: currentVerificationId,
-          smsCode: values.smsCode,
-          phoneNumber,
-          pesel,
-        });
+        const pendingRegistration = consumeRegistration();
+        if (!pendingRegistration) {
+          throw new Error('Nie znaleziono danych rejestracji. Wróć do formularza i rozpocznij ponownie.');
+        }
 
-        await notify('Rejestracja zakonczona', 'Numer telefonu zostal potwierdzony. Mozesz korzystac z aplikacji.', 'success');
+        await completeResidentRegistration(pendingRegistration, verificationId, values.smsCode);
         await refreshResidentAccounts();
+        await notify('Rejestracja zakończona', 'Konto mieszkańca zostało utworzone.', 'success');
         router.replace('/(drawer)/(tabs)/projects');
-      } else {
-        await confirmResidentPhoneLoginCode({
-          verificationId: currentVerificationId,
-          smsCode: values.smsCode,
-          phoneNumber,
-        });
-
-        if (isRecoverMode) {
-          await notify('Dostep odzyskany', 'Kod SMS zostal potwierdzony. Odzyskales dostep do konta.', 'success');
-        } else {
-          await notify('Zalogowano', 'Zalogowano numerem telefonu po potwierdzeniu kodu SMS.', 'success');
-        }
-
-        const accountsAfterRefresh = await refreshResidentAccounts();
-
-        if (accountsAfterRefresh.length <= 1) {
-          const singleAccount = accountsAfterRefresh[0];
-          if (singleAccount) {
-            await setActiveResidentAccountId(singleAccount.id);
-          }
-          router.replace('/(drawer)/(tabs)/projects');
-          return;
-        }
-
-        router.replace('/select-resident-account');
+        return;
       }
+
+      await confirmResidentPhoneLoginCode({
+        verificationId,
+        smsCode: values.smsCode,
+        phoneNumber,
+      });
+
+      const accounts = await refreshResidentAccounts();
+      if (accounts.length > 1) {
+        await notify('Wybierz profil', 'Ten numer ma kilka profili mieszkańca.', 'info');
+        router.replace('/select-resident-account');
+        return;
+      }
+
+      if (accounts[0]) {
+        await setActiveResidentAccountId(accounts[0].id);
+      }
+
+      await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
+      router.replace('/(drawer)/(tabs)/projects');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie potwierdzic kodu SMS.';
-      await notify('Blad weryfikacji', message, 'error');
+      const message = error instanceof Error ? error.message : 'Nie udało się potwierdzić kodu SMS.';
+      await notify('Błąd weryfikacji', message, 'error');
     }
   };
 
   const handleResendCode = async () => {
     if (!phoneNumber) {
-      await notify('Brak numeru', 'Nie mozna ponowic wysylki bez numeru telefonu.', 'error');
+      await notify('Brak numeru', 'Nie można ponowić wysyłki bez numeru telefonu.', 'error');
       return;
     }
 
@@ -119,30 +104,28 @@ export default function VerifyResidentPhoneScreen() {
 
     try {
       const verification = await sendResidentPhoneVerificationCode({ phoneNumber });
-      setCurrentVerificationId(verification.verificationId);
-      await notify('Kod wyslany ponownie', `Nowy kod wyslano na ${verification.normalizedPhoneNumber}.`, 'success');
+      setVerificationId(verification.verificationId);
+      await notify('Kod wysłany ponownie', `Nowy kod wysłano na ${verification.normalizedPhoneNumber}.`, 'success');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu ponownie.';
-      await notify('Blad wysylki', message, 'error');
+      const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu ponownie.';
+      await notify('Błąd wysyłki', message, 'error');
     } finally {
       setIsResending(false);
     }
   };
 
   return (
-    <ScreenContainer
-      title="Potwierdz kod SMS"
-      description="Wpisz kod SMS wyslany na Twoj numer telefonu, aby sie zalogowac lub odzyskac dostep.">
-      <Box style={styles.formCard}>
+    <ScreenContainer title="Potwierdź kod SMS" description="Wpisz kod SMS wysłany na Twój numer telefonu.">
+      <Box style={styles.card}>
         <VStack space="md">
-          <Text color={futuristicTheme.colors.textMuted}>Numer telefonu: {phoneNumber || '-'}</Text>
+          <Text style={styles.meta}>Numer telefonu: {phoneNumber || '-'}</Text>
 
           <Controller
             control={control}
             name="smsCode"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Kod SMS</Text>
+                <Text style={styles.label}>Kod SMS</Text>
                 <Input style={styles.input}>
                   <InputField
                     value={value}
@@ -152,26 +135,25 @@ export default function VerifyResidentPhoneScreen() {
                     maxLength={6}
                     placeholder="000000"
                     autoComplete="one-time-code"
-                    color={futuristicTheme.colors.textPrimary}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
+                    style={styles.inputText}
                   />
                 </Input>
-                {errors.smsCode ? <Text color="$error600">{errors.smsCode.message}</Text> : null}
+                {errors.smsCode ? <Text style={styles.errorText}>{errors.smsCode.message}</Text> : null}
               </VStack>
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting || !canProceed} style={styles.primaryButton}>
-            <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Potwierdzanie kodu SMS...' : 'Potwierdz kod SMS'}</ButtonText>
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
+            <ButtonText style={styles.primaryButtonText}>
+              {isSubmitting ? 'Potwierdzanie...' : 'Potwierdź kod'}
+            </ButtonText>
           </Button>
 
-          <Button
-            variant="outline"
-            action="secondary"
-            onPress={handleResendCode}
-            isDisabled={isResending}
-            style={styles.ghostButton}>
-            <ButtonText color={futuristicTheme.colors.textPrimary}>{isResending ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS ponownie'}</ButtonText>
+          <Button variant="outline" onPress={handleResendCode} isDisabled={isResending} style={styles.secondaryButton}>
+            <ButtonText style={styles.secondaryButtonText}>
+              {isResending ? 'Wysyłanie...' : 'Wyślij kod ponownie'}
+            </ButtonText>
           </Button>
         </VStack>
       </Box>
@@ -180,29 +162,53 @@ export default function VerifyResidentPhoneScreen() {
 }
 
 const styles = StyleSheet.create({
-  formCard: {
+  card: {
     borderWidth: 1,
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     ...futuristicShadows.soft,
   },
+  meta: {
+    color: futuristicTheme.colors.textMuted,
+    fontSize: 13,
+  },
+  label: {
+    color: futuristicTheme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   input: {
+    borderRadius: 14,
+    borderWidth: 1,
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
-    borderRadius: 12,
-    borderWidth: 1,
+  },
+  inputText: {
+    color: futuristicTheme.colors.textPrimary,
+  },
+  errorText: {
+    color: futuristicTheme.colors.danger,
+    fontSize: 12,
   },
   primaryButton: {
+    borderRadius: 14,
     backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 12,
     ...futuristicShadows.glow,
   },
-  ghostButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
+  primaryButtonText: {
+    color: futuristicTheme.colors.textDark,
+    fontWeight: '800',
+  },
+  secondaryButton: {
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 12,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: 'rgba(13, 47, 79, 0.5)',
+  },
+  secondaryButtonText: {
+    color: futuristicTheme.colors.textPrimary,
+    fontWeight: '700',
   },
 });

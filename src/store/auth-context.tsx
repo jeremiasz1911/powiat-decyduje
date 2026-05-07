@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 import { type User } from 'firebase/auth';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { useAuth } from '@/src/hooks/use-auth';
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       user,
       loading: loading || accountsLoading,
-      isAuthenticated: Boolean(user),
+      isAuthenticated: Boolean(user && !user.isAnonymous),
       residentAccounts,
       activeResidentAccountId,
       activeResidentAccount:

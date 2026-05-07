@@ -1,107 +1,87 @@
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import {
-  Box,
-  Button,
-  ButtonText,
-  Input,
-  InputField,
-  Text,
-  VStack,
-} from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 
 import { ScreenContainer } from '@/src/components/screen-container';
-import {
-  residentRegistrationSchema,
-  type ResidentRegistrationFormValues,
-} from '@/src/features/auth/resident-registration.schema';
+import { passwordResetSchema, type PasswordResetFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { sendResidentPhoneVerificationCode } from '@/src/services';
+import { sendResidentPasswordReset } from '@/src/services';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
-
-type RecoverAccessFormValues = Pick<ResidentRegistrationFormValues, 'phoneNumber'>;
 
 export default function RecoverAccessPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
-  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<RecoverAccessFormValues>({
-    resolver: zodResolver(residentRegistrationSchema.pick({ phoneNumber: true })),
-    defaultValues: {
-      phoneNumber: '',
-    },
+  } = useForm<PasswordResetFormValues>({
+    resolver: zodResolver(passwordResetSchema),
+    defaultValues: { identifier: '' },
     mode: 'onBlur',
   });
 
-  const onSubmit = async (values: RecoverAccessFormValues) => {
-    setIsSendingCode(true);
+  const onSubmit = async (values: PasswordResetFormValues) => {
+    setIsSubmitting(true);
 
     try {
-      const verification = await sendResidentPhoneVerificationCode({
-        phoneNumber: values.phoneNumber,
-      });
-
-      await notify('Kod wyslany', `Wyslalismy SMS na numer ${verification.normalizedPhoneNumber}.`, 'success');
-
-      router.push({
-        pathname: '/verify-resident-phone',
-        params: {
-          mode: 'recover',
-          phoneNumber: verification.normalizedPhoneNumber,
-          verificationId: verification.verificationId,
-        },
-      });
+      await sendResidentPasswordReset({ identifier: values.identifier });
+      await notify(
+        'Wysłano instrukcję',
+        'Jeżeli konto istnieje, wysłaliśmy bezpieczny link do resetu hasła na e-mail przypisany do konta.',
+        'success'
+      );
+      router.replace('/login-phone');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie wyslac kodu SMS.';
-      await notify('Blad odzyskiwania dostepu przez SMS', message, 'error');
+      const message = error instanceof Error ? error.message : 'Nie udało się wysłać instrukcji resetu hasła.';
+      await notify('Błąd resetu hasła', message, 'error');
     } finally {
-      setIsSendingCode(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <ScreenContainer
-      title="Odzyskaj dostep przez SMS"
-      description="Podaj numer telefonu, aby otrzymac kod SMS i odzyskac dostep do konta.">
-      <Box style={styles.formCard}>
+      title="Nie pamiętam hasła"
+      description="Wpisz e-mail, numer telefonu albo PESEL, aby rozpocząć bezpieczny reset hasła.">
+      <Box style={styles.card}>
         <VStack space="md">
-          <Text color={futuristicTheme.colors.textMuted}>
-            Po potwierdzeniu kodu SMS odzyskasz dostep do istniejącego konta mieszkanca.
+          <Text style={styles.helper}>
+            Dla e-maila użyjemy Firebase Auth. Dla PESEL lub telefonu spróbujemy odnaleźć konto i wysłać reset na
+            przypisany adres e-mail.
           </Text>
 
           <Controller
             control={control}
-            name="phoneNumber"
+            name="identifier"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Numer telefonu</Text>
+                <Text style={styles.label}>E-mail, telefon albo PESEL</Text>
                 <Input style={styles.input}>
                   <InputField
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
-                    keyboardType="phone-pad"
-                    autoComplete="tel"
-                    placeholder="+48 500 600 700"
-                    color={futuristicTheme.colors.textPrimary}
+                    placeholder="np. jan@adres.pl albo +48 500 600 700"
                     placeholderTextColor={futuristicTheme.colors.textMuted}
+                    autoCapitalize="none"
+                    style={styles.inputText}
                   />
                 </Input>
-                {errors.phoneNumber ? <Text color="$error600">{errors.phoneNumber.message}</Text> : null}
+                {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
               </VStack>
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSendingCode} style={styles.primaryButton}>
-            <ButtonText color={futuristicTheme.colors.textDark}>{isSendingCode ? 'Wysylanie kodu SMS...' : 'Wyslij kod SMS'}</ButtonText>
+          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
+            <ButtonText style={styles.primaryButtonText}>
+              {isSubmitting ? 'Wysyłanie...' : 'Wyślij link resetu'}
+            </ButtonText>
           </Button>
         </VStack>
       </Box>
@@ -110,23 +90,44 @@ export default function RecoverAccessPhoneScreen() {
 }
 
 const styles = StyleSheet.create({
-  formCard: {
+  card: {
     borderWidth: 1,
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     ...futuristicShadows.soft,
   },
+  helper: {
+    color: futuristicTheme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  label: {
+    color: futuristicTheme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   input: {
+    borderRadius: 14,
+    borderWidth: 1,
     borderColor: futuristicTheme.colors.border,
     backgroundColor: futuristicTheme.colors.panelSoft,
-    borderRadius: 12,
-    borderWidth: 1,
+  },
+  inputText: {
+    color: futuristicTheme.colors.textPrimary,
+  },
+  errorText: {
+    color: futuristicTheme.colors.danger,
+    fontSize: 12,
   },
   primaryButton: {
+    borderRadius: 14,
     backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 12,
     ...futuristicShadows.glow,
+  },
+  primaryButtonText: {
+    color: futuristicTheme.colors.textDark,
+    fontWeight: '800',
   },
 });

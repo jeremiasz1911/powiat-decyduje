@@ -1,39 +1,39 @@
-import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import {
+    Box,
+    Button,
+    ButtonText,
+    Heading,
+    Input,
+    InputField,
+    Text,
+    VStack,
+} from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { Ionicons } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import {
-  Box,
-  Button,
-  ButtonText,
-  Heading,
-  Input,
-  InputField,
-  Text,
-  VStack,
-} from '@gluestack-ui/themed';
 
 import { ErrorState } from '@/src/components/feedback-state';
 import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
 import { RichDescriptionPreview } from '@/src/features/projects/components/rich-description-preview';
 import {
-  DEFAULT_PROJECT_ICON,
-  PROJECT_ICON_OPTIONS,
+    DEFAULT_PROJECT_ICON,
+    PROJECT_ICON_OPTIONS,
 } from '@/src/features/projects/project-icons';
 import {
-  projectSubmissionSchema,
-  type ProjectSubmissionFormValues,
+    projectSubmissionSchema,
+    type ProjectSubmissionFormValues,
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const MAX_PROJECT_IMAGES = 5;
@@ -169,7 +169,7 @@ export default function SubmitProjectScreen() {
         userId: user.uid,
         residentAccountId: activeResidentAccount.id,
         residentPesel: activeResidentAccount.pesel,
-        residentLabel: activeResidentAccount.label,
+        residentLabel: activeResidentAccount.label ?? activeResidentAccount.fullName,
         title: values.title,
         description: values.description,
         category: values.category,

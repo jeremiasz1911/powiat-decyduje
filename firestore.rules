@@ -120,99 +120,36 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwner(uid);
-
-      allow create: if isOwner(uid) &&
-        (
-          // votes counter bootstrap doc
-          (
-            request.resource.data.keys().hasOnly(['votesUsed', 'updatedAt']) &&
-            request.resource.data.votesUsed == 1 &&
-            request.resource.data.updatedAt == request.time
-          ) ||
-          // resident profile doc (with optional votesUsed)
-          (
-            request.resource.data.keys().hasOnly([
-              'fullName',
-              'email',
-              'phone',
-                'phoneNumber',
-                'pesel',
-                'phoneVerified',
-                'canVote',
-                'hasVoted',
-                'votedAt',
-                'eligibleToVote',
-                'verificationStatus',
-                'village',
-                'street',
-                'commune',
-              'residentStatus',
-              'votesUsed',
-              'createdAt',
-              'updatedAt'
-            ]) &&
-            request.resource.data.commune == 'Mlawa' &&
-            request.resource.data.residentStatus == 'verified_resident' &&
-            request.resource.data.updatedAt == request.time &&
-            (
-              !request.resource.data.keys().hasAny(['votesUsed']) ||
-              (
-                request.resource.data.votesUsed is int &&
-                request.resource.data.votesUsed >= 0 &&
-                request.resource.data.votesUsed <= 1
-              )
-            )
-          )
-        );
-
-      allow update: if isOwner(uid) &&
+      allow create, update: if isOwner(uid) &&
         request.resource.data.keys().hasOnly([
-          'votesUsed',
-          'updatedAt',
+          'uid',
+          'firstName',
+          'lastName',
           'fullName',
           'email',
-          'phone',
           'phoneNumber',
           'pesel',
-          'phoneVerified',
-          'canVote',
-          'hasVoted',
-          'votedAt',
-          'eligibleToVote',
-          'verificationStatus',
-          'village',
-          'street',
+          'address',
           'commune',
+          'county',
           'residentStatus',
-          'createdAt'
+          'phoneVerified',
+          'emailVerified',
+          'consents',
+          'residentAccounts',
+          'activeResidentAccountId',
+          'createdAt',
+          'updatedAt'
         ]) &&
-        request.resource.data.updatedAt == request.time &&
-        (!request.resource.data.keys().hasAny(['commune']) || request.resource.data.commune == 'Mlawa') &&
-        (!request.resource.data.keys().hasAny(['residentStatus']) || request.resource.data.residentStatus == 'verified_resident') &&
-        (
-          // profile update without changing votes counter
-          (
-            (!resource.data.keys().hasAny(['votesUsed']) && !request.resource.data.keys().hasAny(['votesUsed'])) ||
-            (
-              resource.data.keys().hasAny(['votesUsed']) &&
-              request.resource.data.keys().hasAny(['votesUsed']) &&
-              request.resource.data.votesUsed == resource.data.votesUsed
-            )
-          ) ||
-          // counter increment by max 1 and cap 5
-          (
-            request.resource.data.keys().hasAny(['votesUsed']) &&
-            request.resource.data.votesUsed is int &&
-            request.resource.data.votesUsed <= 5 &&
-            (
-              (!resource.data.keys().hasAny(['votesUsed']) && request.resource.data.votesUsed == 1) ||
-              (
-                resource.data.keys().hasAny(['votesUsed']) &&
-                request.resource.data.votesUsed == resource.data.votesUsed + 1
-              )
-            )
-          )
-        );
+        request.resource.data.uid == uid &&
+        request.resource.data.residentStatus == 'verified_resident' &&
+        request.resource.data.phoneVerified is bool &&
+        request.resource.data.emailVerified is bool &&
+        request.resource.data.residentAccounts is list &&
+        request.resource.data.residentAccounts.size() <= 5 &&
+        request.resource.data.commune is string &&
+        request.resource.data.county is string &&
+        request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
     }
@@ -220,23 +157,42 @@ service cloud.firestore {
     match /auth_index_phone/{phoneNumber} {
       allow get: if isSignedIn();
       allow list: if false;
-      allow create: if isSignedIn() &&
-        !exists(/databases/$(database)/documents/auth_index_phone/$(phoneNumber)) &&
-        request.resource.data.keys().hasOnly(['uid', 'createdAt']) &&
+      allow create, update: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'normalizedPhoneNumber',
+          'uid',
+          'uids',
+          'residentAccountIds',
+          'accountCount',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.normalizedPhoneNumber == phoneNumber &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+        request.resource.data.uids is list &&
+        request.resource.data.residentAccountIds is list &&
+        request.resource.data.accountCount is int &&
+        request.resource.data.accountCount >= 0 &&
+        request.resource.data.accountCount <= 5 &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
     match /auth_index_pesel/{pesel} {
       allow get: if isSignedIn();
       allow list: if false;
-      allow create: if isSignedIn() &&
-        !exists(/databases/$(database)/documents/auth_index_pesel/$(pesel)) &&
-        request.resource.data.keys().hasOnly(['uid', 'createdAt']) &&
+      allow create, update: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'pesel',
+          'uid',
+          'residentAccountId',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.pesel == pesel &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
     match /{document=**} {

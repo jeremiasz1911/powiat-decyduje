@@ -9,10 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jeremiasz1911.powiatdecyduje"
     },
     "android": {
-      "package": "pl.powiatdecyduje.app",
+      "package": "com.jeremiasz1911.powiatdecyduje",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

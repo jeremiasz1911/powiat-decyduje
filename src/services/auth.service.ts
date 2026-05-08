@@ -1,47 +1,47 @@
 import { FirebaseError } from 'firebase/app';
 import {
-  createUserWithEmailAndPassword,
-  fetchSignInMethodsForEmail,
-  linkWithCredential,
-  PhoneAuthProvider,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  sendPasswordResetEmail,
-  signInAnonymously,
-  signInWithCredential,
-  signInWithEmailAndPassword,
-  signOut,
-  type Auth,
-  type PhoneAuthCredential,
-  type User,
+    createUserWithEmailAndPassword,
+    fetchSignInMethodsForEmail,
+    linkWithCredential,
+    PhoneAuthProvider,
+    RecaptchaVerifier,
+    sendPasswordResetEmail,
+    signInAnonymously,
+    signInWithCredential,
+    signInWithEmailAndPassword,
+    signInWithPhoneNumber,
+    signOut,
+    type Auth,
+    type PhoneAuthCredential,
+    type User,
 } from 'firebase/auth';
 import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  query,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-  where,
-  type DocumentData,
-  type Firestore,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    query,
+    runTransaction,
+    serverTimestamp,
+    setDoc,
+    where,
+    type DocumentData,
+    type Firestore,
 } from 'firebase/firestore';
 import { Platform } from 'react-native';
 
 import {
-  COMMUNE_NAME,
-  COUNTY_NAME,
-  normalizePeselInput,
-  normalizePhoneInput,
-  type ResidentRegistrationFormValues,
+    COMMUNE_NAME,
+    COUNTY_NAME,
+    normalizePeselInput,
+    normalizePhoneInput,
+    type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { auth, db } from '@/src/lib/firebase';
 
 const MAX_PHONE_ACCOUNTS = 5;
-const DEV_BYPASS_PHONE = '+48510490044';
+const DEV_BYPASS_PHONE = '+48500400300';
 const DEV_BYPASS_VERIFICATION_ID = 'dev-bypass-510490044';
 
 type ResidentConsents = {

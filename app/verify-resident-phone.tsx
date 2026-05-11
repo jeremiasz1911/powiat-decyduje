@@ -1,7 +1,7 @@
 import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet } from 'react-native';
 import { z } from 'zod';
@@ -35,10 +35,31 @@ export default function VerifyResidentPhoneScreen() {
   }>();
   const [verificationId, setVerificationId] = useState(params.verificationId ?? '');
   const [isResending, setIsResending] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const [isExpired, setIsExpired] = useState(false);
   const mode = useMemo(() => params.mode ?? 'login', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const isRegisterMode = mode === 'register';
   const isPhoneLoginMode = mode === 'login' && Boolean(pendingPhoneLogin);
+
+  useEffect(() => {
+    if (!pendingPhoneLogin?.expiresAt || pendingPhoneLogin.expiresAt === 0) {
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((pendingPhoneLogin.expiresAt - now) / 1000));
+      setSecondsRemaining(remaining);
+      if (remaining === 0) {
+        setIsExpired(true);
+      }
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [pendingPhoneLogin?.expiresAt]);
 
   const {
     control,
@@ -143,6 +164,13 @@ export default function VerifyResidentPhoneScreen() {
       <Box style={styles.card}>
         <VStack space="md">
           <Text style={styles.meta}>Numer telefonu: {phoneNumber || '-'}</Text>
+          {isPhoneLoginMode && pendingPhoneLogin && pendingPhoneLogin.expiresAt > 0 && (
+            <Text style={[styles.meta, isExpired ? styles.expiredText : null]}>
+              {isExpired
+                ? 'Kod SMS wygasł. Wyślij nowy kod poniżej.'
+                : `Kod wygasa za ${secondsRemaining} sekund`}
+            </Text>
+          )}
 
           <Controller
             control={control}
@@ -159,6 +187,7 @@ export default function VerifyResidentPhoneScreen() {
                     maxLength={6}
                     placeholder="000000"
                     autoComplete="one-time-code"
+                    editable={!isExpired}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                     style={styles.inputText}
                   />
@@ -197,6 +226,10 @@ const styles = StyleSheet.create({
   meta: {
     color: futuristicTheme.colors.textMuted,
     fontSize: 13,
+  },
+  expiredText: {
+    color: futuristicTheme.colors.danger,
+    fontWeight: '600',
   },
   label: {
     color: futuristicTheme.colors.textPrimary,

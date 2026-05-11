@@ -603,6 +603,15 @@ export async function getResidentAccountsForSignedInUser(): Promise<ResidentAcco
   return mapResidentAccountsFromUserDoc(userSnapshot.data() as DocumentData);
 }
 
+export async function getResidentAccountsByPhoneNumber(phoneNumber: string): Promise<ResidentAccount[]> {
+  await ensureAnonymousAuth();
+  const dbInstance = requireDb();
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const resolution = await resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber);
+
+  return resolution.residentAccounts;
+}
+
 export async function sendResidentPhoneVerificationCode(
   payload: ResidentPhoneVerificationPayload
 ): Promise<ResidentPhoneVerificationResult> {

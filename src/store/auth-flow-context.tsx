@@ -15,13 +15,24 @@ type PendingPasswordLogin = {
   residentAccounts: ResidentAccount[];
 };
 
+type PendingPhoneLogin = {
+  phoneNumber: string;
+  verificationId: string;
+  residentAccounts: ResidentAccount[];
+  selectedResidentAccountId: string | null;
+};
+
 type AuthFlowContextValue = {
   pendingRegistration: PendingRegistration | null;
   pendingPasswordLogin: PendingPasswordLogin | null;
+  pendingPhoneLogin: PendingPhoneLogin | null;
   beginRegistration: (payload: ResidentRegistrationFormValues, verificationId: string) => void;
   consumeRegistration: () => PendingRegistration | null;
   beginPasswordLogin: (payload: PendingPasswordLogin) => void;
   consumePasswordLogin: () => PendingPasswordLogin | null;
+  beginPhoneLogin: (payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId'>) => void;
+  setPhoneLoginSelectedAccount: (accountId: string) => void;
+  consumePhoneLogin: () => PendingPhoneLogin | null;
   clearFlow: () => void;
 };
 
@@ -30,6 +41,7 @@ const AuthFlowContext = createContext<AuthFlowContextValue | null>(null);
 export function AuthFlowProvider({ children }: PropsWithChildren) {
   const [pendingRegistration, setPendingRegistration] = useState<PendingRegistration | null>(null);
   const [pendingPasswordLogin, setPendingPasswordLogin] = useState<PendingPasswordLogin | null>(null);
+  const [pendingPhoneLogin, setPendingPhoneLogin] = useState<PendingPhoneLogin | null>(null);
 
   const beginRegistration = useCallback(
     (payload: ResidentRegistrationFormValues, verificationId: string) => {
@@ -58,29 +70,61 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
     return next;
   }, [pendingPasswordLogin]);
 
+  const beginPhoneLogin = useCallback((payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId'>) => {
+    setPendingPhoneLogin({
+      ...payload,
+      selectedResidentAccountId: null,
+    });
+  }, []);
+
+  const setPhoneLoginSelectedAccount = useCallback((accountId: string) => {
+    setPendingPhoneLogin((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        selectedResidentAccountId: accountId,
+      };
+    });
+  }, []);
+
+  const consumePhoneLogin = useCallback(() => {
+    const next = pendingPhoneLogin;
+    setPendingPhoneLogin(null);
+    return next;
+  }, [pendingPhoneLogin]);
+
   const clearFlow = useCallback(() => {
     setPendingRegistration(null);
     setPendingPasswordLogin(null);
+    setPendingPhoneLogin(null);
   }, []);
 
   const value = useMemo<AuthFlowContextValue>(
     () => ({
       pendingRegistration,
       pendingPasswordLogin,
+      pendingPhoneLogin,
       beginRegistration,
       consumeRegistration,
       beginPasswordLogin,
       consumePasswordLogin,
+      beginPhoneLogin,
+      setPhoneLoginSelectedAccount,
+      consumePhoneLogin,
       clearFlow,
     }),
     [
       beginPasswordLogin,
+      beginPhoneLogin,
       beginRegistration,
       clearFlow,
       consumePasswordLogin,
+      consumePhoneLogin,
       consumeRegistration,
       pendingPasswordLogin,
+      pendingPhoneLogin,
       pendingRegistration,
+      setPhoneLoginSelectedAccount,
     ]
   );
 

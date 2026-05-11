@@ -1,20 +1,20 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { StyleSheet } from 'react-native';
+import { z } from 'zod';
 
 import { ScreenContainer } from '@/src/components/screen-container';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  completeResidentRegistration,
-  confirmResidentPhoneLoginCode,
-  sendResidentPhoneVerificationCode,
+    completeResidentRegistration,
+    confirmResidentPhoneLoginCode,
+    sendResidentPhoneVerificationCode,
 } from '@/src/services';
-import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { useAuthContext } from '@/src/store/auth-context';
+import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const smsCodeSchema = z.object({
@@ -27,7 +27,7 @@ export default function VerifyResidentPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
-  const { consumeRegistration } = useAuthFlow();
+  const { consumeRegistration, consumePhoneLogin, pendingPhoneLogin } = useAuthFlow();
   const params = useLocalSearchParams<{
     mode?: string;
     phoneNumber?: string;
@@ -38,6 +38,7 @@ export default function VerifyResidentPhoneScreen() {
   const mode = useMemo(() => params.mode ?? 'login', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const isRegisterMode = mode === 'register';
+  const isPhoneLoginMode = mode === 'login' && Boolean(pendingPhoneLogin);
 
   const {
     control,
@@ -76,6 +77,19 @@ export default function VerifyResidentPhoneScreen() {
       });
 
       const accounts = await refreshResidentAccounts();
+      
+      // If this was a phone login with pre-selected account
+      if (isPhoneLoginMode && pendingPhoneLogin?.selectedResidentAccountId) {
+        const phoneLogin = consumePhoneLogin();
+        if (phoneLogin?.selectedResidentAccountId) {
+          await setActiveResidentAccountId(phoneLogin.selectedResidentAccountId);
+          await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
+          router.replace('/(drawer)/(tabs)/projects');
+          return;
+        }
+      }
+
+      // Standard flow
       if (accounts.length > 1) {
         await notify('Wybierz profil', 'Ten numer ma kilka profili mieszkańca.', 'info');
         router.replace('/select-resident-account');

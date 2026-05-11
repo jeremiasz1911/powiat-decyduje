@@ -37,6 +37,8 @@ export default function VerifyResidentPhoneScreen() {
   const [isResending, setIsResending] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
+  const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
+  const [resendCount, setResendCount] = useState(0);
   const mode = useMemo(() => params.mode ?? 'login', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const isRegisterMode = mode === 'register';
@@ -60,6 +62,17 @@ export default function VerifyResidentPhoneScreen() {
     const interval = setInterval(calculateTimeRemaining, 1000);
     return () => clearInterval(interval);
   }, [pendingPhoneLogin?.expiresAt]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldownSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setResendCooldownSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resendCooldownSeconds]);
 
   const {
     control,
@@ -145,11 +158,25 @@ export default function VerifyResidentPhoneScreen() {
       return;
     }
 
+    if (resendCount >= 5) {
+      await notify('Limit wysyłek', 'Możesz wysłać kod maksymalnie 5 razy. Spróbuj za kilka minut.', 'error');
+      return;
+    }
+
+    if (resendCooldownSeconds > 0) {
+      await notify('Czekaj', `Poczekaj ${resendCooldownSeconds} sekund przed ponowną wysyłką.`, 'info');
+      return;
+    }
+
     setIsResending(true);
 
     try {
       const verification = await sendResidentPhoneVerificationCode({ phoneNumber });
       setVerificationId(verification.verificationId);
+      setResendCount((prev) => prev + 1);
+      setResendCooldownSeconds(30);
+      setSecondsRemaining(Math.ceil((verification.expiresAt - Date.now()) / 1000));
+      setIsExpired(false);
       await notify('Kod wysłany ponownie', `Nowy kod wysłano na ${verification.normalizedPhoneNumber}.`, 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu ponownie.';
@@ -203,9 +230,20 @@ export default function VerifyResidentPhoneScreen() {
             </ButtonText>
           </Button>
 
-          <Button variant="outline" onPress={handleResendCode} isDisabled={isResending} style={styles.secondaryButton}>
+          <Button
+            variant="outline"
+            onPress={handleResendCode}
+            isDisabled={isResending || resendCooldownSeconds > 0 || resendCount >= 5}
+            style={styles.secondaryButton}
+          >
             <ButtonText style={styles.secondaryButtonText}>
-              {isResending ? 'Wysyłanie...' : 'Wyślij kod ponownie'}
+              {isResending
+                ? 'Wysyłanie...'
+                : resendCooldownSeconds > 0
+                  ? `Czekaj ${resendCooldownSeconds}s`
+                  : resendCount >= 5
+                    ? 'Limit wysyłek'
+                    : `Wyślij kod ponownie (${resendCount}/5)`}
             </ButtonText>
           </Button>
         </VStack>

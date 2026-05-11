@@ -78,18 +78,28 @@ export default function VerifyResidentPhoneScreen() {
 
       const accounts = await refreshResidentAccounts();
       
-      // If this was a phone login with pre-selected account
-      if (isPhoneLoginMode && pendingPhoneLogin?.selectedResidentAccountId) {
+      // If this was a phone login (from SMS login flow)
+      if (isPhoneLoginMode) {
         const phoneLogin = consumePhoneLogin();
+        
+        // If user pre-selected a specific account
         if (phoneLogin?.selectedResidentAccountId) {
           await setActiveResidentAccountId(phoneLogin.selectedResidentAccountId);
           await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
           router.replace('/(drawer)/(tabs)/projects');
           return;
         }
+        
+        // If this was a single account (auto-selected) or just plain phone login
+        if (accounts.length === 1 && accounts[0]) {
+          await setActiveResidentAccountId(accounts[0].id);
+          await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
+          router.replace('/(drawer)/(tabs)/projects');
+          return;
+        }
       }
 
-      // Standard flow
+      // Standard flow (registration or password login)
       if (accounts.length > 1) {
         await notify('Wybierz profil', 'Ten numer ma kilka profili mieszkańca.', 'info');
         router.replace('/select-resident-account');

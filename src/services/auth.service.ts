@@ -44,6 +44,18 @@ const MAX_PHONE_ACCOUNTS = 5;
 const DEV_BYPASS_PHONE = '+48500400300';
 const DEV_BYPASS_VERIFICATION_ID = 'dev-bypass-510490044';
 
+// SMS Security Constants
+const SMS_RATE_LIMIT = {
+  MAX_SMS_PER_5_MIN: 3,
+  MAX_SMS_PER_DAY: 10,
+  BLOCK_DURATION_MS: 1 * 60 * 60 * 1000, // 1 hour
+  SMS_CODE_EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
+  MAX_VERIFICATION_ATTEMPTS: 5,
+  ATTEMPT_BLOCK_DURATION_MS: 15 * 60 * 1000, // 15 minutes
+  RESEND_COOLDOWN_MS: 30 * 1000, // 30 seconds
+  MAX_RESENDS: 5,
+};
+
 type ResidentConsents = {
   residentDeclaration: boolean;
   termsAccepted: boolean;
@@ -134,6 +146,7 @@ export type ResidentPhoneVerificationPayload = {
 export type ResidentPhoneVerificationResult = {
   verificationId: string;
   normalizedPhoneNumber: string;
+  expiresAt: number;
 };
 
 export type ConfirmResidentPhoneVerificationPayload = {
@@ -153,6 +166,13 @@ export type ResidentLoginTarget = {
 
 export type PasswordResetRequest = {
   identifier: string;
+};
+
+export type SmsRateLimitStatus = {
+  allowed: boolean;
+  reason?: string;
+  blockedUntil?: number;
+  attemptsRemaining?: number;
 };
 
 function requireAuth(): Auth {
@@ -621,7 +641,16 @@ export async function sendResidentPhoneVerificationCode(
     return {
       verificationId: DEV_BYPASS_VERIFICATION_ID,
       normalizedPhoneNumber,
+      expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
     };
+  }
+
+  const dbInstance = requireDb();
+
+  // Check rate limit before sending SMS
+  const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
+  if (!rateLimitStatus.allowed) {
+    throw new Error(rateLimitStatus.reason || 'SMS wysyłanie jest zablokowane.');
   }
 
   if (Platform.OS !== 'web') {
@@ -635,6 +664,7 @@ export async function sendResidentPhoneVerificationCode(
   return {
     verificationId: confirmationResult.verificationId,
     normalizedPhoneNumber,
+    expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
   };
 }
 
@@ -891,6 +921,111 @@ export async function register(payload: RegisterPayload): Promise<User> {
   );
 
   return credentials.user;
+}
+
+async function checkSmsRateLimit(
+  dbInstance: Firestore,
+  normalizedPhoneNumber: string
+): Promise<SmsRateLimitStatus> {
+  if (__DEV__ && normalizedPhoneNumber === DEV_BYPASS_PHONE) {
+    return { allowed: true };
+  }
+
+  const now = Date.now();
+  const rateLimitRef = doc(dbInstance, 'sms_rate_limits', normalizedPhoneNumber);
+  const rateLimitSnapshot = await getDoc(rateLimitRef);
+  const rateLimitData = rateLimitSnapshot.data() as Record<string, unknown> | undefined;
+
+  if (rateLimitData) {
+    const blockedUntil = typeof rateLimitData.blockedUntil === 'number' ? rateLimitData.blockedUntil : 0;
+    if (blockedUntil > now) {
+      return {
+        allowed: false,
+        reason: 'SMS wysyłanie jest tymczasowo zablokowane. Spróbuj za kilka minut.',
+        blockedUntil,
+      };
+    }
+
+    const dayResets = typeof rateLimitData.dayResets === 'number' ? rateLimitData.dayResets : now;
+    const isDayExpired = now - dayResets > 24 * 60 * 60 * 1000;
+
+    const smtCount5Min = typeof rateLimitData.smsCount5Min === 'number' ? rateLimitData.smsCount5Min : 0;
+    const smsCountDay = typeof rateLimitData.smsCountDay === 'number' ? rateLimitData.smsCountDay : 0;
+    const lastSmsTime = typeof rateLimitData.lastSmsTime === 'number' ? rateLimitData.lastSmsTime : 0;
+
+    const isSms5MinExpired = now - lastSmsTime > 5 * 60 * 1000;
+
+    const nextCount5Min = isSms5MinExpired ? 1 : smtCount5Min + 1;
+    const nextCountDay = isDayExpired ? 1 : smsCountDay + 1;
+
+    if (nextCount5Min > SMS_RATE_LIMIT.MAX_SMS_PER_5_MIN) {
+      const blockedMS = SMS_RATE_LIMIT.BLOCK_DURATION_MS;
+      await setDoc(
+        rateLimitRef,
+        {
+          blockedUntil: now + blockedMS,
+          lastSmsTime: now,
+          smsCount5Min: nextCount5Min,
+          smsCountDay: nextCountDay,
+          dayResets: isDayExpired ? now : dayResets,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        allowed: false,
+        reason: 'Zbyt wiele wysyłek SMS. Spróbuj za godzinę.',
+        blockedUntil: now + blockedMS,
+      };
+    }
+
+    if (nextCountDay > SMS_RATE_LIMIT.MAX_SMS_PER_DAY) {
+      const blockedMS = SMS_RATE_LIMIT.BLOCK_DURATION_MS;
+      await setDoc(
+        rateLimitRef,
+        {
+          blockedUntil: now + blockedMS,
+          lastSmsTime: now,
+          smsCount5Min: nextCount5Min,
+          smsCountDay: nextCountDay,
+          dayResets: isDayExpired ? now : dayResets,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        allowed: false,
+        reason: `Dzienna limit SMS. Możliwe maksymalnie ${SMS_RATE_LIMIT.MAX_SMS_PER_DAY} wysyłek dziennie.`,
+      };
+    }
+
+    await setDoc(
+      rateLimitRef,
+      {
+        lastSmsTime: now,
+        smsCount5Min: nextCount5Min,
+        smsCountDay: nextCountDay,
+        dayResets: isDayExpired ? now : dayResets,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return { allowed: true };
+  }
+
+  await setDoc(rateLimitRef, {
+    lastSmsTime: now,
+    smsCount5Min: 1,
+    smsCountDay: 1,
+    dayResets: now,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return { allowed: true };
 }
 
 export { fetchSignInMethodsForEmail };

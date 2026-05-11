@@ -20,6 +20,9 @@ type PendingPhoneLogin = {
   verificationId: string;
   residentAccounts: ResidentAccount[];
   selectedResidentAccountId: string | null;
+  expiresAt: number;
+  createdAt: number;
+  resendCount: number;
 };
 
 type AuthFlowContextValue = {
@@ -30,8 +33,9 @@ type AuthFlowContextValue = {
   consumeRegistration: () => PendingRegistration | null;
   beginPasswordLogin: (payload: PendingPasswordLogin) => void;
   consumePasswordLogin: () => PendingPasswordLogin | null;
-  beginPhoneLogin: (payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId'>) => void;
+  beginPhoneLogin: (payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId' | 'createdAt' | 'resendCount'>) => void;
   setPhoneLoginSelectedAccount: (accountId: string) => void;
+  incrementPhoneLoginResendCount: () => void;
   consumePhoneLogin: () => PendingPhoneLogin | null;
   clearFlow: () => void;
 };
@@ -70,12 +74,17 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
     return next;
   }, [pendingPasswordLogin]);
 
-  const beginPhoneLogin = useCallback((payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId'>) => {
-    setPendingPhoneLogin({
-      ...payload,
-      selectedResidentAccountId: null,
-    });
-  }, []);
+  const beginPhoneLogin = useCallback(
+    (payload: Omit<PendingPhoneLogin, 'selectedResidentAccountId' | 'createdAt' | 'resendCount'>) => {
+      setPendingPhoneLogin({
+        ...payload,
+        selectedResidentAccountId: null,
+        createdAt: Date.now(),
+        resendCount: 0,
+      });
+    },
+    []
+  );
 
   const setPhoneLoginSelectedAccount = useCallback((accountId: string) => {
     setPendingPhoneLogin((prev) => {
@@ -83,6 +92,16 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
       return {
         ...prev,
         selectedResidentAccountId: accountId,
+      };
+    });
+  }, []);
+
+  const incrementPhoneLoginResendCount = useCallback(() => {
+    setPendingPhoneLogin((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        resendCount: prev.resendCount + 1,
       };
     });
   }, []);
@@ -110,6 +129,7 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
       consumePasswordLogin,
       beginPhoneLogin,
       setPhoneLoginSelectedAccount,
+      incrementPhoneLoginResendCount,
       consumePhoneLogin,
       clearFlow,
     }),
@@ -121,6 +141,7 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
       consumePasswordLogin,
       consumePhoneLogin,
       consumeRegistration,
+      incrementPhoneLoginResendCount,
       pendingPasswordLogin,
       pendingPhoneLogin,
       pendingRegistration,

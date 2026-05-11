@@ -136,14 +136,14 @@ export default function LoginPhoneScreen() {
 
       if (accounts.length === 1) {
         // If only one account, go directly to SMS verification
-        beginPhoneLogin({
-          phoneNumber: identifier,
-          verificationId: '',
-          residentAccounts: accounts,
-        });
-
         try {
           const verification = await sendResidentPhoneVerificationCode({ phoneNumber: identifier });
+          beginPhoneLogin({
+            phoneNumber: identifier,
+            verificationId: verification.verificationId,
+            residentAccounts: accounts,
+            expiresAt: verification.expiresAt,
+          });
           router.push({
             pathname: '/verify-resident-phone',
             params: {
@@ -162,6 +162,7 @@ export default function LoginPhoneScreen() {
           phoneNumber: identifier,
           verificationId: '',
           residentAccounts: accounts,
+          expiresAt: 0,
         });
         router.push('/pre-select-resident-account');
       }

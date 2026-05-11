@@ -1,5 +1,5 @@
 import { Box, Button, ButtonText, Text, VStack } from '@gluestack-ui/themed';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -12,9 +12,6 @@ import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 export default function PreSelectResidentAccountScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
-  const params = useLocalSearchParams<{
-    phoneNumber?: string;
-  }>();
   const { pendingPhoneLogin, setPhoneLoginSelectedAccount } = useAuthFlow();
   const [isWorking, setIsWorking] = useState(false);
 

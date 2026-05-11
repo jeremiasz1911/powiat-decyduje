@@ -29,6 +29,7 @@ import {
     type DocumentData,
     type Firestore,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 
 import {
@@ -38,7 +39,7 @@ import {
     normalizePhoneInput,
     type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
-import { auth, db } from '@/src/lib/firebase';
+import { auth, db, functions } from '@/src/lib/firebase';
 
 const MAX_PHONE_ACCOUNTS = 5;
 const DEV_BYPASS_PHONE = '+48500400300';
@@ -418,10 +419,17 @@ function getAccountCount(data: ResidentHouseholdData | null, phoneCountFallback 
   return phoneCountFallback > 0 ? phoneCountFallback : 1;
 }
 
-async function getNativePhoneAuthFactory(): Promise<never> {
-  throw new Error(
-    'Weryfikacja SMS na telefonie wymaga development build i osobnej konfiguracji Firebase Auth. W tej wersji użyj web albo przygotuj backend Cloud Functions.'
+async function getNativePhoneAuthFactory(): Promise<any> {
+  if (!functions) {
+    throw new Error('Firebase Functions not initialized');
+  }
+
+  const createResidentPhoneVerificationCode = httpsCallable(
+    functions,
+    'createResidentPhoneVerificationCode'
   );
+
+  return { createResidentPhoneVerificationCode };
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -654,7 +662,18 @@ export async function sendResidentPhoneVerificationCode(
   }
 
   if (Platform.OS !== 'web') {
-    await getNativePhoneAuthFactory();
+    // Use Cloud Functions for native platforms
+    if (!functions) {
+      throw new Error('Firebase Functions not initialized');
+    }
+    const createVerification = httpsCallable(
+      functions,
+      'createResidentPhoneVerificationCode'
+    );
+    const result = (await createVerification({ phoneNumber: normalizedPhoneNumber })) as {
+      data: ResidentPhoneVerificationResult;
+    };
+    return result.data;
   }
 
   const authInstance = requireAuth();

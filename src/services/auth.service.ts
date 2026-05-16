@@ -718,14 +718,32 @@ export async function sendResidentPhoneVerificationCode(
     if (!functions) {
       throw new Error('Firebase Functions not initialized');
     }
-    const createVerification = httpsCallable(
-      functions,
-      'createResidentPhoneVerificationCode'
-    );
-    const result = (await createVerification({ phoneNumber: normalizedPhoneNumber })) as {
-      data: ResidentPhoneVerificationResult;
-    };
-    return result.data;
+    try {
+      const createVerification = httpsCallable<
+        { phoneNumber: string },
+        ResidentPhoneVerificationResult
+      >(functions, 'createResidentPhoneVerificationCode');
+      const result = await createVerification({ phoneNumber: normalizedPhoneNumber });
+      return result.data;
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        if (error.code === 'functions/not-found') {
+          throw new Error(
+            'Usługa logowania SMS nie jest dostępna (brak funkcji backend). Skontaktuj się z administratorem.'
+          );
+        }
+
+        if (error.code === 'functions/invalid-argument') {
+          throw new Error('Numer telefonu ma nieprawidłowy format.');
+        }
+
+        if (error.code === 'functions/resource-exhausted') {
+          throw new Error('Przekroczono limit wysyłek SMS. Spróbuj ponownie później.');
+        }
+      }
+
+      throw error;
+    }
   }
 
   const authInstance = requireAuth();

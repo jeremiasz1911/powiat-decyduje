@@ -29,6 +29,7 @@ import {
     type DocumentData,
     type Firestore,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 
 import {
@@ -38,11 +39,23 @@ import {
     normalizePhoneInput,
     type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
-import { auth, db } from '@/src/lib/firebase';
+import { auth, db, functions } from '@/src/lib/firebase';
 
 const MAX_PHONE_ACCOUNTS = 5;
 const DEV_BYPASS_PHONE = '+48500400300';
 const DEV_BYPASS_VERIFICATION_ID = 'dev-bypass-510490044';
+
+// SMS Security Constants
+const SMS_RATE_LIMIT = {
+  MAX_SMS_PER_5_MIN: 3,
+  MAX_SMS_PER_DAY: 10,
+  BLOCK_DURATION_MS: 1 * 60 * 60 * 1000, // 1 hour
+  SMS_CODE_EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
+  MAX_VERIFICATION_ATTEMPTS: 5,
+  ATTEMPT_BLOCK_DURATION_MS: 15 * 60 * 1000, // 15 minutes
+  RESEND_COOLDOWN_MS: 30 * 1000, // 30 seconds
+  MAX_RESENDS: 5,
+};
 
 type ResidentConsents = {
   residentDeclaration: boolean;
@@ -134,6 +147,7 @@ export type ResidentPhoneVerificationPayload = {
 export type ResidentPhoneVerificationResult = {
   verificationId: string;
   normalizedPhoneNumber: string;
+  expiresAt: number;
 };
 
 export type ConfirmResidentPhoneVerificationPayload = {
@@ -153,6 +167,13 @@ export type ResidentLoginTarget = {
 
 export type PasswordResetRequest = {
   identifier: string;
+};
+
+export type SmsRateLimitStatus = {
+  allowed: boolean;
+  reason?: string;
+  blockedUntil?: number;
+  attemptsRemaining?: number;
 };
 
 function requireAuth(): Auth {
@@ -398,10 +419,69 @@ function getAccountCount(data: ResidentHouseholdData | null, phoneCountFallback 
   return phoneCountFallback > 0 ? phoneCountFallback : 1;
 }
 
-async function getNativePhoneAuthFactory(): Promise<never> {
-  throw new Error(
-    'Weryfikacja SMS na telefonie wymaga development build i osobnej konfiguracji Firebase Auth. W tej wersji użyj web albo przygotuj backend Cloud Functions.'
+async function getNativePhoneAuthFactory(): Promise<any> {
+  if (!functions) {
+    throw new Error('Firebase Functions not initialized');
+  }
+
+  const createResidentPhoneVerificationCode = httpsCallable(
+    functions,
+    'createResidentPhoneVerificationCode'
   );
+
+  return { createResidentPhoneVerificationCode };
+}
+
+function isNativeCloudVerificationId(verificationId: string): boolean {
+  return verificationId.startsWith('verify_');
+}
+
+async function verifyNativePhoneCode(
+  verificationId: string,
+  smsCode: string,
+  normalizedPhoneNumber: string
+): Promise<void> {
+  if (!functions) {
+    throw new Error('Usługa weryfikacji SMS jest niedostępna. Spróbuj ponownie później.');
+  }
+
+  try {
+    const verifyResidentPhoneCode = httpsCallable<
+      { verificationId: string; code: string },
+      { success: boolean; phoneNumber?: string }
+    >(functions, 'verifyResidentPhoneCode');
+    const result = await verifyResidentPhoneCode({
+      verificationId,
+      code: smsCode.trim(),
+    });
+
+    if (!result.data?.success) {
+      throw new Error('Nie udało się potwierdzić kodu SMS.');
+    }
+
+    if (typeof result.data.phoneNumber === 'string') {
+      const verifiedPhoneNumber = normalizePhoneNumber(result.data.phoneNumber);
+      if (verifiedPhoneNumber !== normalizedPhoneNumber) {
+        throw new Error('Kod SMS nie pasuje do podanego numeru telefonu.');
+      }
+    }
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      if (error.code === 'functions/not-found') {
+        throw new Error('Usługa weryfikacji SMS nie jest dostępna. Skontaktuj się z administratorem.');
+      }
+
+      if (error.code === 'functions/invalid-argument') {
+        throw new Error('Nieprawidłowy kod SMS lub kod wygasł.');
+      }
+
+      if (error.code === 'functions/resource-exhausted') {
+        throw new Error('Przekroczono limit prób. Spróbuj ponownie za kilka minut.');
+      }
+    }
+
+    throw error;
+  }
 }
 
 let recaptchaVerifier: RecaptchaVerifier | null = null;
@@ -603,6 +683,15 @@ export async function getResidentAccountsForSignedInUser(): Promise<ResidentAcco
   return mapResidentAccountsFromUserDoc(userSnapshot.data() as DocumentData);
 }
 
+export async function getResidentAccountsByPhoneNumber(phoneNumber: string): Promise<ResidentAccount[]> {
+  await ensureAnonymousAuth();
+  const dbInstance = requireDb();
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  const resolution = await resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber);
+
+  return resolution.residentAccounts;
+}
+
 export async function sendResidentPhoneVerificationCode(
   payload: ResidentPhoneVerificationPayload
 ): Promise<ResidentPhoneVerificationResult> {
@@ -612,11 +701,31 @@ export async function sendResidentPhoneVerificationCode(
     return {
       verificationId: DEV_BYPASS_VERIFICATION_ID,
       normalizedPhoneNumber,
+      expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
     };
   }
 
+  const dbInstance = requireDb();
+
+  // Check rate limit before sending SMS
+  const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
+  if (!rateLimitStatus.allowed) {
+    throw new Error(rateLimitStatus.reason || 'SMS wysyłanie jest zablokowane.');
+  }
+
   if (Platform.OS !== 'web') {
-    await getNativePhoneAuthFactory();
+    // Use Cloud Functions for native platforms
+    if (!functions) {
+      throw new Error('Firebase Functions not initialized');
+    }
+    const createVerification = httpsCallable(
+      functions,
+      'createResidentPhoneVerificationCode'
+    );
+    const result = (await createVerification({ phoneNumber: normalizedPhoneNumber })) as {
+      data: ResidentPhoneVerificationResult;
+    };
+    return result.data;
   }
 
   const authInstance = requireAuth();
@@ -626,6 +735,7 @@ export async function sendResidentPhoneVerificationCode(
   return {
     verificationId: confirmationResult.verificationId,
     normalizedPhoneNumber,
+    expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
   };
 }
 
@@ -637,14 +747,21 @@ export async function completeResidentRegistration(
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
+  const isDevBypass = isDevBypassVerification(verificationId, normalizedPhoneNumber);
 
-  if (!isValidSmsCodeShape(smsCode) && !isDevBypassVerification(verificationId, normalizedPhoneNumber)) {
+  if (!isValidSmsCodeShape(smsCode) && !isDevBypass) {
     throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
 
-  const phoneCredential = PhoneAuthProvider.credential(verificationId, smsCode.trim());
   const signedInUser = await signInOrCreateEmailPasswordAccount(payload.email, payload.password);
-  await linkPhoneCredentialIfNeeded(signedInUser, phoneCredential);
+  const usesNativeCloudVerification = Platform.OS !== 'web' && !isDevBypass && isNativeCloudVerificationId(verificationId);
+
+  if (usesNativeCloudVerification) {
+    await verifyNativePhoneCode(verificationId, smsCode, normalizedPhoneNumber);
+  } else {
+    const phoneCredential = PhoneAuthProvider.credential(verificationId, smsCode.trim());
+    await linkPhoneCredentialIfNeeded(signedInUser, phoneCredential);
+  }
 
   const residentAccount: ResidentAccount = {
     id: normalizedPesel,
@@ -882,6 +999,111 @@ export async function register(payload: RegisterPayload): Promise<User> {
   );
 
   return credentials.user;
+}
+
+async function checkSmsRateLimit(
+  dbInstance: Firestore,
+  normalizedPhoneNumber: string
+): Promise<SmsRateLimitStatus> {
+  if (__DEV__ && normalizedPhoneNumber === DEV_BYPASS_PHONE) {
+    return { allowed: true };
+  }
+
+  const now = Date.now();
+  const rateLimitRef = doc(dbInstance, 'sms_rate_limits', normalizedPhoneNumber);
+  const rateLimitSnapshot = await getDoc(rateLimitRef);
+  const rateLimitData = rateLimitSnapshot.data() as Record<string, unknown> | undefined;
+
+  if (rateLimitData) {
+    const blockedUntil = typeof rateLimitData.blockedUntil === 'number' ? rateLimitData.blockedUntil : 0;
+    if (blockedUntil > now) {
+      return {
+        allowed: false,
+        reason: 'SMS wysyłanie jest tymczasowo zablokowane. Spróbuj za kilka minut.',
+        blockedUntil,
+      };
+    }
+
+    const dayResets = typeof rateLimitData.dayResets === 'number' ? rateLimitData.dayResets : now;
+    const isDayExpired = now - dayResets > 24 * 60 * 60 * 1000;
+
+    const smtCount5Min = typeof rateLimitData.smsCount5Min === 'number' ? rateLimitData.smsCount5Min : 0;
+    const smsCountDay = typeof rateLimitData.smsCountDay === 'number' ? rateLimitData.smsCountDay : 0;
+    const lastSmsTime = typeof rateLimitData.lastSmsTime === 'number' ? rateLimitData.lastSmsTime : 0;
+
+    const isSms5MinExpired = now - lastSmsTime > 5 * 60 * 1000;
+
+    const nextCount5Min = isSms5MinExpired ? 1 : smtCount5Min + 1;
+    const nextCountDay = isDayExpired ? 1 : smsCountDay + 1;
+
+    if (nextCount5Min > SMS_RATE_LIMIT.MAX_SMS_PER_5_MIN) {
+      const blockedMS = SMS_RATE_LIMIT.BLOCK_DURATION_MS;
+      await setDoc(
+        rateLimitRef,
+        {
+          blockedUntil: now + blockedMS,
+          lastSmsTime: now,
+          smsCount5Min: nextCount5Min,
+          smsCountDay: nextCountDay,
+          dayResets: isDayExpired ? now : dayResets,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        allowed: false,
+        reason: 'Zbyt wiele wysyłek SMS. Spróbuj za godzinę.',
+        blockedUntil: now + blockedMS,
+      };
+    }
+
+    if (nextCountDay > SMS_RATE_LIMIT.MAX_SMS_PER_DAY) {
+      const blockedMS = SMS_RATE_LIMIT.BLOCK_DURATION_MS;
+      await setDoc(
+        rateLimitRef,
+        {
+          blockedUntil: now + blockedMS,
+          lastSmsTime: now,
+          smsCount5Min: nextCount5Min,
+          smsCountDay: nextCountDay,
+          dayResets: isDayExpired ? now : dayResets,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return {
+        allowed: false,
+        reason: `Dzienna limit SMS. Możliwe maksymalnie ${SMS_RATE_LIMIT.MAX_SMS_PER_DAY} wysyłek dziennie.`,
+      };
+    }
+
+    await setDoc(
+      rateLimitRef,
+      {
+        lastSmsTime: now,
+        smsCount5Min: nextCount5Min,
+        smsCountDay: nextCountDay,
+        dayResets: isDayExpired ? now : dayResets,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return { allowed: true };
+  }
+
+  await setDoc(rateLimitRef, {
+    lastSmsTime: now,
+    smsCount5Min: 1,
+    smsCountDay: 1,
+    dayResets: now,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
+  return { allowed: true };
 }
 
 export { fetchSignInMethodsForEmail };

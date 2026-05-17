@@ -562,6 +562,7 @@ export async function ensureAnonymousAuth(): Promise<User> {
 
   try {
     const credentials = await signInAnonymously(authInstance);
+    await credentials.user.getIdToken();
     return credentials.user;
   } catch (error) {
     if (error instanceof FirebaseError && error.code === 'auth/admin-restricted-operation') {

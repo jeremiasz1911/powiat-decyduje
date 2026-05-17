@@ -195,6 +195,27 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /sms_rate_limits/{normalizedPhoneNumber} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'blockedUntil',
+          'lastSmsTime',
+          'smsCount5Min',
+          'smsCountDay',
+          'dayResets',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.lastSmsTime is int &&
+        request.resource.data.smsCount5Min is int &&
+        request.resource.data.smsCountDay is int &&
+        request.resource.data.dayResets is int &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

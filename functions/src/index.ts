@@ -44,7 +44,15 @@ interface ResidentPhoneLoginResult {
  * Called from native app to handle SMS verification on devices without recaptcha
  */
 export const createResidentPhoneVerificationCode = functions.https.onCall(
-  async (data: any, context) => {
+  async (request) => {
+    if (!request.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'Authentication is required before requesting an SMS code.'
+      );
+    }
+
+    const data = (request.data ?? {}) as { phoneNumber?: string };
     const phoneNumber = data.phoneNumber as string;
 
     if (!phoneNumber) {
@@ -117,7 +125,15 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
 /**
  * Verify SMS code and create authentication token
  */
-export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context) => {
+export const verifyResidentPhoneCode = functions.https.onCall(async (request) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Authentication is required before verifying an SMS code.'
+    );
+  }
+
+  const data = (request.data ?? {}) as { verificationId?: string; code?: string };
   const { verificationId, code } = data;
 
   if (!verificationId || !code) {

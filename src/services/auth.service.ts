@@ -219,6 +219,33 @@ async function ensureUserToken(user: User): Promise<void> {
   await user.getIdToken(true);
 }
 
+function maskIdentifier(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= 4) {
+    return '***';
+  }
+  return `${trimmed.slice(0, 2)}***${trimmed.slice(-2)}`;
+}
+
+function getAuthDebugState() {
+  const authInstance = auth;
+  const currentUser = authInstance?.currentUser ?? null;
+  return {
+    uid: currentUser ? maskIdentifier(currentUser.uid) : null,
+    isAnonymous: currentUser?.isAnonymous ?? null,
+  };
+}
+
+function devAuthLog(message: string, payload?: Record<string, unknown>) {
+  if (!__DEV__) {
+    return;
+  }
+  console.log(`[auth-sms-dev] ${message}`, {
+    ...getAuthDebugState(),
+    ...payload,
+  });
+}
+
 function phoneIndexRef(dbInstance: Firestore, normalizedPhoneNumber: string) {
   return doc(dbInstance, 'auth_index_phone', normalizedPhoneNumber);
 }
@@ -452,7 +479,19 @@ async function verifyNativePhoneCode(
     throw new Error('Usluga weryfikacji SMS jest niedostepna. Sprobuj ponownie pozniej.');
   }
 
+  devAuthLog('verifyNativePhoneCode:before-auth', {
+    phone: maskIdentifier(normalizedPhoneNumber),
+    verificationIdPrefix: verificationId.slice(0, 6),
+  });
   await ensureAnonymousAuth();
+  const authInstance = requireAuth();
+  if (!authInstance.currentUser) {
+    throw new Error('Nie udalo sie przygotowac sesji uwierzytelnienia SMS. Sprobuj ponownie.');
+  }
+  await authInstance.currentUser.getIdToken(true);
+  devAuthLog('verifyNativePhoneCode:before-callable', {
+    phone: maskIdentifier(normalizedPhoneNumber),
+  });
 
   try {
     const verifyResidentPhoneCode = httpsCallable<
@@ -567,16 +606,23 @@ async function linkPhoneCredentialIfNeeded(user: User, phoneCredential: PhoneAut
 
 export async function ensureAnonymousAuth(): Promise<User> {
   const authInstance = requireAuth();
+  devAuthLog('ensureAnonymousAuth:start');
 
   if (authInstance.currentUser) {
+    await authInstance.currentUser.getIdToken(true);
+    devAuthLog('ensureAnonymousAuth:existing-user');
     return authInstance.currentUser;
   }
 
   try {
     const credentials = await signInAnonymously(authInstance);
-    await credentials.user.getIdToken();
+    await credentials.user.getIdToken(true);
+    devAuthLog('ensureAnonymousAuth:signed-in');
     return credentials.user;
   } catch (error) {
+    devAuthLog('ensureAnonymousAuth:error', {
+      errorCode: error instanceof FirebaseError ? error.code : 'unknown',
+    });
     if (error instanceof FirebaseError && error.code === 'auth/admin-restricted-operation') {
       throw new Error(
         'Firebase Anonymous Auth is disabled. Enable it in Firebase Console -> Authentication -> Sign-in method -> Anonymous.'
@@ -715,6 +761,10 @@ export async function sendResidentPhoneVerificationCode(
   payload: ResidentPhoneVerificationPayload
 ): Promise<ResidentPhoneVerificationResult> {
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  devAuthLog('sendResidentPhoneVerificationCode:start', {
+    phone: maskIdentifier(normalizedPhoneNumber),
+    platform: Platform.OS,
+  });
 
   if (isDevBypassPhone(normalizedPhoneNumber)) {
     return {
@@ -727,6 +777,14 @@ export async function sendResidentPhoneVerificationCode(
   const dbInstance = requireDb();
 
   await ensureAnonymousAuth();
+  const authInstance = requireAuth();
+  if (!authInstance.currentUser) {
+    throw new Error('Nie udalo sie przygotowac sesji uwierzytelnienia SMS. Sprobuj ponownie.');
+  }
+  await authInstance.currentUser.getIdToken(true);
+  devAuthLog('sendResidentPhoneVerificationCode:after-auth', {
+    phone: maskIdentifier(normalizedPhoneNumber),
+  });
 
   // Check rate limit before sending SMS
   const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
@@ -740,6 +798,9 @@ export async function sendResidentPhoneVerificationCode(
       throw new Error('Firebase Functions not initialized');
     }
     try {
+      devAuthLog('sendResidentPhoneVerificationCode:before-callable', {
+        phone: maskIdentifier(normalizedPhoneNumber),
+      });
       const createVerification = httpsCallable<
         { phoneNumber: string },
         ResidentPhoneVerificationResult
@@ -752,6 +813,10 @@ export async function sendResidentPhoneVerificationCode(
           throw new Error(
             'Usługa logowania SMS nie jest dostępna (brak funkcji backend). Skontaktuj się z administratorem.'
           );
+        }
+
+        if (error.code === 'functions/unauthenticated') {
+          throw new Error('Sesja logowania SMS wygasla. Sprobuj ponownie.');
         }
 
         if (error.code === 'functions/invalid-argument') {
@@ -767,9 +832,9 @@ export async function sendResidentPhoneVerificationCode(
     }
   }
 
-  const authInstance = requireAuth();
-  const verifier = getOrCreateRecaptchaVerifier(authInstance);
-  const confirmationResult = await signInWithPhoneNumber(authInstance, normalizedPhoneNumber, verifier);
+  const webAuthInstance = requireAuth();
+  const verifier = getOrCreateRecaptchaVerifier(webAuthInstance);
+  const confirmationResult = await signInWithPhoneNumber(webAuthInstance, normalizedPhoneNumber, verifier);
 
   return {
     verificationId: confirmationResult.verificationId,
@@ -797,18 +862,24 @@ export async function completeResidentRegistration(
     throw new Error('W trybie testowym wpisz kod 123456.');
   }
 
-  const signedInUser = await signInOrCreateEmailPasswordAccount(payload.email, payload.password);
   const usesNativeCloudVerification = Platform.OS !== 'web' && !isDevBypass && isNativeCloudVerificationId(verificationId);
-  const canLinkPhoneCredential = !isDevBypass;
+  const canLinkPhoneCredential = !isDevBypass && !usesNativeCloudVerification;
 
   if (usesNativeCloudVerification) {
-    await verifyNativePhoneCode(verificationId, smsCode, normalizedPhoneNumber);
-  } else if (canLinkPhoneCredential) {
+    await verifyNativePhoneCode(verificationId, normalizedSmsCode, normalizedPhoneNumber);
+  }
+
+  const signedInUser = await signInOrCreateEmailPasswordAccount(payload.email, payload.password);
+
+  if (canLinkPhoneCredential) {
     const phoneCredential = PhoneAuthProvider.credential(verificationId, normalizedSmsCode);
     await linkPhoneCredentialIfNeeded(signedInUser, phoneCredential);
   }
 
   await ensureUserToken(signedInUser);
+  devAuthLog('completeResidentRegistration:before-transaction', {
+    phone: maskIdentifier(normalizedPhoneNumber),
+  });
 
   const residentAccount: ResidentAccount = {
     id: normalizedPesel,
@@ -977,6 +1048,10 @@ export async function confirmResidentPhoneLoginCode(
     throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
 
+  if (isDevBypass && smsCode !== DEV_BYPASS_CODE) {
+    throw new Error('W trybie testowym wpisz kod 123456.');
+  }
+
   if (!isDevBypass && Platform.OS !== 'web') {
     await getNativePhoneAuthFactory();
   }
@@ -990,13 +1065,34 @@ export async function confirmResidentPhoneLoginCode(
     { success: boolean; phoneNumber?: string; customToken?: string; uid?: string }
   >(functions, 'verifyResidentPhoneCode');
 
-  const result = await createVerification({
-    verificationId: payload.verificationId,
-    code: smsCode,
-    phoneNumber: normalizedPhoneNumber,
-  });
+  let result:
+    | {
+        data: { success: boolean; phoneNumber?: string; customToken?: string; uid?: string };
+      }
+    | undefined;
+  try {
+    devAuthLog('confirmResidentPhoneLoginCode:before-callable', {
+      phone: maskIdentifier(normalizedPhoneNumber),
+    });
+    result = await createVerification({
+      verificationId: payload.verificationId,
+      code: smsCode,
+      phoneNumber: normalizedPhoneNumber,
+    });
+  } catch (error) {
+    if (error instanceof FirebaseError) {
+      if (error.code === 'functions/unauthenticated') {
+        throw new Error('Sesja logowania SMS wygasla. Sprobuj ponownie.');
+      }
 
-  if (!result.data.customToken) {
+      if (error.code === 'functions/not-found') {
+        throw new Error('Kod SMS nie istnieje lub wygasl. Wyslij nowy kod.');
+      }
+    }
+    throw error;
+  }
+
+  if (!result?.data.customToken) {
     throw new Error('Nie znaleziono powiązanego konta mieszkańca dla tego numeru telefonu.');
   }
 

@@ -1,6 +1,7 @@
 {
   "name": "functions",
   "description": "Cloud Functions for SMS authentication",
+  "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",

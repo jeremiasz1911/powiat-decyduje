@@ -442,8 +442,10 @@ async function verifyNativePhoneCode(
   normalizedPhoneNumber: string
 ): Promise<void> {
   if (!functions) {
-    throw new Error('Usługa weryfikacji SMS jest niedostępna. Spróbuj ponownie później.');
+    throw new Error('Usluga weryfikacji SMS jest niedostepna. Sprobuj ponownie pozniej.');
   }
+
+  await ensureAnonymousAuth();
 
   try {
     const verifyResidentPhoneCode = httpsCallable<
@@ -456,7 +458,7 @@ async function verifyNativePhoneCode(
     });
 
     if (!result.data?.success) {
-      throw new Error('Nie udało się potwierdzić kodu SMS.');
+      throw new Error('Nie udalo sie potwierdzic kodu SMS.');
     }
 
     if (typeof result.data.phoneNumber === 'string') {
@@ -468,15 +470,19 @@ async function verifyNativePhoneCode(
   } catch (error) {
     if (error instanceof FirebaseError) {
       if (error.code === 'functions/not-found') {
-        throw new Error('Usługa weryfikacji SMS nie jest dostępna. Skontaktuj się z administratorem.');
+        throw new Error('Usluga weryfikacji SMS nie jest dostepna. Skontaktuj sie z administratorem.');
+      }
+
+      if (error.code === 'functions/unauthenticated') {
+        throw new Error('Sesja logowania SMS nie jest gotowa. Sprobuj ponownie za chwile.');
       }
 
       if (error.code === 'functions/invalid-argument') {
-        throw new Error('Nieprawidłowy kod SMS lub kod wygasł.');
+        throw new Error('Nieprawidlowy kod SMS lub kod wygasl.');
       }
 
       if (error.code === 'functions/resource-exhausted') {
-        throw new Error('Przekroczono limit prób. Spróbuj ponownie za kilka minut.');
+        throw new Error('Przekroczono limit prob. Sprobuj ponownie za kilka minut.');
       }
     }
 
@@ -706,6 +712,8 @@ export async function sendResidentPhoneVerificationCode(
   }
 
   const dbInstance = requireDb();
+
+  await ensureAnonymousAuth();
 
   // Check rate limit before sending SMS
   const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);

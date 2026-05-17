@@ -1,32 +1,33 @@
-import { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Box,
-  Button,
-  ButtonText,
-  Checkbox,
-  CheckboxIcon,
-  CheckboxIndicator,
-  CheckboxLabel,
-  CheckIcon,
-  Input,
-  InputField,
-  Text,
-  VStack,
+    Box,
+    Button,
+    ButtonText,
+    Checkbox,
+    CheckboxIcon,
+    CheckboxIndicator,
+    CheckboxLabel,
+    CheckIcon,
+    Input,
+    InputField,
+    Text,
+    VStack,
 } from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 
+import { isDevSmsBypassEnabled } from '@/src/config/env';
 import {
-  residentRegistrationSchema,
-  type ResidentRegistrationFormValues,
+    residentRegistrationSchema,
+    type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  checkResidentRegistrationAvailability,
-  sendResidentPhoneVerificationCode,
+    checkResidentRegistrationAvailability,
+    sendResidentPhoneVerificationCode,
 } from '@/src/services';
 import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
@@ -482,7 +483,7 @@ export default function RegisterResidentScreen() {
                 />
               </VStack>
 
-              {__DEV__ ? (
+              {isDevSmsBypassEnabled ? (
                 <Button variant="outline" onPress={fillTestRegistration} style={styles.testButton}>
                   <ButtonText style={styles.testButtonText}>Uzupelnij rejestracje mieszkanca</ButtonText>
                 </Button>

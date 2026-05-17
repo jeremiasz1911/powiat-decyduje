@@ -32,6 +32,13 @@ interface ResidentPhoneVerificationResult {
   expiresAt: number;
 }
 
+interface ResidentPhoneLoginResult {
+  success: boolean;
+  phoneNumber: string;
+  uid?: string;
+  customToken?: string;
+}
+
 /**
  * Create resident phone verification code on backend
  * Called from native app to handle SMS verification on devices without recaptcha
@@ -163,10 +170,21 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
       verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    const phoneIndexDoc = await db.collection('auth_index_phone').doc(verification.phoneNumber).get();
+    const phoneIndexData = phoneIndexDoc.data();
+    const uid = typeof phoneIndexData?.uid === 'string' ? phoneIndexData.uid : undefined;
+    const customToken = uid
+      ? await auth.createCustomToken(uid, {
+          phoneNumber: verification.phoneNumber,
+        })
+      : undefined;
+
     return {
       success: true,
       phoneNumber: verification.phoneNumber,
-    };
+      uid,
+      customToken,
+    } as ResidentPhoneLoginResult;
   } catch (error) {
     console.error('Error verifying phone code:', error);
     if (error instanceof functions.https.HttpsError) {

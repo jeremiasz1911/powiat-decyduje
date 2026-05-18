@@ -95,6 +95,22 @@ export default function RegisterResidentScreen() {
     reset(testResidentValues);
   };
 
+  const testSmsOnly = async () => {
+    try {
+      const phone = testResidentValues.phoneNumber;
+      await notify('SMS Test', `Wysyłam SMS na ${phone}...`, 'info');
+      
+      const verification = await sendResidentPhoneVerificationCode({
+        phoneNumber: phone,
+      });
+      
+      await notify('SMS Wysłany', `Kod SMS wysłany na ${verification.normalizedPhoneNumber}. Sprawdź konsole dev dla kodu.`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SMS test failed';
+      await notify('SMS Test Error', message, 'error');
+    }
+  };
+
   const onSubmit = async (values: ResidentRegistrationFormValues) => {
     setIsSubmitting(true);
 
@@ -484,9 +500,14 @@ export default function RegisterResidentScreen() {
               </VStack>
 
               {isDevSmsBypassEnabled ? (
-                <Button variant="outline" onPress={fillTestRegistration} style={styles.testButton}>
-                  <ButtonText style={styles.testButtonText}>Uzupelnij rejestracje mieszkanca</ButtonText>
-                </Button>
+                <>
+                  <Button variant="outline" onPress={fillTestRegistration} style={styles.testButton}>
+                    <ButtonText style={styles.testButtonText}>Uzupelnij rejestracje mieszkanca</ButtonText>
+                  </Button>
+                  <Button variant="outline" onPress={testSmsOnly} style={styles.testButton}>
+                    <ButtonText style={styles.testButtonText}>Test SMS +48500400300</ButtonText>
+                  </Button>
+                </>
               ) : null}
 
               <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>

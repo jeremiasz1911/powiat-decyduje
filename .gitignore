@@ -47,3 +47,5 @@ google-services.json
 secrets/firebase-debug.log
 .env
 firebase-debug.log
+secrets/
+secrets/

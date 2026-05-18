@@ -610,14 +610,20 @@ export async function ensureAnonymousAuth(): Promise<User> {
 
   if (authInstance.currentUser) {
     await authInstance.currentUser.getIdToken(true);
-    devAuthLog('ensureAnonymousAuth:existing-user');
+    devAuthLog('ensureAnonymousAuth:existing-user', {
+      uid: maskIdentifier(authInstance.currentUser.uid),
+      isAnonymous: authInstance.currentUser.isAnonymous,
+    });
     return authInstance.currentUser;
   }
 
   try {
     const credentials = await signInAnonymously(authInstance);
     await credentials.user.getIdToken(true);
-    devAuthLog('ensureAnonymousAuth:signed-in');
+    devAuthLog('ensureAnonymousAuth:signed-in', {
+      uid: maskIdentifier(credentials.user.uid),
+      isAnonymous: credentials.user.isAnonymous,
+    });
     return credentials.user;
   } catch (error) {
     devAuthLog('ensureAnonymousAuth:error', {
@@ -923,6 +929,11 @@ export async function completeResidentRegistration(
     const userRef = doc(dbInstance, 'users', signedInUser.uid);
     const phoneIndexRefCurrent = phoneIndexRef(dbInstance, normalizedPhoneNumber);
     const peselIndexRefCurrent = peselIndexRef(dbInstance, normalizedPesel);
+
+    devAuthLog('completeResidentRegistration:transaction-start', {
+      uid: maskIdentifier(signedInUser.uid),
+      email: maskIdentifier(signedInUser.email ?? ''),
+    });
 
     const [userSnapshot, phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
       transaction.get(userRef),

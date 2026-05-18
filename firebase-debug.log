@@ -1658,3 +1658,56 @@
 [info] ✔  Deploy complete! 
 [info] 
 [info] Project Console: https://console.firebase.google.com/project/powiat-decyduje/overview
+[debug] [2026-05-18T10:00:51.613Z] ----------------------------------------------------------------------
+[debug] [2026-05-18T10:00:51.615Z] Command:       /Users/jeremiasz1911/.nvm/versions/node/v23.10.0/bin/node /Users/jeremiasz1911/Documents/custom/powiat-decyduje.worktrees/copilot-registration-error-fix-not-found/node_modules/.bin/firebase projects:list --project powiat-decyduje
+[debug] [2026-05-18T10:00:51.615Z] CLI Version:   15.17.0
+[debug] [2026-05-18T10:00:51.616Z] Platform:      darwin
+[debug] [2026-05-18T10:00:51.616Z] Node Version:  v23.10.0
+[debug] [2026-05-18T10:00:51.616Z] Time:          Mon May 18 2026 12:00:51 GMT+0200 (Central European Summer Time)
+[debug] [2026-05-18T10:00:51.616Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-18T10:00:51.753Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-18T10:00:51.753Z] > authorizing via signed-in user (jeremiasz1911@gmail.com)
+[debug] [2026-05-18T10:00:51.755Z] Checked if tokens are valid: false, expires at: 1779096977727
+[debug] [2026-05-18T10:00:51.755Z] Checked if tokens are valid: false, expires at: 1779096977727
+[debug] [2026-05-18T10:00:51.755Z] > refreshing access token with scopes: []
+[debug] [2026-05-18T10:00:51.757Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-05-18T10:00:51.757Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-18T10:00:52.074Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-05-18T10:00:52.074Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-05-18T10:00:52.085Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-05-18T10:00:52.849Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-05-18T10:00:52.850Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[info] ┌──────────────────────┬───────────────────────────┬────────────────┬──────────────────────┐
+│ Project Display Name │ Project ID                │ Project Number │ Resource Location ID │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ baza-oasis           │ baza-oasis                │ 578073252893   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ ekspresja            │ ekspresja-5a17d           │ 985322189288   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ erasmus-english      │ erasmus-english           │ 129766905948   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ familiada            │ familiada-618b6           │ 466906354538   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ game-amp             │ game-amp                  │ 789191774665   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ learn                │ learn-7824c               │ 257633717543   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ perfect-tune         │ perfect-tune              │ 735174445538   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ powiat-decyduje      │ powiat-decyduje (current) │ 1029210239146  │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ powiatdecyduje       │ powiatdecyduje            │ 737600538193   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ qr-quiz              │ qr-quiz-57e96             │ 427907035773   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ tournament-app       │ tournament-app-4d87c      │ 1052880359694  │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ urania               │ urania-1                  │ 113103681873   │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ xarea                │ xarea-ceea7               │ 1057427675730  │ [Not specified]      │
+├──────────────────────┼───────────────────────────┼────────────────┼──────────────────────┤
+│ zapp                 │ zapp-2                    │ 144140180935   │ [Not specified]      │
+└──────────────────────┴───────────────────────────┴────────────────┴──────────────────────┘
+[info] 
+[info] 14 project(s) total.

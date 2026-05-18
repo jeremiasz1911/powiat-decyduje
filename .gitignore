@@ -44,4 +44,6 @@ app-example
 google-services.json
 
 #secret files
-secrets/
+secrets/firebase-debug.log
+.env
+firebase-debug.log

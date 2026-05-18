@@ -175,7 +175,7 @@ service cloud.firestore {
         request.resource.data.accountCount >= 0 &&
         request.resource.data.accountCount <= 5 &&
         request.resource.data.updatedAt == request.time;
-      allow delete: if false;
+      allow delete: if isOwner(request.resource.data.uid);
     }
 
     match /auth_index_pesel/{pesel} {
@@ -191,6 +191,27 @@ service cloud.firestore {
         ]) &&
         request.resource.data.pesel == pesel &&
         request.resource.data.uid == request.auth.uid &&
+        request.resource.data.updatedAt == request.time;
+      allow delete: if isOwner(request.resource.data.uid);
+    }
+
+    match /sms_rate_limits/{normalizedPhoneNumber} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'blockedUntil',
+          'lastSmsTime',
+          'smsCount5Min',
+          'smsCountDay',
+          'dayResets',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.lastSmsTime is int &&
+        request.resource.data.smsCount5Min is int &&
+        request.resource.data.smsCountDay is int &&
+        request.resource.data.dayResets is int &&
         request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }

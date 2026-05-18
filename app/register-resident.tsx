@@ -1,32 +1,33 @@
-import { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Box,
-  Button,
-  ButtonText,
-  Checkbox,
-  CheckboxIcon,
-  CheckboxIndicator,
-  CheckboxLabel,
-  CheckIcon,
-  Input,
-  InputField,
-  Text,
-  VStack,
+    Box,
+    Button,
+    ButtonText,
+    Checkbox,
+    CheckboxIcon,
+    CheckboxIndicator,
+    CheckboxLabel,
+    CheckIcon,
+    Input,
+    InputField,
+    Text,
+    VStack,
 } from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 
+import { isDevSmsBypassEnabled } from '@/src/config/env';
 import {
-  residentRegistrationSchema,
-  type ResidentRegistrationFormValues,
+    residentRegistrationSchema,
+    type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  checkResidentRegistrationAvailability,
-  sendResidentPhoneVerificationCode,
+    checkResidentRegistrationAvailability,
+    sendResidentPhoneVerificationCode,
 } from '@/src/services';
 import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
@@ -52,6 +53,27 @@ const defaultValues: ResidentRegistrationFormValues = {
   personalDataProcessingAccepted: false,
 };
 
+const testResidentValues: ResidentRegistrationFormValues = {
+  phoneNumber: '+48500400300',
+  pesel: '90011512346',
+  email: 'test.mieszkanca@example.com',
+  password: 'Test1234!',
+  firstName: 'Jan',
+  lastName: 'Kowalski',
+  address: {
+    street: 'Sienkiewicza',
+    houseNumber: '12',
+    apartmentNumber: '4',
+    postalCode: '06-500',
+    city: 'Mlawa',
+    commune: 'Mlawa',
+  },
+  residentDeclaration: true,
+  termsAccepted: true,
+  privacyPolicyAccepted: true,
+  personalDataProcessingAccepted: true,
+};
+
 export default function RegisterResidentScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
@@ -61,12 +83,33 @@ export default function RegisterResidentScreen() {
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<ResidentRegistrationFormValues>({
     resolver: zodResolver(residentRegistrationSchema),
     defaultValues,
     mode: 'onBlur',
   });
+
+  const fillTestRegistration = () => {
+    reset(testResidentValues);
+  };
+
+  const testSmsOnly = async () => {
+    try {
+      const phone = testResidentValues.phoneNumber;
+      await notify('SMS Test', `Wysyłam SMS na ${phone}...`, 'info');
+      
+      const verification = await sendResidentPhoneVerificationCode({
+        phoneNumber: phone,
+      });
+      
+      await notify('SMS Wysłany', `Kod SMS wysłany na ${verification.normalizedPhoneNumber}. Sprawdź konsole dev dla kodu.`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'SMS test failed';
+      await notify('SMS Test Error', message, 'error');
+    }
+  };
 
   const onSubmit = async (values: ResidentRegistrationFormValues) => {
     setIsSubmitting(true);
@@ -456,6 +499,17 @@ export default function RegisterResidentScreen() {
                 />
               </VStack>
 
+              {isDevSmsBypassEnabled ? (
+                <>
+                  <Button variant="outline" onPress={fillTestRegistration} style={styles.testButton}>
+                    <ButtonText style={styles.testButtonText}>Uzupelnij rejestracje mieszkanca</ButtonText>
+                  </Button>
+                  <Button variant="outline" onPress={testSmsOnly} style={styles.testButton}>
+                    <ButtonText style={styles.testButtonText}>Test SMS +48500400300</ButtonText>
+                  </Button>
+                </>
+              ) : null}
+
               <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
                 <ButtonText style={styles.primaryButtonText}>
                   {isSubmitting ? 'Wysyłanie kodu SMS...' : 'Wyślij kod SMS'}
@@ -555,6 +609,16 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     color: futuristicTheme.colors.textPrimary,
     fontSize: 13,
+  },
+  testButton: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: futuristicTheme.colors.border,
+    backgroundColor: 'rgba(13, 47, 79, 0.5)',
+  },
+  testButtonText: {
+    color: futuristicTheme.colors.textPrimary,
+    fontWeight: '700',
   },
   primaryButton: {
     marginTop: 4,

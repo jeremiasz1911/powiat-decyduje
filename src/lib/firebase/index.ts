@@ -2,6 +2,7 @@ import { FirebaseError, getApp, getApps, initializeApp, type FirebaseApp } from 
 import * as FirebaseAuth from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getFunctions, type Functions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { env } from '@/src/config/env';
@@ -79,3 +80,4 @@ if (app && !authInstance) {
 export const auth = authInstance;
 export const db: Firestore | null = app ? getFirestore(app) : null;
 export const storage: FirebaseStorage | null = app ? getStorage(app) : null;
+export const functions: Functions | null = app ? getFunctions(app) : null;

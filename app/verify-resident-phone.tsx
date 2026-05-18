@@ -1,20 +1,20 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo, useState, useEffect } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { StyleSheet } from 'react-native';
+import { z } from 'zod';
 
 import { ScreenContainer } from '@/src/components/screen-container';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  completeResidentRegistration,
-  confirmResidentPhoneLoginCode,
-  sendResidentPhoneVerificationCode,
+    completeResidentRegistration,
+    confirmResidentPhoneLoginCode,
+    sendResidentPhoneVerificationCode,
 } from '@/src/services';
-import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { useAuthContext } from '@/src/store/auth-context';
+import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const smsCodeSchema = z.object({
@@ -27,7 +27,7 @@ export default function VerifyResidentPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
-  const { consumeRegistration } = useAuthFlow();
+  const { consumeRegistration, consumePhoneLogin, pendingPhoneLogin } = useAuthFlow();
   const params = useLocalSearchParams<{
     mode?: string;
     phoneNumber?: string;
@@ -35,9 +35,44 @@ export default function VerifyResidentPhoneScreen() {
   }>();
   const [verificationId, setVerificationId] = useState(params.verificationId ?? '');
   const [isResending, setIsResending] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  const [isExpired, setIsExpired] = useState(false);
+  const [resendCooldownSeconds, setResendCooldownSeconds] = useState(0);
+  const [resendCount, setResendCount] = useState(0);
   const mode = useMemo(() => params.mode ?? 'login', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const isRegisterMode = mode === 'register';
+  const isPhoneLoginMode = mode === 'login' && Boolean(pendingPhoneLogin);
+
+  useEffect(() => {
+    if (!pendingPhoneLogin?.expiresAt || pendingPhoneLogin.expiresAt === 0) {
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((pendingPhoneLogin.expiresAt - now) / 1000));
+      setSecondsRemaining(remaining);
+      if (remaining === 0) {
+        setIsExpired(true);
+      }
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [pendingPhoneLogin?.expiresAt]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldownSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setResendCooldownSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [resendCooldownSeconds]);
 
   const {
     control,
@@ -76,6 +111,29 @@ export default function VerifyResidentPhoneScreen() {
       });
 
       const accounts = await refreshResidentAccounts();
+      
+      // If this was a phone login (from SMS login flow)
+      if (isPhoneLoginMode) {
+        const phoneLogin = consumePhoneLogin();
+        
+        // If user pre-selected a specific account
+        if (phoneLogin?.selectedResidentAccountId) {
+          await setActiveResidentAccountId(phoneLogin.selectedResidentAccountId);
+          await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
+          router.replace('/(drawer)/(tabs)/projects');
+          return;
+        }
+        
+        // If this was a single account (auto-selected) or just plain phone login
+        if (accounts.length === 1 && accounts[0]) {
+          await setActiveResidentAccountId(accounts[0].id);
+          await notify('Zalogowano', 'Kod SMS został potwierdzony.', 'success');
+          router.replace('/(drawer)/(tabs)/projects');
+          return;
+        }
+      }
+
+      // Standard flow (registration or password login)
       if (accounts.length > 1) {
         await notify('Wybierz profil', 'Ten numer ma kilka profili mieszkańca.', 'info');
         router.replace('/select-resident-account');
@@ -100,11 +158,25 @@ export default function VerifyResidentPhoneScreen() {
       return;
     }
 
+    if (resendCount >= 5) {
+      await notify('Limit wysyłek', 'Możesz wysłać kod maksymalnie 5 razy. Spróbuj za kilka minut.', 'error');
+      return;
+    }
+
+    if (resendCooldownSeconds > 0) {
+      await notify('Czekaj', `Poczekaj ${resendCooldownSeconds} sekund przed ponowną wysyłką.`, 'info');
+      return;
+    }
+
     setIsResending(true);
 
     try {
       const verification = await sendResidentPhoneVerificationCode({ phoneNumber });
       setVerificationId(verification.verificationId);
+      setResendCount((prev) => prev + 1);
+      setResendCooldownSeconds(30);
+      setSecondsRemaining(Math.ceil((verification.expiresAt - Date.now()) / 1000));
+      setIsExpired(false);
       await notify('Kod wysłany ponownie', `Nowy kod wysłano na ${verification.normalizedPhoneNumber}.`, 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu ponownie.';
@@ -119,6 +191,13 @@ export default function VerifyResidentPhoneScreen() {
       <Box style={styles.card}>
         <VStack space="md">
           <Text style={styles.meta}>Numer telefonu: {phoneNumber || '-'}</Text>
+          {isPhoneLoginMode && pendingPhoneLogin && pendingPhoneLogin.expiresAt > 0 && (
+            <Text style={[styles.meta, isExpired ? styles.expiredText : null]}>
+              {isExpired
+                ? 'Kod SMS wygasł. Wyślij nowy kod poniżej.'
+                : `Kod wygasa za ${secondsRemaining} sekund`}
+            </Text>
+          )}
 
           <Controller
             control={control}
@@ -135,6 +214,7 @@ export default function VerifyResidentPhoneScreen() {
                     maxLength={6}
                     placeholder="000000"
                     autoComplete="one-time-code"
+                    editable={!isExpired}
                     placeholderTextColor={futuristicTheme.colors.textMuted}
                     style={styles.inputText}
                   />
@@ -150,9 +230,20 @@ export default function VerifyResidentPhoneScreen() {
             </ButtonText>
           </Button>
 
-          <Button variant="outline" onPress={handleResendCode} isDisabled={isResending} style={styles.secondaryButton}>
+          <Button
+            variant="outline"
+            onPress={handleResendCode}
+            isDisabled={isResending || resendCooldownSeconds > 0 || resendCount >= 5}
+            style={styles.secondaryButton}
+          >
             <ButtonText style={styles.secondaryButtonText}>
-              {isResending ? 'Wysyłanie...' : 'Wyślij kod ponownie'}
+              {isResending
+                ? 'Wysyłanie...'
+                : resendCooldownSeconds > 0
+                  ? `Czekaj ${resendCooldownSeconds}s`
+                  : resendCount >= 5
+                    ? 'Limit wysyłek'
+                    : `Wyślij kod ponownie (${resendCount}/5)`}
             </ButtonText>
           </Button>
         </VStack>
@@ -173,6 +264,10 @@ const styles = StyleSheet.create({
   meta: {
     color: futuristicTheme.colors.textMuted,
     fontSize: 13,
+  },
+  expiredText: {
+    color: futuristicTheme.colors.danger,
+    fontWeight: '600',
   },
   label: {
     color: futuristicTheme.colors.textPrimary,

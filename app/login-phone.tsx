@@ -1,46 +1,47 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  Easing,
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 import {
-  Box,
-  Button,
-  ButtonText,
-  Input,
-  InputField,
-  Text,
-  VStack,
+    Box,
+    Button,
+    ButtonText,
+    Input,
+    InputField,
+    Text,
+    VStack,
 } from '@gluestack-ui/themed';
-import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { StyleSheet, View } from 'react-native';
+import Animated, {
+    Easing,
+    FadeIn,
+    FadeInDown,
+    FadeInUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSpring,
+    withTiming,
+} from 'react-native-reanimated';
 
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { useAuthFlow } from '@/src/store/auth-flow-context';
-import { useAuthContext } from '@/src/store/auth-context';
 import {
   loginWithEmailPassword,
   resolveResidentLoginTarget,
   sendResidentPhoneVerificationCode,
+  getResidentAccountsByPhoneNumber,
 } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
+import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function LoginPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
-  const { beginPasswordLogin } = useAuthFlow();
+  const { beginPasswordLogin, beginPhoneLogin } = useAuthFlow();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isSendingSms, setIsSendingSms] = useState(false);
 
@@ -126,19 +127,48 @@ export default function LoginPhoneScreen() {
     setIsSendingSms(true);
 
     try {
-      const verification = await sendResidentPhoneVerificationCode({ phoneNumber: identifier });
-      await notify('Kod SMS wysłany', `Wysłaliśmy kod na ${verification.normalizedPhoneNumber}.`, 'success');
-      router.push({
-        pathname: '/verify-resident-phone',
-        params: {
-          mode: 'login',
-          phoneNumber: verification.normalizedPhoneNumber,
-          verificationId: verification.verificationId,
-        },
-      });
+      const accounts = await getResidentAccountsByPhoneNumber(identifier);
+
+      if (accounts.length === 0) {
+        await notify('Brak konta', 'Ten numer telefonu nie jest zarejestrowany.', 'error');
+        return;
+      }
+
+      if (accounts.length === 1) {
+        // If only one account, go directly to SMS verification
+        try {
+          const verification = await sendResidentPhoneVerificationCode({ phoneNumber: identifier });
+          beginPhoneLogin({
+            phoneNumber: identifier,
+            verificationId: verification.verificationId,
+            residentAccounts: accounts,
+            expiresAt: verification.expiresAt,
+          });
+          router.push({
+            pathname: '/verify-resident-phone',
+            params: {
+              mode: 'login',
+              phoneNumber: verification.normalizedPhoneNumber,
+              verificationId: verification.verificationId,
+            },
+          });
+        } catch (smsError) {
+          const smsMessage = smsError instanceof Error ? smsError.message : 'Nie udało się wysłać kodu SMS.';
+          await notify('Błąd SMS', smsMessage, 'error');
+        }
+      } else {
+        // If multiple accounts, show selection screen first
+        beginPhoneLogin({
+          phoneNumber: identifier,
+          verificationId: '',
+          residentAccounts: accounts,
+          expiresAt: 0,
+        });
+        router.push('/pre-select-resident-account');
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu SMS.';
-      await notify('Błąd SMS', message, 'error');
+      const message = error instanceof Error ? error.message : 'Nie udało się sprawdzić dostępnych kont.';
+      await notify('Błąd', message, 'error');
     } finally {
       setIsSendingSms(false);
     }

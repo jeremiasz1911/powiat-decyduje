@@ -60,6 +60,18 @@ const SMS_RATE_LIMIT = {
   MAX_RESENDS: 5,
 };
 
+// SMS Security Constants
+const SMS_RATE_LIMIT = {
+  MAX_SMS_PER_5_MIN: 3,
+  MAX_SMS_PER_DAY: 10,
+  BLOCK_DURATION_MS: 1 * 60 * 60 * 1000, // 1 hour
+  SMS_CODE_EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
+  MAX_VERIFICATION_ATTEMPTS: 5,
+  ATTEMPT_BLOCK_DURATION_MS: 15 * 60 * 1000, // 15 minutes
+  RESEND_COOLDOWN_MS: 30 * 1000, // 30 seconds
+  MAX_RESENDS: 5,
+};
+
 type ResidentConsents = {
   residentDeclaration: boolean;
   termsAccepted: boolean;
@@ -453,7 +465,6 @@ async function verifyNativePhoneCode(
   }
 
   await ensureAnonymousAuth();
-
   try {
     const verifyResidentPhoneCode = httpsCallable<
       { verificationId: string; code: string },
@@ -727,7 +738,6 @@ export async function sendResidentPhoneVerificationCode(
   const dbInstance = requireDb();
 
   await ensureAnonymousAuth();
-
   // Check rate limit before sending SMS
   const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
   if (!rateLimitStatus.allowed) {

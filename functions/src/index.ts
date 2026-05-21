@@ -116,19 +116,13 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
 /**
  * Verify SMS code and create authentication token
  */
-<<<<<<< HEAD
-export const verifyResidentPhoneCode = functions.https.onCall(async (request) => {
-  if (!request.auth) {
+export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context) => {
+  if (!context.auth) {
     throw new functions.https.HttpsError(
       'unauthenticated',
       'Authentication is required before verifying an SMS code.'
     );
   }
-
-  const data = (request.data ?? {}) as { verificationId?: string; code?: string };
-=======
-export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context) => {
->>>>>>> origin/main
   const { verificationId, code } = data;
 
   if (!verificationId || !code) {

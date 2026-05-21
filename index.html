@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Powiat Decyduje — Aplikacja obywatelska Powiatu Mławskiego</title>
+  <style>
+    :root {
+      --bg: #0a0e27;
+      --bg2: #0f1839;
+      --card: rgba(255,255,255,0.07);
+      --card-hover: rgba(255,255,255,0.12);
+      --text: #f0f4ff;
+      --muted: #a8b9d9;
+      --line: rgba(255,255,255,0.14);
+      --blue: #0099ff;
+      --cyan: #00d9ff;
+      --green: #00ff88;
+      --purple: #b700ff;
+      --pink: #ff0080;
+      --shadow: 0 32px 128px rgba(0,0,0,0.45);
+      --shadow-lg: 0 48px 180px rgba(0,0,0,0.55);
+      --radius: 24px;
+      --glow-blue: 0 0 30px rgba(0,153,255,0.4);
+      --glow-cyan: 0 0 30px rgba(0,217,255,0.3);
+      --glow-green: 0 0 30px rgba(0,255,136,0.3);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 80px;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 15%, rgba(0,153,255,0.15), transparent 40%),
+        radial-gradient(circle at 85% 35%, rgba(183,0,255,0.12), transparent 45%),
+        radial-gradient(circle at 50% 80%, rgba(0,255,136,0.08), transparent 50%),
+        linear-gradient(135deg, var(--bg), var(--bg2) 50%, #08091e);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(0,153,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,153,255,0.03) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 75%);
+      z-index: 1;
+    }
+
+    .orb {
+      position: fixed;
+      border-radius: 999px;
+      filter: blur(40px);
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb.blue {
+      width: 400px;
+      height: 400px;
+      background: rgba(0,153,255,0.2);
+      top: 10%;
+      left: -15%;
+      animation: drift-1 12s ease-in-out infinite;
+    }
+
+    .orb.purple {
+      width: 350px;
+      height: 350px;
+      background: rgba(183,0,255,0.15);
+      top: 25%;
+      right: -10%;
+      animation: drift-2 14s ease-in-out infinite;
+    }
+
+    .orb.green {
+      width: 380px;
+      height: 380px;
+      background: rgba(0,255,136,0.12);
+      bottom: 10%;
+      left: 5%;
+      animation: drift-3 16s ease-in-out infinite;
+    }
+
+    @keyframes drift-1 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(40px, -60px) scale(1.1); }
+    }
+
+    @keyframes drift-2 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-50px, 40px) scale(1.05); }
+    }
+
+    @keyframes drift-3 {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, 50px) scale(1.08); }
+    }
+
+    .wrap {
+      width: min(1240px, calc(100% - 40px));
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 12px;
+      z-index: 100;
+      margin: 0 auto;
+      width: min(1240px, calc(100% - 40px));
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 24px;
+      border: 1px solid var(--line);
+      background: rgba(10,14,39,0.75);
+      backdrop-filter: blur(24px);
+      border-radius: 20px;
+      box-shadow: 0 12px 50px rgba(0,0,0,0.35);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      color: #000;
+      font-weight: 1000;
+      font-size: 16px;
+      box-shadow: var(--glow-blue);
+    }
+
+    .navlinks {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .navlinks a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: 0.3s ease;
+      border: 1px solid transparent;
+    }
+
+    .navlinks a:hover {
+      color: var(--cyan);
+      background: rgba(0,217,255,0.1);
+      border-color: rgba(0,217,255,0.3);
+      box-shadow: var(--glow-cyan);
+    }
+
+    /* Hero section */
+    header {
+      padding: 100px 0 60px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: rgba(0,217,255,0.12);
+      border: 1px solid rgba(0,217,255,0.4);
+      color: var(--cyan);
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 24px;
+      box-shadow: inset 0 0 20px rgba(0,217,255,0.1);
+    }
+
+    .pulse {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(0,255,136,0.8);
+      animation: pulse-glow 2s infinite;
+    }
+
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 0 0 rgba(0,255,136,0.8); }
+      70% { box-shadow: 0 0 0 18px rgba(0,255,136,0); }
+      100% { box-shadow: 0 0 0 0 rgba(0,255,136,0); }
+    }
+
+    h1 {
+      font-size: clamp(48px, 8vw, 92px);
+      line-height: 1.1;
+      margin: 0;
+      letter-spacing: -0.08em;
+      font-weight: 900;
+    }
+
+    .grad {
+      background: linear-gradient(90deg, var(--cyan), var(--green), var(--blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: gradient-shift 4s ease-in-out infinite;
+    }
+
+    @keyframes gradient-shift {
+      0%, 100% { filter: hue-rotate(0deg); }
+      50% { filter: hue-rotate(20deg); }
+    }
+
+    .lead {
+      margin: 24px 0 0;
+      font-size: 20px;
+      line-height: 1.7;
+      color: var(--muted);
+      max-width: 680px;
+    }
+
+    .cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: none;
+      text-decoration: none;
+      border-radius: 16px;
+      padding: 16px 28px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn.primary {
+      color: #000;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      box-shadow: var(--glow-cyan);
+      border: 1px solid rgba(0,217,255,0.5);
+    }
+
+    .btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--glow-cyan), 0 8px 24px rgba(0,217,255,0.3);
+    }
+
+    .btn.secondary {
+      color: var(--cyan);
+      background: rgba(0,217,255,0.1);
+      border: 1.5px solid rgba(0,217,255,0.4);
+      box-shadow: inset 0 0 20px rgba(0,217,255,0.05);
+    }
+
+    .btn.secondary:hover {
+      background: rgba(0,217,255,0.15);
+      border-color: rgba(0,217,255,0.6);
+      box-shadow: inset 0 0 20px rgba(0,217,255,0.08), var(--glow-cyan);
+    }
+
+    /* Phone mockup */
+    .phone {
+      position: relative;
+      min-height: 600px;
+      border-radius: 44px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(0,217,255,0.15), rgba(183,0,255,0.1));
+      border: 1.5px solid rgba(0,217,255,0.3);
+      box-shadow: var(--shadow-lg), inset 0 0 60px rgba(0,217,255,0.1);
+      overflow: hidden;
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 140px;
+      height: 28px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 999px;
+      z-index: 3;
+    }
+
+    .screen {
+      height: 100%;
+      border-radius: 36px;
+      overflow: hidden;
+      padding: 48px 20px 24px;
+      background:
+        radial-gradient(circle at 35% 10%, rgba(0,217,255,0.2), transparent 30%),
+        linear-gradient(180deg, #08091e, #0a0e27);
+      border: 1px solid rgba(0,217,255,0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .map-section {
+      height: 280px;
+      border-radius: 28px;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, rgba(0,153,255,0.18), rgba(0,255,136,0.08));
+      border: 1px solid rgba(0,217,255,0.25);
+      box-shadow: inset 0 0 40px rgba(0,217,255,0.1);
+    }
+
+    .fake-map {
+      position: absolute;
+      inset: 0;
+      opacity: 0.85;
+    }
+
+    .pin {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50% 50% 50% 0;
+      background: var(--green);
+      transform: rotate(-45deg);
+      box-shadow: 0 0 0 6px rgba(0,255,136,0.2), var(--glow-green);
+      animation: pop-pin 2.4s infinite;
+      cursor: pointer;
+    }
+
+    .pin::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      inset: 6px;
+      border-radius: 50%;
+      background: #0a0e27;
+    }
+
+    .pin.yellow {
+      background: #ffd700;
+      box-shadow: 0 0 0 6px rgba(255,215,0,0.2), 0 0 30px rgba(255,215,0,0.4);
+    }
+
+    .pin.pink {
+      background: var(--pink);
+      box-shadow: 0 0 0 6px rgba(255,0,128,0.2), 0 0 30px rgba(255,0,128,0.3);
+    }
+
+    .pin.a { left: 52%; top: 35%; animation-delay: 0s; }
+    .pin.b { left: 30%; top: 62%; animation-delay: -0.8s; background: var(--cyan); box-shadow: 0 0 0 6px rgba(0,217,255,0.2), var(--glow-cyan); }
+    .pin.c { left: 70%; top: 68%; animation-delay: -1.6s; }
+
+    @keyframes pop-pin {
+      0%, 100% { transform: rotate(-45deg) translateY(0) scale(1); }
+      50% { transform: rotate(-45deg) translateY(-6px) scale(1.12); }
+    }
+
+    .feature-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .feature-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px;
+    }
+
+    .feature-item strong {
+      color: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    .feature-item span {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* Sections */
+    .section {
+      padding: 80px 0;
+    }
+
+    .section-header {
+      margin-bottom: 50px;
+    }
+
+    .section-header h2 {
+      font-size: clamp(36px, 5vw, 56px);
+      margin: 0 0 18px;
+      letter-spacing: -0.06em;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+
+    .section-header p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 720px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .grid.two-col {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .card {
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line);
+      padding: 32px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+      transition: 0.4s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.6;
+    }
+
+    .card:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(0,217,255,0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,153,255,0.15);
+    }
+
+    .card h3 {
+      font-size: 22px;
+      margin: 0 0 14px;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+    }
+
+    .card p, .card li {
+      color: var(--muted);
+      line-height: 1.7;
+      margin: 0;
+      font-size: 15px;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .card li {
+      margin-bottom: 10px;
+    }
+
+    .card-icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    .badge-count {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: rgba(0,217,255,0.15);
+      color: var(--cyan);
+      font-weight: 700;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    .stat-box {
+      text-align: center;
+      padding: 28px;
+      border-radius: 20px;
+      background: rgba(0,217,255,0.08);
+      border: 1px solid rgba(0,217,255,0.25);
+      transition: 0.4s ease;
+    }
+
+    .stat-box:hover {
+      background: rgba(0,217,255,0.12);
+      border-color: rgba(0,217,255,0.4);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .stat-number {
+      font-size: 44px;
+      font-weight: 900;
+      color: var(--cyan);
+      margin: 0;
+      text-shadow: 0 0 20px rgba(0,217,255,0.3);
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 8px 0 0;
+      font-weight: 600;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 16px;
+    }
+
+    .timeline-step {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 20px;
+      align-items: start;
+      padding: 20px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line);
+      transition: 0.3s ease;
+    }
+
+    .timeline-step:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(0,217,255,0.3);
+    }
+
+    .step-num {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(0,153,255,0.2), rgba(0,255,136,0.15));
+      border: 1px solid rgba(0,217,255,0.3);
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    .timeline-step h4 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .timeline-step p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .project-showcase {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .project-chip {
+      padding: 14px 18px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(0,217,255,0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: 0.3s ease;
+      cursor: pointer;
+    }
+
+    .project-chip:hover {
+      background: rgba(0,217,255,0.12);
+      border-color: rgba(0,217,255,0.5);
+      box-shadow: inset 0 0 20px rgba(0,217,255,0.1);
+    }
+
+    .project-chip strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .project-chip span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .project-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 6px;
+      width: fit-content;
+    }
+
+    .status-verified {
+      background: rgba(0,255,136,0.2);
+      color: var(--green);
+    }
+
+    .status-pending {
+      background: rgba(255,215,0,0.2);
+      color: #ffd700;
+    }
+
+    .status-approved {
+      background: rgba(0,217,255,0.2);
+      color: var(--cyan);
+    }
+
+    .status-inprogress {
+      background: rgba(183,0,255,0.2);
+      color: var(--purple);
+    }
+
+    .status-completed {
+      background: rgba(0,255,136,0.2);
+      color: var(--green);
+    }
+
+    .mega-number {
+      font-size: clamp(72px, 15vw, 140px);
+      font-weight: 1000;
+      line-height: 1;
+      color: var(--cyan);
+      text-shadow: 0 0 40px rgba(0,217,255,0.3);
+      margin: 0;
+    }
+
+    .mega-label {
+      font-size: 18px;
+      color: var(--muted);
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    .footer-summary {
+      text-align: center;
+      padding: 48px 32px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(0,217,255,0.12), rgba(0,255,136,0.08));
+      border: 1.5px solid rgba(0,217,255,0.3);
+      box-shadow: inset 0 0 60px rgba(0,217,255,0.1);
+      margin: 60px 0 40px;
+    }
+
+    .footer-summary h2 {
+      font-size: 36px;
+      margin: 0 0 16px;
+      letter-spacing: -0.04em;
+    }
+
+    .footer-summary p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 800px;
+      margin: 0 auto 24px;
+      line-height: 1.8;
+    }
+
+    .quote {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .pill {
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .two-col-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .feature-text h3 {
+      font-size: 28px;
+      margin: 0 0 16px;
+      letter-spacing: -0.04em;
+      font-weight: 900;
+    }
+
+    .feature-text p {
+      color: var(--muted);
+      line-height: 1.8;
+      margin: 0 0 16px;
+      font-size: 16px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .hero,
+      .two-col-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid.two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .project-showcase {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .navlinks {
+        justify-content: flex-start;
+        width: 100%;
+      }
+
+      .phone {
+        min-height: 500px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .wrap {
+        width: calc(100% - 24px);
+      }
+
+      nav {
+        width: calc(100% - 24px);
+        padding: 12px 18px;
+      }
+
+      header {
+        padding: 60px 0 40px;
+      }
+
+      h1 {
+        font-size: clamp(36px, 7vw, 52px);
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cta .btn {
+        width: 100%;
+      }
+
+      .section {
+        padding: 50px 0;
+      }
+
+      .stat-number {
+        font-size: 32px;
+      }
+
+      .timeline-step {
+        grid-template-columns: 50px 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .navlinks {
+        display: none;
+      }
+
+      header {
+        padding: 50px 0 30px;
+      }
+
+      .lead {
+        font-size: 16px;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .stat-box {
+        padding: 20px;
+      }
+
+      .footer-summary {
+        padding: 30px 20px;
+      }
+
+      .footer-summary h2 {
+        font-size: 24px;
+      }
+
+      .footer-summary p,
+      .quote {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background orbs -->
+  <div class="orb blue"></div>
+  <div class="orb purple"></div>
+  <div class="orb green"></div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="#" class="brand">
+      <div class="logo">PD</div>
+      <span>Powiat Decyduje</span>
+    </a>
+    <div class="navlinks">
+      <a href="#idea">Idea</a>
+      <a href="#funkcje">Funkcje</a>
+      <a href="#jak">Jak działa</a>
+      <a href="#dla-mieszkaniec">Dla mieszkańca</a>
+      <a href="#dla-samorzadu">Dla samorządu</a>
+      <a href="#bezpieczenstwo">Bezpieczeństwo</a>
+      <a href="#proces">Proces</a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="wrap">
+    <div class="hero">
+      <div>
+        <div class="badge">
+          <span class="pulse"></span>
+          Aplikacja obywatelska dla Powiatu Mławskiego
+        </div>
+        <h1>Powiat <span class="grad">Decyduje</span></h1>
+        <p class="lead">
+          Cyfrowa platforma, która zamienia potrzeby mieszkańców w czytelną mapę lokalnych inicjatyw. Zgłaszaj projekty, głosuj, bądź częścią decyzji o rozwoju Powiatu Mławskiego.
+        </p>
+        <div class="cta">
+          <button class="btn primary">Zacznij działać →</button>
+          <button class="btn secondary">Dowiedz się więcej ↓</button>
+        </div>
+      </div>
+
+      <div class="phone" aria-label="Podgląd aplikacji Powiat Decyduje">
+        <div class="screen">
+          <div class="map-section">
+            <svg class="fake-map" viewBox="0 0 420 280" preserveAspectRatio="xMidYMid slice">
+              <defs>
+                <linearGradient id="mapGrad" x1="0" x2="1">
+                  <stop offset="0" stop-color="#0099ff" stop-opacity="0.25"/>
+                  <stop offset="1" stop-color="#00ff88" stop-opacity="0.15"/>
+                </linearGradient>
+              </defs>
+              <path d="M60 40 L160 20 L240 50 L320 25 L380 80 L360 150 L400 220 L280 250 L180 220 L120 240 L70 180 Z" fill="url(#mapGrad)" stroke="rgba(0,217,255,0.4)" stroke-width="2"/>
+              <path d="M90 120 C140 90 190 95 240 130 S310 160 360 120" fill="none" stroke="rgba(0,217,255,0.2)" stroke-width="5"/>
+              <path d="M130 200 C180 160 220 170 260 190 S320 220 370 190" fill="none" stroke="rgba(0,255,136,0.15)" stroke-width="4"/>
+              <circle cx="210" cy="130" r="45" fill="rgba(0,217,255,0.08)" stroke="rgba(0,217,255,0.2)" stroke-width="2"/>
+            </svg>
+            <div class="pin a yellow"></div>
+            <div class="pin b"></div>
+            <div class="pin c pink"></div>
+          </div>
+
+          <div class="feature-list">
+            <div class="feature-item">
+              <strong>📍</strong>
+              <span><strong>Projekt na mapie:</strong> Bezpieczne przejście dla pieszych</span>
+            </div>
+            <div class="feature-item">
+              <strong>🗳️</strong>
+              <span><strong>Twoje głosy:</strong> Pozostało 3 z 5 dostępnych</span>
+            </div>
+            <div class="feature-item">
+              <strong>✅</strong>
+              <span><strong>Zweryfikowany mieszkaniec</strong> — gotów do głosowania</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Sekcja: Idea projektu -->
+    <section class="section" id="idea">
+      <div class="section-header">
+        <h2>Dlaczego Powiat Decyduje?</h2>
+        <p>Aplikacja łączy mapę, konsultacje społeczne i głosowanie mieszkańców w jedno narzędzie, które podaje faktyczne potrzeby powiatu.</p>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <div class="card-icon">🗺️</div>
+          <h3>Mapa potrzeb</h3>
+          <p>
+            Każda pinezka to rzeczywisty problem lub idea zgłoszona przez mieszkańca: brakujący chodnik, przejście dla pieszych, oświetlenie ulicy, brak infrastruktury sportowej czy brak place zabaw dla dzieci.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon">💡</div>
+          <h3>Głos każdego ma znaczenie</h3>
+          <p>
+            Mieszkańcy oddają głosy na projekty, które ich dotyczą. System liczy głosy i pokazuje rzeczywiste poparcie społeczne. Samorząd widzi, które potrzeby są dla powiatu priorytetowe.
+          </p>
+        </article>
+
+        <article class="card">
+          <div class="card-icon">📊</div>
+          <h3>Dane dla samorządu</h3>
+          <p>
+            Panel administracyjny daje władzom uporządkowane, weryfikowalne dane. Możliwa jest analiza, moderacja, eksport raportów i monitorowanie realizacji projektów w czasie rzeczywistym.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Sekcja: Liczby -->
+    <section class="section" id="liczby">
+      <div class="section-header">
+        <h2>Powiat Mławski w liczbach</h2>
+        <p>Stan aplikacji pokazujący zaangażowanie mieszkańców i skalę projektu.</p>
+      </div>
+
+      <div class="grid">
+        <div class="stat-box">
+          <p class="stat-number">128</p>
+          <p class="stat-label">Zgłoszonych projektów</p>
+        </div>
+        <div class="stat-box">
+          <p class="stat-number">4 820</p>
+          <p class="stat-label">Oddanych głosów</p>
+        </div>
+        <div class="stat-box">
+          <p class="stat-number">36</p>
+          <p class="stat-label">Zaakceptowanych projektów</p>
+        </div>
+        <div class="stat-box">
+          <p class="stat-number">12</p>
+          <p class="stat-label">Gmin i miejscowości</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja: Funkcje aplikacji -->
+    <section class="section" id="funkcje">
+      <div class="section-header">
+        <h2>Funkcjonalności aplikacji</h2>
+        <p>Kompletny zestaw narzędzi dla mieszkańców i samorządu do zarządzania lokalnymi inicjatywami.</p>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h3>🗺️ Mapa Powiatu</h3>
+          <p>
+            Interaktywna mapa z granicami powiatu i pinezkami projektów. Kliknięcie pinezki pokazuje szczegóły: tytuł, opis, kategorię, liczbę głosów i status realizacji. Filtry po miejscowości, kategorii i statusie.
+          </p>
+          <div class="pills">
+            <span class="pill">GeoJSON</span>
+            <span class="pill">Pinezki</span>
+            <span class="pill">Kategorie</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>📝 Zgłaszanie projektów</h3>
+          <p>
+            Mieszkaniec opisuje problem, wskazuje dokładne miejsce na mapie, wybiera kategorię i podaje uzasadnienie. Formularz sprawdza poprawność danych. Po wysłaniu projekt trafia do moderacji.
+          </p>
+          <div class="pills">
+            <span class="pill">Tytuł i opis</span>
+            <span class="pill">Lokalizacja</span>
+            <span class="pill">Kategoria</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>🗳️ Głosowanie</h3>
+          <p>
+            Zweryfikowany mieszkaniec może oddać do 5 głosów na różne projekty. System automatycznie pilnuje limitu i blokuje duplikaty. Historia głosów jest dostępna w profilu użytkownika.
+          </p>
+          <div class="pills">
+            <span class="pill">Max 5 głosów</span>
+            <span class="pill">1 projekt = 1 głos</span>
+            <span class="pill">Historia głosów</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>👤 Konto mieszkańca</h3>
+          <p>
+            Rejestracja i logowanie przez SMS i PESEL. Profil zawiera historię zgłoszonych projektów, historię głosów i ustawienia konta. Jeden numer telefonu obsługuje do 5 kont rodzinnych.
+          </p>
+          <div class="pills">
+            <span class="pill">SMS + PESEL</span>
+            <span class="pill">Do 5 kont</span>
+            <span class="pill">Historia</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>⚙️ Panel administracyjny</h3>
+          <p>
+            Samorząd przeglądał zgłoszenia, zmienia statusy (zgłoszony → weryfikowany → zaakceptowany → w realizacji → zrealizowany), moderuje treści i eksportuje raporty dla potrzeb urzędu.
+          </p>
+          <div class="pills">
+            <span class="pill">Moderacja</span>
+            <span class="pill">Statusy</span>
+            <span class="pill">Raporty</span>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>🔍 Wyszukiwanie i filtry</h3>
+          <p>
+            Mieszkaniec szuka projektów po nazwie, filtruje po miejscowości, kategorii (bezpieczeństwo, drogi, edukacja, sport, kultura, ekologia, zdrowie, dostępność) i statusie realizacji.
+          </p>
+          <div class="pills">
+            <span class="pill">Wyszukiwanie</span>
+            <span class="pill">Filtry</span>
+            <span class="pill">Sortowanie</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Sekcja: Jak to działa -->
+    <section class="section" id="jak">
+      <div class="section-header">
+        <h2>Jak to działa?</h2>
+        <p>Pięć kroków od rejestracji do głosowania na projekty ważne dla Powiatu Mławskiego.</p>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-step">
+          <div class="step-num">1</div>
+          <div>
+            <h4>Rejestracja mieszkańca</h4>
+            <p>Podajesz numer telefonu i PESEL. System wysyła kod SMS — potwierdź go, żeby aktywować konto.</p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">2</div>
+          <div>
+            <h4>Przejrzenie map i projektów</h4>
+            <p>Widzisz interaktywną mapę powiatu z pinezkami projektów. Klikasz na pinezką, aby zobaczyć szczegóły: opis, kategorię, liczbę głosów i status.</p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">3</div>
+          <div>
+            <h4>Zgłoszenie własnego projektu (opcjonalnie)</h4>
+            <p>Jeśli masz pomysł, klikasz "Zgłoś projekt", wskazujesz miejsce na mapie, opisujesz problem/potrzebę i podajesz kategorie. Projekt trafia do weryfikacji.</p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">4</div>
+          <div>
+            <h4>Moderacja samorządu</h4>
+            <p>Administrator sprawdza poprawność formalną projektu, sprawdza, czy zawiera nieprzychylne treści i zmienia status na "zaakceptowany" lub "odrzucony" z uzasadnieniem.</p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">5</div>
+          <div>
+            <h4>Głosowanie i monitoring</h4>
+            <p>Mieszkańcy oddają głosy na zaakceptowane projekty. Samorząd widzi ranking, analizuje wyniki i publikuje plan realizacji zgłoszonych potrzeb.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja: Dla mieszkańca -->
+    <section class="section" id="dla-mieszkaniec">
+      <div class="section-header">
+        <h2>Dla mieszkańca</h2>
+        <p>Jak aplikacja daje Ci realny wpływ na rozwój Powiatu Mławskiego.</p>
+      </div>
+
+      <div class="two-col-layout">
+        <div>
+          <div class="feature-text">
+            <h3>Twój głos liczy się</h3>
+            <p>
+              Oddajesz do 5 głosów na projekty, które są dla Ciebie ważne. Każdy głos zwiększa poparcie dla inicjatywy. Samorząd przeglądał ranking i widzi, co jest prioritetem dla mieszkańców.
+            </p>
+            <p>
+              Możesz przejrzeć historię swoich głosów, zobaczyć, jakie projekty wygrały i śledzić, kiedy zaczyna się ich realizacja.
+            </p>
+          </div>
+          <div class="feature-text">
+            <h3>Zgłoś swój pomysł</h3>
+            <p>
+              Widzisz problem na swojej ulicy? Brakuje bezpiecznego przejścia dla pieszych? Trzeba oświetlenia? Wystarczy kliknąć na mapie, opisać co i gdzie, wybrać kategorię. Projekt trafia do moderacji.
+            </p>
+            <p>
+              Po zaakceptowaniu pojawia się na mapie i mieszkańcy mogą na niego głosować. Widzisz liczbę głosów i status realizacji w panelu "Moje projekty".
+            </p>
+          </div>
+        </div>
+
+        <div class="grid two-col">
+          <div class="project-chip">
+            <strong>🚦 Bezpieczne przejście dla pieszych</strong>
+            <span>Mława, ul. Ks. Bandurskiego</span>
+            <span class="project-status status-approved">✓ Zaakceptowany</span>
+          </div>
+          <div class="project-chip">
+            <strong>💡 Oświetlenie ulicy</strong>
+            <span>Stupsk, ul. Polska 15</span>
+            <span class="project-status status-pending">⏳ Weryfikowany</span>
+          </div>
+          <div class="project-chip">
+            <strong>🛣️ Remont chodnika</strong>
+            <span>Strzegowo, główna ulica</span>
+            <span class="project-status status-inprogress">⚙️ W realizacji</span>
+          </div>
+          <div class="project-chip">
+            <strong>🎮 Strefa rekreacji dla dzieci</strong>
+            <span>Radzanów, park centralny</span>
+            <span class="project-status status-completed">✓ Zrealizowany</span>
+          </div>
+          <div class="project-chip">
+            <strong>🎨 Zajęcia dla młodzieży</strong>
+            <span>Szydłowiec, centrum</span>
+            <span class="project-status status-approved">✓ Zaakceptowany</span>
+          </div>
+          <div class="project-chip">
+            <strong>🚴 Ścieżka rowerowa</strong>
+            <span>Szydłowiec - Stupsk</span>
+            <span class="project-status status-inprogress">⚙️ W realizacji</span>
+          </div>
+          <div class="project-chip">
+            <strong>🎭 Festiwal lokalny</strong>
+            <span>Mława, czerwiec 2026</span>
+            <span class="project-status status-approved">✓ Zaakceptowany</span>
+          </div>
+          <div class="project-chip">
+            <strong>🏃 Miejsce odpoczynku</strong>
+            <span>Radzanów, ul. Stroma</span>
+            <span class="project-status status-completed">✓ Zrealizowany</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja: Dla samorządu -->
+    <section class="section" id="dla-samorzadu">
+      <div class="section-header">
+        <h2>Dla samorządu</h2>
+        <p>Narzędzie do zarządzania lokalnym zaangażowaniem i podejmowania decyzji na podstawie danych.</p>
+      </div>
+
+      <div class="two-col-layout">
+        <div class="grid two-col">
+          <div class="card">
+            <h3>📊 Panel administracyjny</h3>
+            <p>
+              Przejrzystość wszystkich zgłoszonych projektów, moderacja treści, zmiana statusów (zgłoszony → weryfikowany → zaakceptowany → w realizacji → zrealizowany), dodawanie komentarzy od samorządu.
+            </p>
+          </div>
+          <div class="card">
+            <h3>🔍 Weryfikacja danych</h3>
+            <p>
+              System automatycznie pilnuje, żeby jeden PESEL mógł głosować tylko raz, a jeden numer telefonu obsługiwał tylko do 5 kont. Brak możliwości fałszywego zaangażowania.
+            </p>
+          </div>
+          <div class="card">
+            <h3>📈 Analizy i raporty</h3>
+            <p>
+              Eksport danych do CSV. Widoczne które kategorie mają największe poparcie, w których gminach zgłaszane są projekty, jakie są trendy w potrzebach mieszkańców.
+            </p>
+          </div>
+          <div class="card">
+            <h3>🎯 Ranking projektów</h3>
+            <p>
+              Publiczny ranking pokazujący liczbę głosów na każdy projekt. Mieszkańcy widzą, które inicjatywy mają największe poparcie społeczne, co ułatwia wyznaczenie priorytetów.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div class="feature-text">
+            <h3>Dane dla decyzji</h3>
+            <p>
+              Zamiast czekać na petycje czy spotkania, władzę vidzi rzeczywiste potrzeby na mapie. Można analizować trendy, zliczać głosy i podejmować decyzje na podstawie konkretnych liczb.
+            </p>
+            <p>
+              Aplikacja porządkuje chaotyczne zgłoszenia i pokazuje jasny obraz: gdzie są największe potrzeby, którym gminom brakuje infrastruktury, co motivuje mieszkańców.
+            </p>
+            <p>
+              Można publikować status realizacji, pokazując mieszkańcom, że ich głos ma znaczenie — projekty są realizowane na podstawie wyników głosowania.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja: Bezpieczeństwo i prawo -->
+    <section class="section" id="bezpieczenstwo">
+      <div class="section-header">
+        <h2>Bezpieczeństwo i prawo</h2>
+        <p>Jak aplikacja chroni dane mieszkańców i zapewnia rzetelność głosowania. To nie jest opinia prawna — konsultuj z właściwymi specjalistami.</p>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h3>🔐 Ochrona danych (RODO)</h3>
+          <ul>
+            <li>PESEL, telefon, adres i imię/nazwisko to dane wrażliwe podlegające ochronie.</li>
+            <li>Aplikacja zbiera tylko dane niezbędne do weryfikacji i głosowania.</li>
+            <li>Dane nie są publikowane publicznie — widoczne są tylko projekty i wyniki głosów.</li>
+            <li>Wymagana jest polityka prywatności opisująca cel, okres przechowywania i administratora.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>🛡️ Bezpieczeństwo techniczne</h3>
+          <ul>
+            <li>Logowanie przez SMS — potwierdzenie dostępu do numeru telefonu.</li>
+            <li>Jeden PESEL może być użyty tylko raz — brak możliwości założenia wielu kont na tę samą osobę.</li>
+            <li>Jeden głos na projekt na mieszkańca — system automatycznie blokuje duplikaty.</li>
+            <li>Dane wrażliwe zabezpieczone w bazie, niedostępne dla publicznie.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>⚖️ Podstawa prawna</h3>
+          <ul>
+            <li>Projekt może działać jako narzędzie konsultacji społecznych mieszkańców powiatu.</li>
+            <li>Jeśli będzie decydować o części budżetu, potrzebna jest uchwała/regulamin samorządu.</li>
+            <li>Dokumenty powinny jasno opisać: kto może głosować, jak się zgłasza projekty, jak liczy się głosy, kryteria formalnej oceny.</li>
+            <li>Konieczne jest opublikowanie regulaminu przed uruchomieniem głosowania.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>♿ Dostępność i przejrzystość</h3>
+          <ul>
+            <li>Prosty język, duże przyciski, czytelne komunikaty.</li>
+            <li>Publikacja regulaminu, terminów, statusów i wyników głosowania.</li>
+            <li>Dostęp do aplikacji musi być równy dla wszystkich mieszkańców (w tym osób starszych i z niepełnosprawnościami).</li>
+            <li>Ranking i raporty dostępne publicznie — transparentność wyników.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>📋 Regulamin korzystania</h3>
+          <ul>
+            <li>Jasne zasady: kto może zgłaszać projekty (mieszkaniec powiatu?), które kategorie są dozwolone.</li>
+            <li>Limit głosów na mieszkańca (np. 5), limit projektów (bez limitu czy z modercją?), okres głosowania.</li>
+            <li>Zasady moderacji — jakie treści są niedozwolone (spam, hejtowanie, materiały nielegalne).</li>
+            <li>Procedura odwołania jeśli projekt został odrzucony bez wyjaśnienia.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>🔍 Rzetelność wyników</h3>
+          <ul>
+            <li>Każdy głos pochodzi od zweryfikowanego mieszkańca — niemożliwe jest oddanie wielu głosów z jednego konta.</li>
+            <li>System pilnuje, żeby jeden numer telefonu obsługiwał maksymalnie 5 kont (np. dla rodziny).</li>
+            <li>Publicznie widoczny ranking pokazuje liczbę głosów — każdy może sprawdzić wyniki.</li>
+            <li>Samorząd publikuje raport z decyzjami — który projekt został wybrany, kiedy zaczyna się realizacja.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- Sekcja: Proces zgłoszenia -->
+    <section class="section" id="proces">
+      <div class="section-header">
+        <h2>Proces zgłoszenia projektu — krok po kroku</h2>
+        <p>Od pomysłu do publikacji: jak projekt przechodzi przez aplikację i moderację samorządu.</p>
+      </div>
+
+      <div class="timeline">
+        <div class="timeline-step">
+          <div class="step-num">1</div>
+          <div>
+            <h4>Mieszkaniec wpisuje dane projektu</h4>
+            <p>
+              Tytuł (np. "Bezpieczne przejście dla pieszych przy szkole"), opis problemu, uzasadnienie (dlaczego to jest ważne?), kategoria (bezpieczeństwo/drogi/edukacja/etc.), lokalizacja na mapie. Może dodać załącznik (zdjęcie).
+            </p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">2</div>
+          <div>
+            <h4>System sprawdza poprawność</h4>
+            <p>
+              Czy tytuł ma co najmniej 10 znaków? Czy opis ma co najmniej 50 znaków? Czy lokalizacja jest w granicach powiatu? Czy projekt nie duplikuje wcześniejszych zgłoszeń w tej samej lokalizacji?
+            </p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">3</div>
+          <div>
+            <h4>Projekt trafia do status "zgłoszony"</h4>
+            <p>
+              Projekt jest widoczny w aplikacji, ale w stanie "weryfikowany". Mieszkaniec widzi go w panelu "Moje projekty" i może śledzić status. Nie można jeszcze głosować.
+            </p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">4</div>
+          <div>
+            <h4>Administrator sprawdza formalnie</h4>
+            <p>
+              Czy tekst jest przychylny? Czy zawiera hejtowanie lub materiały nielegalne? Czy lokalizacja jest dokładna? Czy projekt mieści się w kategorii? Administrator zmienia status na "zaakceptowany" lub "odrzucony" z uzasadnieniem.
+            </p>
+          </div>
+        </div>
+
+        <div class="timeline-step">
+          <div class="step-num">5</div>
+          <div>
+            <h4>Projekt jest publiczny i można głosować</h4>
+            <p>
+              Projekt pojawia się na mapie z pinezką. Mieszkańcy widzą go w wyszukiwarce i mogą oddawać na niego głosy. Liczba głosów rośnie w rankingu. Status zmienia się na "w realizacji" lub "zrealizowany" jak samorząd podejmie decyzję.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sekcja: Podsumowanie -->
+    <div class="footer-summary">
+      <h2>Powiat Decyduje</h2>
+      <p class="quote">
+        to cyfrowe narzędzie, które zamienia pojedyncze głosy mieszkańców w czytelny obraz potrzeb całego powiatu.
+      </p>
+      <p>
+        Aplikacja zwiększa wpływ mieszkańców na rozwój Powiatu Mławskiego, porządkuje zgłoszenia, wspomaga decyzje samorządu i buduje zaufanie między władzami a społeczeństwem. Każdy projekt na mapie to wynik faktycznych potrzeb — widocznych dla wszystkich.
+      </p>
+      <button class="btn primary">Zacznij działać dziś →</button>
+    </div>
+
+    <!-- Footer note -->
+    <p style="text-align: center; color: var(--muted); font-size: 13px; line-height: 1.6;">
+      Materiał jest koncepcją prezentacyjną. Finalne zasady głosowania, zakres danych i tryb działania aplikacji powinny zostać zatwierdzone przez uchwałę powiatu oraz skonsultowane pod kątem RODO, dostępności cyfrowej i wymogów prawa. Konsultuj z właściwymi specjalistami (prawo, IT, bezpieczeństwo, dostępność).
+    </p>
+  </main>
+</body>
+</html>

@@ -60,18 +60,6 @@ const SMS_RATE_LIMIT = {
   MAX_RESENDS: 5,
 };
 
-// SMS Security Constants
-const SMS_RATE_LIMIT = {
-  MAX_SMS_PER_5_MIN: 3,
-  MAX_SMS_PER_DAY: 10,
-  BLOCK_DURATION_MS: 1 * 60 * 60 * 1000, // 1 hour
-  SMS_CODE_EXPIRY_MS: 10 * 60 * 1000, // 10 minutes
-  MAX_VERIFICATION_ATTEMPTS: 5,
-  ATTEMPT_BLOCK_DURATION_MS: 15 * 60 * 1000, // 15 minutes
-  RESEND_COOLDOWN_MS: 30 * 1000, // 30 seconds
-  MAX_RESENDS: 5,
-};
-
 type ResidentConsents = {
   residentDeclaration: boolean;
   termsAccepted: boolean;
@@ -726,8 +714,18 @@ export async function sendResidentPhoneVerificationCode(
   payload: ResidentPhoneVerificationPayload
 ): Promise<ResidentPhoneVerificationResult> {
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  const authInstance = requireAuth();
+
+  console.log('[SMS] sendResidentPhoneVerificationCode START', {
+    phoneNumber: '***',
+    normalizedPhoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{2})/g, '*'),
+    platform: Platform.OS,
+    projectId: authInstance?.app?.options?.projectId,
+    currentUser: authInstance?.currentUser ? { uid: authInstance.currentUser.uid, isAnonymous: authInstance.currentUser.isAnonymous } : null,
+  });
 
   if (isDevBypassPhone(normalizedPhoneNumber)) {
+    console.log('[SMS] Using dev bypass for SMS verification');
     return {
       verificationId: DEV_BYPASS_VERIFICATION_ID,
       normalizedPhoneNumber,
@@ -737,55 +735,84 @@ export async function sendResidentPhoneVerificationCode(
 
   const dbInstance = requireDb();
 
-  await ensureAnonymousAuth();
-  // Check rate limit before sending SMS
-  const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
-  if (!rateLimitStatus.allowed) {
-    throw new Error(rateLimitStatus.reason || 'SMS wysyłanie jest zablokowane.');
-  }
+  try {
+    await ensureAnonymousAuth();
+    console.log('[SMS] Anonymous auth ensured');
 
-  if (Platform.OS !== 'web') {
-    // Use Cloud Functions for native platforms
-    if (!functions) {
-      throw new Error('Firebase Functions not initialized');
+    // Check rate limit before sending SMS
+    const rateLimitStatus = await checkSmsRateLimit(dbInstance, normalizedPhoneNumber);
+    if (!rateLimitStatus.allowed) {
+      const reason = rateLimitStatus.reason || 'SMS wysyłanie jest zablokowane.';
+      console.log('[SMS] Rate limit check failed', { reason, blockedUntil: rateLimitStatus.blockedUntil });
+      throw new Error(reason);
     }
-    try {
-      const createVerification = httpsCallable<
-        { phoneNumber: string },
-        ResidentPhoneVerificationResult
-      >(functions, 'createResidentPhoneVerificationCode');
-      const result = await createVerification({ phoneNumber: normalizedPhoneNumber });
-      return result.data;
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        if (error.code === 'functions/not-found') {
-          throw new Error(
-            'Usługa logowania SMS nie jest dostępna (brak funkcji backend). Skontaktuj się z administratorem.'
-          );
-        }
 
-        if (error.code === 'functions/invalid-argument') {
-          throw new Error('Numer telefonu ma nieprawidłowy format.');
-        }
+    console.log('[SMS] Rate limit check passed');
 
-        if (error.code === 'functions/resource-exhausted') {
-          throw new Error('Przekroczono limit wysyłek SMS. Spróbuj ponownie później.');
-        }
+    if (Platform.OS !== 'web') {
+      // Use Cloud Functions for native platforms
+      if (!functions) {
+        throw new Error('Firebase Functions not initialized');
       }
+      try {
+        console.log('[SMS] Calling createResidentPhoneVerificationCode Cloud Function for native platform');
+        const createVerification = httpsCallable<
+          { phoneNumber: string },
+          ResidentPhoneVerificationResult
+        >(functions, 'createResidentPhoneVerificationCode');
+        const result = await createVerification({ phoneNumber: normalizedPhoneNumber });
+        console.log('[SMS] Cloud Function succeeded, verification ID:', result.data.verificationId);
+        return result.data;
+      } catch (error) {
+        console.error('[SMS] Cloud Function error:', error);
+        if (error instanceof FirebaseError) {
+          if (error.code === 'functions/not-found') {
+            throw new Error(
+              'Usługa logowania SMS nie jest dostępna (brak funkcji backend). Skontaktuj się z administratorem.'
+            );
+          }
 
-      throw error;
+          if (error.code === 'functions/invalid-argument') {
+            throw new Error('Numer telefonu ma nieprawidłowy format.');
+          }
+
+          if (error.code === 'functions/resource-exhausted') {
+            throw new Error('Przekroczono limit wysyłek SMS. Spróbuj ponownie później.');
+          }
+
+          if (error.code === 'functions/unauthenticated') {
+            throw new Error('Sesja logowania SMS nie jest gotowa. Spróbuj ponownie za chwilę.');
+          }
+
+          if (error.code === 'functions/internal') {
+            throw new Error('Błąd serwera podczas wysyłania SMS. Spróbuj ponownie później.');
+          }
+
+          console.error('[SMS] Firebase error code:', error.code, 'message:', error.message);
+        }
+
+        throw error;
+      }
     }
+
+    console.log('[SMS] Using Firebase Phone Auth with reCAPTCHA for web');
+    const verifier = getOrCreateRecaptchaVerifier(authInstance);
+    const confirmationResult = await signInWithPhoneNumber(authInstance, normalizedPhoneNumber, verifier);
+
+    console.log('[SMS] Phone Auth SMS sent successfully, verification ID:', confirmationResult.verificationId);
+
+    return {
+      verificationId: confirmationResult.verificationId,
+      normalizedPhoneNumber,
+      expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
+    };
+  } catch (error) {
+    console.error('[SMS] sendResidentPhoneVerificationCode ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+      code: error instanceof FirebaseError ? error.code : 'unknown',
+    });
+    throw error;
   }
-
-  const authInstance = requireAuth();
-  const verifier = getOrCreateRecaptchaVerifier(authInstance);
-  const confirmationResult = await signInWithPhoneNumber(authInstance, normalizedPhoneNumber, verifier);
-
-  return {
-    verificationId: confirmationResult.verificationId,
-    normalizedPhoneNumber,
-    expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
-  };
 }
 
 export async function completeResidentRegistration(
@@ -799,6 +826,15 @@ export async function completeResidentRegistration(
   const isDevBypass = isDevBypassVerification(verificationId, normalizedPhoneNumber);
   const normalizedSmsCode = smsCode.trim();
 
+  console.log('[SMS] completeResidentRegistration START', {
+    phoneNumber: '***',
+    normalizedPhoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{2})/g, '*'),
+    pesel: '***',
+    isDevBypass,
+    codeLength: normalizedSmsCode.length,
+    platform: Platform.OS,
+  });
+
   if (!isValidSmsCodeShape(normalizedSmsCode) && !isDevBypass) {
     throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
@@ -807,20 +843,27 @@ export async function completeResidentRegistration(
     throw new Error('W trybie testowym wpisz kod 123456.');
   }
 
-  const signedInUser = await signInOrCreateEmailPasswordAccount(payload.email, payload.password);
-  const usesNativeCloudVerification = Platform.OS !== 'web' && !isDevBypass && isNativeCloudVerificationId(verificationId);
-  const canLinkPhoneCredential = !isDevBypass;
+  try {
+    const signedInUser = await signInOrCreateEmailPasswordAccount(payload.email, payload.password);
+    console.log('[SMS] Email/password account ready', { uid: signedInUser.uid });
 
-  if (usesNativeCloudVerification) {
-    await verifyNativePhoneCode(verificationId, smsCode, normalizedPhoneNumber);
-  } else if (canLinkPhoneCredential) {
-    const phoneCredential = PhoneAuthProvider.credential(verificationId, normalizedSmsCode);
-    await linkPhoneCredentialIfNeeded(signedInUser, phoneCredential);
-  }
+    const usesNativeCloudVerification = Platform.OS !== 'web' && !isDevBypass && isNativeCloudVerificationId(verificationId);
+    const canLinkPhoneCredential = !isDevBypass;
 
-  await ensureUserToken(signedInUser);
+    console.log('[SMS] Phone verification strategy', { usesNativeCloudVerification, canLinkPhoneCredential });
 
-  const residentAccount: ResidentAccount = {
+    if (usesNativeCloudVerification) {
+      await verifyNativePhoneCode(verificationId, smsCode, normalizedPhoneNumber);
+    } else if (canLinkPhoneCredential) {
+      const phoneCredential = PhoneAuthProvider.credential(verificationId, normalizedSmsCode);
+      await linkPhoneCredentialIfNeeded(signedInUser, phoneCredential);
+    }
+
+    console.log('[SMS] Phone credential verified');
+
+    await ensureUserToken(signedInUser);
+
+    const residentAccount: ResidentAccount = {
     id: normalizedPesel,
     pesel: normalizedPesel,
     firstName: payload.firstName.trim(),
@@ -856,9 +899,9 @@ export async function completeResidentRegistration(
       fullName: `${payload.firstName.trim()} ${payload.lastName.trim()}`.trim(),
       pesel: normalizedPesel,
     }),
-  };
+    };
 
-  await runTransaction(dbInstance, async (transaction) => {
+    await runTransaction(dbInstance, async (transaction) => {
     const userRef = doc(dbInstance, 'users', signedInUser.uid);
     const phoneIndexRefCurrent = phoneIndexRef(dbInstance, normalizedPhoneNumber);
     const peselIndexRefCurrent = peselIndexRef(dbInstance, normalizedPesel);
@@ -941,7 +984,21 @@ export async function completeResidentRegistration(
     );
   });
 
-  return signedInUser;
+    console.log('[SMS] Registration completed successfully', {
+      uid: signedInUser.uid,
+      phoneNumber: '***',
+      pesel: '***',
+    });
+
+    return signedInUser;
+  } catch (error) {
+    console.error('[SMS] completeResidentRegistration ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+      code: error instanceof FirebaseError ? error.code : 'unknown',
+      step: 'completeResidentRegistration',
+    });
+    throw error;
+  }
 }
 
 export async function confirmResidentPhoneVerificationCode(
@@ -952,6 +1009,13 @@ export async function confirmResidentPhoneVerificationCode(
   const isDevBypass = isDevBypassVerification(payload.verificationId, normalizedPhoneNumber);
   const normalizedSmsCode = payload.smsCode.trim();
 
+  console.log('[SMS] confirmResidentPhoneVerificationCode START', {
+    phoneNumber: '***',
+    normalizedPhoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{2})/g, '*'),
+    isDevBypass,
+    codeLength: normalizedSmsCode.length,
+  });
+
   if (isDevBypass && !isValidSmsCodeShape(normalizedSmsCode)) {
     throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
@@ -960,18 +1024,32 @@ export async function confirmResidentPhoneVerificationCode(
     throw new Error('W trybie testowym wpisz kod 123456.');
   }
 
-  if (Platform.OS !== 'web' && !isDevBypass) {
-    await getNativePhoneAuthFactory();
+  if (!isValidSmsCodeShape(normalizedSmsCode)) {
+    throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
 
-  const credential = PhoneAuthProvider.credential(payload.verificationId, normalizedSmsCode);
-  const signedInUser = isDevBypass
-    ? await ensureAnonymousAuth()
-    : (await signInWithCredential(authInstance, credential)).user;
+  try {
+    if (Platform.OS !== 'web' && !isDevBypass) {
+      await getNativePhoneAuthFactory();
+    }
 
-  await ensureUserToken(signedInUser);
+    const credential = PhoneAuthProvider.credential(payload.verificationId, normalizedSmsCode);
+    const signedInUser = isDevBypass
+      ? await ensureAnonymousAuth()
+      : (await signInWithCredential(authInstance, credential)).user;
 
-  return signedInUser;
+    console.log('[SMS] Phone credential verified', { uid: signedInUser.uid });
+
+    await ensureUserToken(signedInUser);
+
+    return signedInUser;
+  } catch (error) {
+    console.error('[SMS] confirmResidentPhoneVerificationCode ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+      code: error instanceof FirebaseError ? error.code : 'unknown',
+    });
+    throw error;
+  }
 }
 
 export async function confirmResidentPhoneLoginCode(
@@ -983,59 +1061,89 @@ export async function confirmResidentPhoneLoginCode(
   const smsCode = payload.smsCode.trim();
   const isDevBypass = isDevBypassVerification(payload.verificationId, normalizedPhoneNumber);
 
+  console.log('[SMS] confirmResidentPhoneLoginCode START', {
+    phoneNumber: '***',
+    normalizedPhoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{2})/g, '*'),
+    isDevBypass,
+    codeLength: smsCode.length,
+    platform: Platform.OS,
+  });
+
   if (isDevBypass && !isValidSmsCodeShape(smsCode)) {
     throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
 
-  if (!isDevBypass && Platform.OS !== 'web') {
-    await getNativePhoneAuthFactory();
+  if (!isDevBypass && !isValidSmsCodeShape(smsCode)) {
+    throw new Error('Wpisz 6-cyfrowy kod SMS.');
   }
 
-  if (!functions) {
-    throw new Error('Firebase Functions not initialized');
+  if (isDevBypass && smsCode !== DEV_BYPASS_CODE) {
+    throw new Error('W trybie testowym wpisz kod 123456.');
   }
 
-  const createVerification = httpsCallable<
-    { verificationId: string; code: string; phoneNumber: string },
-    { success: boolean; phoneNumber?: string; customToken?: string; uid?: string }
-  >(functions, 'verifyResidentPhoneCode');
+  try {
+    if (!isDevBypass && Platform.OS !== 'web') {
+      await getNativePhoneAuthFactory();
+    }
 
-  const result = await createVerification({
-    verificationId: payload.verificationId,
-    code: smsCode,
-    phoneNumber: normalizedPhoneNumber,
-  });
+    if (!functions) {
+      throw new Error('Firebase Functions not initialized');
+    }
 
-  if (!result.data.customToken) {
-    throw new Error('Nie znaleziono powiązanego konta mieszkańca dla tego numeru telefonu.');
+    console.log('[SMS] Calling verifyResidentPhoneCode Cloud Function');
+    const createVerification = httpsCallable<
+      { verificationId: string; code: string; phoneNumber: string },
+      { success: boolean; phoneNumber?: string; customToken?: string; uid?: string }
+    >(functions, 'verifyResidentPhoneCode');
+
+    const result = await createVerification({
+      verificationId: payload.verificationId,
+      code: smsCode,
+      phoneNumber: normalizedPhoneNumber,
+    });
+
+    console.log('[SMS] Cloud Function returned', { success: result.data.success, hasCustomToken: !!result.data.customToken });
+
+    if (!result.data.customToken) {
+      throw new Error('Nie znaleziono powiązanego konta mieszkańca dla tego numeru telefonu.');
+    }
+
+    const credentials = await signInWithCustomToken(authInstance, result.data.customToken);
+    const signedInUser = credentials.user;
+
+    if (!signedInUser) {
+      throw new Error('Nie udało się potwierdzić kodu SMS.');
+    }
+
+    console.log('[SMS] Login via custom token succeeded', { uid: signedInUser.uid });
+
+    await ensureUserToken(signedInUser);
+
+    const userSnapshot = await getDoc(doc(dbInstance, 'users', signedInUser.uid));
+    if (!userSnapshot.exists()) {
+      await signOut(authInstance);
+      throw new Error('Nie znaleziono konta mieszkanca dla tego numeru telefonu.');
+    }
+
+    const userData = userSnapshot.data() as ResidentHouseholdData;
+    const hasMatchingPhone =
+      normalizePhoneNumber(userData.phoneNumber) === normalizedPhoneNumber ||
+      normalizePhoneNumber(userData.phoneNumber) === normalizedPhoneNumber;
+
+    if (!hasMatchingPhone) {
+      await signOut(authInstance);
+      throw new Error('Konto nie jest powiązane z tym numerem telefonu.');
+    }
+
+    console.log('[SMS] Phone login verification complete');
+    return signedInUser;
+  } catch (error) {
+    console.error('[SMS] confirmResidentPhoneLoginCode ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+      code: error instanceof FirebaseError ? error.code : 'unknown',
+    });
+    throw error;
   }
-
-  const credentials = await signInWithCustomToken(authInstance, result.data.customToken);
-  const signedInUser = credentials.user;
-
-  if (!signedInUser) {
-    throw new Error('Nie udało się potwierdzić kodu SMS.');
-  }
-
-  await ensureUserToken(signedInUser);
-
-  const userSnapshot = await getDoc(doc(dbInstance, 'users', signedInUser.uid));
-  if (!userSnapshot.exists()) {
-    await signOut(authInstance);
-    throw new Error('Nie znaleziono konta mieszkanca dla tego numeru telefonu.');
-  }
-
-  const userData = userSnapshot.data() as ResidentHouseholdData;
-  const hasMatchingPhone =
-    normalizePhoneNumber(userData.phoneNumber) === normalizedPhoneNumber ||
-    normalizePhoneNumber(userData.phoneNumber) === normalizedPhoneNumber;
-
-  if (!hasMatchingPhone) {
-    await signOut(authInstance);
-    throw new Error('Konto nie jest powiązane z tym numerem telefonu.');
-  }
-
-  return signedInUser;
 }
 
 export async function sendResidentPasswordReset(payload: PasswordResetRequest): Promise<void> {

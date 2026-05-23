@@ -42,8 +42,14 @@ interface ResidentPhoneLoginResult {
  * Called from native app to handle SMS verification on devices without recaptcha
  */
 export const createResidentPhoneVerificationCode = functions.https.onCall(
-  async (data: any, context) => {
+  async (data: any, context: any) => {
+    console.log('[SMS-CF] createResidentPhoneVerificationCode START', {
+      uid: context.auth?.uid,
+      isAnonymous: context.auth?.firebase?.identities?.anonymous?.[0] ? true : false,
+    });
+
     if (!context.auth) {
+      console.error('[SMS-CF] Unauthenticated request');
       throw new functions.https.HttpsError(
         'unauthenticated',
         'Authentication is required before requesting an SMS code.'
@@ -52,20 +58,28 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
     const phoneNumber = data.phoneNumber as string;
 
     if (!phoneNumber) {
+      console.error('[SMS-CF] Missing phoneNumber');
       throw new functions.https.HttpsError('invalid-argument', 'Phone number is required');
     }
 
     try {
       // Normalize phone number
       const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '');
-    export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context) => {
-      if (!context.auth) {
-      }
+      console.log('[SMS-CF] Normalized phone number');
 
       // Check rate limits (bypass for dev phone)
       if (normalizedPhoneNumber !== DEV_PHONE.replace(/\D/g, '')) {
         const rateLimitStatus = await checkSmsRateLimit(normalizedPhoneNumber);
+        if (!rateLimitStatus.allowed) {
+          console.log('[SMS-CF] Rate limit exceeded', rateLimitStatus);
+          throw new functions.https.HttpsError(
+            'resource-exhausted',
+            `SMS sending is temporarily blocked. Try again in ${Math.ceil((rateLimitStatus.blockedUntil! - Date.now()) / 1000)} seconds.`
+          );
         }
+        console.log('[SMS-CF] Rate limit check passed');
+      } else {
+        console.log('[SMS-CF] Using dev phone, skipping rate limit');
       }
 
       // Generate 6-digit code
@@ -87,21 +101,26 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
         },
         { merge: true }
       );
+      console.log('[SMS-CF] SMS code stored in Firestore', { verificationId });
 
       // Record SMS send attempt in rate limit tracker
       await recordSmsSend(normalizedPhoneNumber);
+      console.log('[SMS-CF] SMS send recorded in rate limits');
 
-      // Send SMS via Firebase (requires Twilio or similar integration)
-      // For now, log the code
-      console.log(`SMS Code for ${normalizedPhoneNumber}: ${code}`);
+      // Log code for debugging (not in production)
+      console.log(`[SMS-CF] Verification code for ${normalizedPhoneNumber}: ${code} (expires at ${new Date(expiresAt).toISOString()})`);
 
+      console.log('[SMS-CF] createResidentPhoneVerificationCode SUCCESS', { verificationId });
       return {
         verificationId,
         normalizedPhoneNumber,
         expiresAt,
       } as ResidentPhoneVerificationResult;
     } catch (error) {
-      console.error('Error creating phone verification code:', error);
+      console.error('[SMS-CF] createResidentPhoneVerificationCode ERROR', {
+        error: error instanceof Error ? error.message : String(error),
+        code: error instanceof functions.https.HttpsError ? error.code : 'unknown',
+      });
       if (error instanceof functions.https.HttpsError) {
         throw error;
       }
@@ -116,16 +135,24 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
 /**
  * Verify SMS code and create authentication token
  */
-export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context) => {
+export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context: any) => {
+  console.log('[SMS-CF] verifyResidentPhoneCode START', {
+    uid: context.auth?.uid,
+    hasVerificationId: !!data.verificationId,
+    hasCode: !!data.code,
+  });
+
   if (!context.auth) {
+    console.error('[SMS-CF] Unauthenticated request');
     throw new functions.https.HttpsError(
       'unauthenticated',
       'Authentication is required before verifying an SMS code.'
     );
   }
-  const { verificationId, code } = data;
+  const { verificationId, code, phoneNumber } = data;
 
   if (!verificationId || !code) {
+    console.error('[SMS-CF] Missing verificationId or code');
     throw new functions.https.HttpsError('invalid-argument', 'verificationId and code are required');
   }
 
@@ -134,18 +161,26 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
     const verificationDoc = await db.collection('sms_verifications').doc(verificationId).get();
 
     if (!verificationDoc.exists) {
+      console.error('[SMS-CF] Verification record not found', { verificationId });
       throw new functions.https.HttpsError('not-found', 'Verification not found');
     }
 
     const verification = verificationDoc.data()!;
+    console.log('[SMS-CF] Verification record found', {
+      phoneNumber: verification.phoneNumber,
+      status: verification.status,
+      attempts: verification.attempts,
+    });
 
     // Check if code is expired
     if (Date.now() > verification.expiresAt) {
+      console.log('[SMS-CF] Code expired');
       throw new functions.https.HttpsError('invalid-argument', 'SMS code has expired');
     }
 
     // Check if blocked due to too many attempts
     if (verification.blockedUntil && Date.now() < verification.blockedUntil) {
+      console.log('[SMS-CF] Too many attempts, account blocked');
       throw new functions.https.HttpsError(
         'resource-exhausted',
         'Too many failed attempts. Please try again later.'
@@ -154,6 +189,7 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
 
     // Check code
     if (verification.code !== code) {
+      console.log('[SMS-CF] Code mismatch');
       // Increment attempts
       const newAttempts = (verification.attempts || 0) + 1;
       const shouldBlock = newAttempts >= SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS;
@@ -163,11 +199,14 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
         blockedUntil: shouldBlock ? Date.now() + SMS_RATE_LIMIT.SMS_VERIFY_ATTEMPT_BLOCK_MS : null,
       });
 
+      console.log('[SMS-CF] Invalid code attempt', { newAttempts, shouldBlock });
       throw new functions.https.HttpsError(
         'invalid-argument',
         `Invalid code. ${SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS - newAttempts} attempts remaining.`
       );
     }
+
+    console.log('[SMS-CF] Code verification successful');
 
     // Code is valid - mark as verified
     await db.collection('sms_verifications').doc(verificationId).update({
@@ -184,6 +223,8 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
         })
       : undefined;
 
+    console.log('[SMS-CF] verifyResidentPhoneCode SUCCESS', { uid: !!uid, customToken: !!customToken });
+
     return {
       success: true,
       phoneNumber: verification.phoneNumber,
@@ -191,7 +232,10 @@ export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, 
       customToken,
     } as ResidentPhoneLoginResult;
   } catch (error) {
-    console.error('Error verifying phone code:', error);
+    console.error('[SMS-CF] verifyResidentPhoneCode ERROR', {
+      error: error instanceof Error ? error.message : String(error),
+      code: error instanceof functions.https.HttpsError ? error.code : 'unknown',
+    });
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }

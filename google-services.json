@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1029210239146",
+    "project_id": "powiat-decyduje",
+    "storage_bucket": "powiat-decyduje.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1029210239146:android:809aee56940213e56aa0d3",
+        "android_client_info": {
+          "package_name": "com.jeremiasz1911.powiatdecyduje"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1029210239146-pktr7np9r0co8teq21hc54pkraiamlpg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACCh3rKm6HXW0qn8RfaT9DIq74za6oTdA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1029210239146-pktr7np9r0co8teq21hc54pkraiamlpg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

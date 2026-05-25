@@ -1,15 +1,16 @@
+import { Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
 
 import { ScreenContainer } from '@/src/components/screen-container';
+import { envFlags } from '@/src/config/env';
 import { STORAGE_KEYS } from '@/src/constants/storage';
-import { secureStore } from '@/src/lib/secure-store';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { secureStore } from '@/src/lib/secure-store';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useSettings, type FontScalePreference, type ThemePreference } from '@/src/store/settings-context';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function DrawerSettingsScreen() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function DrawerSettingsScreen() {
   const [isResetting, setIsResetting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { settings, setFontScale, setHapticsEnabled, setTheme } = useSettings();
+  const showDiagnostics = __DEV__ || envFlags.diagnosticsEnabled;
 
   const handleResetOnboarding = async () => {
     setIsResetting(true);
@@ -105,6 +107,14 @@ export default function DrawerSettingsScreen() {
             <ButtonText color={futuristicTheme.colors.textDark}>{isResetting ? 'Przekierowanie...' : 'Uruchom onboarding ponownie'}</ButtonText>
           </Button>
         </VStack>
+        {showDiagnostics ? (
+          <VStack space="sm">
+            <Text color={futuristicTheme.colors.textMuted}>Diagnostyka konfiguracji aplikacji.</Text>
+            <Button onPress={() => router.push('/(drawer)/diagnostics')} style={styles.ghostButton} action="secondary" variant="outline">
+              <ButtonText color={futuristicTheme.colors.textPrimary}>Otwórz diagnostykę</ButtonText>
+            </Button>
+          </VStack>
+        ) : null}
 
         <VStack space="sm">
           <Text color={futuristicTheme.colors.textMuted}>

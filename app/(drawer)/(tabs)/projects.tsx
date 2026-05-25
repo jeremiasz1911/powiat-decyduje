@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import {
+    Box,
+    Button,
+    ButtonText,
+    Heading,
+    Input,
+    InputField,
+    Text,
+    VStack,
+} from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Box,
-  Button,
-  ButtonText,
-  Heading,
-  Input,
-  InputField,
-  Text,
-  VStack,
-} from '@gluestack-ui/themed';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { ProjectCard } from '@/src/features/projects/components/project-card';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const COMMUNES = ['Mlawa', 'Lipowiec Koscielny', 'Szydlowo', 'Wieczfnia Koscielna'] as const;
@@ -101,7 +101,7 @@ export default function ProjectsScreen() {
   );
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.content}>
           <VStack space="md">
@@ -214,14 +214,11 @@ export default function ProjectsScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   content: {
     padding: 16,
     paddingBottom: 30,

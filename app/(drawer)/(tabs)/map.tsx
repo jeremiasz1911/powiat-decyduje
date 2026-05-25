@@ -1,12 +1,14 @@
+import { AppScreen } from '@/src/components/layout/app-screen';
 import {
-  isPointInPolygon,
-  MLAWA_BOUNDS,
-  MLAWA_BOUNDARY_RINGS,
-  MLAWA_CENTER,
+    isPointInPolygon,
+    MLAWA_BOUNDARY_RINGS,
+    MLAWA_BOUNDS,
+    MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
 import { resolveProjectIcon } from '@/src/features/projects/project-icons';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,7 +18,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const INITIAL_REGION: Region = {
   latitude: MLAWA_CENTER.latitude,
@@ -75,6 +77,7 @@ const toTargetRegion = (latitude: number, longitude: number, delta = 0.02): Regi
 export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const lastPanAtRef = useRef(0);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
@@ -244,7 +247,8 @@ export default function MapScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <AppScreen keyboardAvoiding={false} contentContainerStyle={styles.safeArea}>
+      <View style={styles.container}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -319,7 +323,7 @@ export default function MapScreen() {
         })}
       </MapView>
 
-      <View style={styles.controls}>
+      <View style={[styles.controls, { top: insets.top + 18 }]}>
         <View style={styles.zoomControls}>
           <Button onPress={() => handleZoom('in')} size="sm" bg={futuristicTheme.colors.panel} style={styles.zoomButton}>
             <ButtonText color={futuristicTheme.colors.textPrimary}>+</ButtonText>
@@ -353,7 +357,7 @@ export default function MapScreen() {
       </View>
 
       {selectedProject ? (
-        <View style={styles.previewCard}>
+        <View style={[styles.previewCard, { bottom: insets.bottom + 24 }]}>
           <Text color={futuristicTheme.colors.accent} style={styles.previewTag}>
             {selectedProject.category}
           </Text>
@@ -376,7 +380,7 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-      <View style={styles.fabContainer} pointerEvents="box-none">
+      <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]} pointerEvents="box-none">
         {isFabOpen ? (
           <>
             <View style={styles.fabActionStack}>
@@ -410,11 +414,15 @@ export default function MapScreen() {
           <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color={futuristicTheme.colors.textDark} />
         </Button>
       </View>
-    </View>
+      </View>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

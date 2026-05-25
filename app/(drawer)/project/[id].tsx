@@ -1,20 +1,20 @@
+import { Box, Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Box, Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  ensureAnonymousAuth,
-  getInstallationId,
-  getProjectById,
-  voteForProject,
-  type ProjectItem,
+    ensureAnonymousAuth,
+    getInstallationId,
+    getProjectById,
+    voteForProject,
+    type ProjectItem,
 } from '@/src/services';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function ProjectDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -116,7 +116,7 @@ export default function ProjectDetailsScreen() {
   }
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.content}>
           <VStack space="md">
@@ -159,14 +159,11 @@ export default function ProjectDetailsScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   content: {
     padding: 16,
     paddingBottom: 36,

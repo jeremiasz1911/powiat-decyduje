@@ -8,11 +8,10 @@ import {
     VStack,
 } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
     Easing,
     FadeIn,
@@ -25,13 +24,14 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  loginWithEmailPassword,
-  resolveResidentLoginTarget,
-  sendResidentPhoneVerificationCode,
-  getResidentAccountsByPhoneNumber,
+    getResidentAccountsByPhoneNumber,
+    loginWithEmailPassword,
+    resolveResidentLoginTarget,
+    sendResidentPhoneVerificationCode,
 } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useAuthFlow } from '@/src/store/auth-flow-context';
@@ -175,106 +175,99 @@ export default function LoginPhoneScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={[futuristicTheme.colors.bgTop, '#061b33', futuristicTheme.colors.bgBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.container}>
-      <View style={styles.safeArea}>
-        <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
-          <Animated.View style={[styles.glow, glowStyle]} />
+    <AppScreen
+      gradientColors={[futuristicTheme.colors.bgTop, '#061b33', futuristicTheme.colors.bgBottom]}
+      contentContainerStyle={styles.safeArea}>
+      <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
+        <Animated.View style={[styles.glow, glowStyle]} />
 
-          <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
-            <Text style={styles.logoText}>PD</Text>
-          </Animated.View>
-
-          <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
-            Powiat Decyduje
-          </Animated.Text>
-
-          <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.subtitle}>
-            Logowanie, rejestracja i SMS w jednym futurystycznym flow.
-          </Animated.Text>
-
-          <Box style={styles.card}>
-            <VStack space="md">
-              <Controller
-                control={control}
-                name="identifier"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Numer telefonu albo PESEL</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="+48 500 600 700 lub PESEL"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        keyboardType="default"
-                        autoCapitalize="none"
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
-                  </VStack>
-                )}
-              />
-
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Hasło</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        secureTextEntry
-                        placeholder="Wpisz hasło"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        autoCapitalize="none"
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
-                  </VStack>
-                )}
-              />
-
-              <Button onPress={handleSubmit(onSubmit)} isDisabled={isSigningIn} style={styles.primaryButton}>
-                <ButtonText style={styles.primaryButtonText}>
-                  {isSigningIn ? 'Logowanie...' : 'Zaloguj się'}
-                </ButtonText>
-              </Button>
-
-              <Button variant="outline" onPress={onSmsLogin} isDisabled={isSendingSms} style={styles.secondaryButton}>
-                <ButtonText style={styles.secondaryButtonText}>
-                  {isSendingSms ? 'Wysyłanie SMS...' : 'Zaloguj przez SMS'}
-                </ButtonText>
-              </Button>
-
-              <Button variant="outline" onPress={() => router.push('/register-resident')} style={styles.secondaryButton}>
-                <ButtonText style={styles.secondaryButtonText}>Zarejestruj konto</ButtonText>
-              </Button>
-
-              <Button variant="outline" onPress={() => router.push('/recover-access-phone')} style={styles.ghostButton}>
-                <ButtonText style={styles.ghostButtonText}>Nie pamiętam hasła</ButtonText>
-              </Button>
-            </VStack>
-          </Box>
+        <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
+          <Text style={styles.logoText}>PD</Text>
         </Animated.View>
-      </View>
-    </LinearGradient>
+
+        <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
+          Powiat Decyduje
+        </Animated.Text>
+
+        <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.subtitle}>
+          Logowanie, rejestracja i SMS w jednym futurystycznym flow.
+        </Animated.Text>
+
+        <Box style={styles.card}>
+          <VStack space="md">
+            <Controller
+              control={control}
+              name="identifier"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <VStack space="xs">
+                  <Text style={styles.label}>Numer telefonu albo PESEL</Text>
+                  <Input style={styles.input}>
+                    <InputField
+                      value={value}
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      placeholder="+48 500 600 700 lub PESEL"
+                      placeholderTextColor={futuristicTheme.colors.textMuted}
+                      keyboardType="default"
+                      autoCapitalize="none"
+                      style={styles.inputText}
+                    />
+                  </Input>
+                  {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
+                </VStack>
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <VStack space="xs">
+                  <Text style={styles.label}>Hasło</Text>
+                  <Input style={styles.input}>
+                    <InputField
+                      value={value}
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      secureTextEntry
+                      placeholder="Wpisz hasło"
+                      placeholderTextColor={futuristicTheme.colors.textMuted}
+                      autoCapitalize="none"
+                      style={styles.inputText}
+                    />
+                  </Input>
+                  {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
+                </VStack>
+              )}
+            />
+
+            <Button onPress={handleSubmit(onSubmit)} isDisabled={isSigningIn} style={styles.primaryButton}>
+              <ButtonText style={styles.primaryButtonText}>
+                {isSigningIn ? 'Logowanie...' : 'Zaloguj się'}
+              </ButtonText>
+            </Button>
+
+            <Button variant="outline" onPress={onSmsLogin} isDisabled={isSendingSms} style={styles.secondaryButton}>
+              <ButtonText style={styles.secondaryButtonText}>
+                {isSendingSms ? 'Wysyłanie SMS...' : 'Zaloguj przez SMS'}
+              </ButtonText>
+            </Button>
+
+            <Button variant="outline" onPress={() => router.push('/register-resident')} style={styles.secondaryButton}>
+              <ButtonText style={styles.secondaryButtonText}>Zarejestruj konto</ButtonText>
+            </Button>
+
+            <Button variant="outline" onPress={() => router.push('/recover-access-phone')} style={styles.ghostButton}>
+              <ButtonText style={styles.ghostButtonText}>Nie pamiętam hasła</ButtonText>
+            </Button>
+          </VStack>
+        </Box>
+      </Animated.View>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
   },

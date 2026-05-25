@@ -1,24 +1,23 @@
+import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  Easing,
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
+    Easing,
+    FadeIn,
+    FadeInDown,
+    FadeInUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
 } from 'react-native-reanimated';
 
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -54,41 +53,36 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={[futuristicTheme.colors.bgTop, '#0a2a48', futuristicTheme.colors.bgBottom]}
-      style={styles.gradient}>
-      <SafeAreaView style={styles.safeArea}>
-        <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
-          <Animated.View style={[styles.glow, glowStyle]} />
+    <AppScreen
+      gradientColors={[futuristicTheme.colors.bgTop, '#0a2a48', futuristicTheme.colors.bgBottom]}
+      contentContainerStyle={styles.safeArea}>
+      <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
+        <Animated.View style={[styles.glow, glowStyle]} />
 
-          <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
-            <Animated.Text style={styles.logoText}>PD</Animated.Text>
-          </Animated.View>
-
-          <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
-            Powiat Decyduje
-          </Animated.Text>
-
-          <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.description}>
-            Zglaszaj pomysly, glosuj na projekty i wspoltworz decyzje lokalnej spolecznosci.
-          </Animated.Text>
-
-          <AnimatedPressable
-            entering={FadeInUp.delay(360).duration(650)}
-            style={styles.button}
-            onPress={handleStart}>
-            <Animated.Text style={styles.buttonText}>Zaczynamy</Animated.Text>
-          </AnimatedPressable>
+        <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
+          <Animated.Text style={styles.logoText}>PD</Animated.Text>
         </Animated.View>
-      </SafeAreaView>
-    </LinearGradient>
+
+        <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
+          Powiat Decyduje
+        </Animated.Text>
+
+        <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.description}>
+          Zglaszaj pomysly, glosuj na projekty i wspoltworz decyzje lokalnej spolecznosci.
+        </Animated.Text>
+
+        <AnimatedPressable
+          entering={FadeInUp.delay(360).duration(650)}
+          style={styles.button}
+          onPress={handleStart}>
+          <Animated.Text style={styles.buttonText}>Zaczynamy</Animated.Text>
+        </AnimatedPressable>
+      </Animated.View>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   safeArea: {
     flex: 1,
   },

@@ -1,38 +1,38 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Controller, useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Box,
-  Button,
-  ButtonText,
-  Checkbox,
-  CheckboxIcon,
-  CheckboxIndicator,
-  CheckboxLabel,
-  CheckIcon,
-  Heading,
-  Input,
-  InputField,
-  Text,
-  VStack,
+    Box,
+    Button,
+    ButtonText,
+    Checkbox,
+    CheckboxIcon,
+    CheckboxIndicator,
+    CheckboxLabel,
+    CheckIcon,
+    Heading,
+    Input,
+    InputField,
+    Text,
+    VStack,
 } from '@gluestack-ui/themed';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
 import {
-  residentProfileSchema,
-  type ResidentProfileFormValues,
+    residentProfileSchema,
+    type ResidentProfileFormValues,
 } from '@/src/features/profile/resident-profile.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  ensureAnonymousAuth,
-  getResidentAccountProfile,
-  upsertResidentAccountProfile,
+    ensureAnonymousAuth,
+    getResidentAccountProfile,
+    upsertResidentAccountProfile,
 } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { AppScreen } from '@/src/components/layout/app-screen';
 
 export default function DrawerProfileScreen() {
   const router = useRouter();
@@ -171,7 +171,7 @@ export default function DrawerProfileScreen() {
   }
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.content}>
           <VStack space="lg">
@@ -319,14 +319,11 @@ export default function DrawerProfileScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   content: {
     padding: 16,
     paddingBottom: 40,

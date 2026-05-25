@@ -13,12 +13,12 @@ import {
     VStack,
 } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { isDevSmsBypassEnabled } from '@/src/config/env';
 import {
     residentRegistrationSchema,
@@ -151,51 +151,45 @@ export default function RegisterResidentScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={[futuristicTheme.colors.bgTop, '#08203a', futuristicTheme.colors.bgBottom]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>PD</Text>
-            </View>
-            <Text style={styles.title}>Rejestracja mieszkańca</Text>
-            <Text style={styles.subtitle}>Utwórz konto, potwierdź telefon i zapisz dane mieszkańca.</Text>
-          </View>
+    <AppScreen
+      gradientColors={[futuristicTheme.colors.bgTop, '#08203a', futuristicTheme.colors.bgBottom]}
+      contentContainerStyle={styles.content}
+      scroll>
+      <View style={styles.header}>
+        <View style={styles.logo}>
+          <Text style={styles.logoText}>PD</Text>
+        </View>
+        <Text style={styles.title}>Rejestracja mieszkańca</Text>
+        <Text style={styles.subtitle}>Utwórz konto, potwierdź telefon i zapisz dane mieszkańca.</Text>
+      </View>
 
-          <Box style={styles.card}>
-            <VStack space="lg">
-              <Text style={styles.intro}>
-                Wypełnij dane mieszkańca powiatu mławskiego. Kod SMS otrzymasz po zapisaniu formularza.
-              </Text>
+        <Box style={styles.card}>
+          <VStack space="lg">
+            <Text style={styles.intro}>
+              Wypełnij dane mieszkańca powiatu mławskiego. Kod SMS otrzymasz po zapisaniu formularza.
+            </Text>
 
-              <Controller
-                control={control}
-                name="phoneNumber"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Numer telefonu</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="+48 500 600 700"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        keyboardType="phone-pad"
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
-                  </VStack>
-                )}
-              />
+            <Controller
+              control={control}
+              name="phoneNumber"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <VStack space="xs">
+                  <Text style={styles.label}>Numer telefonu</Text>
+                  <Input style={styles.input}>
+                    <InputField
+                      value={value}
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      placeholder="+48 500 600 700"
+                      placeholderTextColor={futuristicTheme.colors.textMuted}
+                      keyboardType="phone-pad"
+                      style={styles.inputText}
+                    />
+                  </Input>
+                  {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
+                </VStack>
+              )}
+            />
 
               <Controller
                 control={control}
@@ -515,21 +509,13 @@ export default function RegisterResidentScreen() {
                   {isSubmitting ? 'Wysyłanie kodu SMS...' : 'Wyślij kod SMS'}
                 </ButtonText>
               </Button>
-            </VStack>
-          </Box>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+          </VStack>
+        </Box>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safeArea: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 12,

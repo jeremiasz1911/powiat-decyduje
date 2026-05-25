@@ -11,7 +11,6 @@ import {
 } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
 import { useMemo, useState } from 'react';
@@ -20,6 +19,7 @@ import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ErrorState } from '@/src/components/feedback-state';
+import { AppScreen } from '@/src/components/layout/app-screen';
 import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
 import { RichDescriptionPreview } from '@/src/features/projects/components/rich-description-preview';
 import {
@@ -197,7 +197,7 @@ export default function SubmitProjectScreen() {
   };
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <VStack space="lg">
@@ -455,14 +455,11 @@ export default function SubmitProjectScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   scrollContent: {
     padding: 16,
     paddingBottom: 40,

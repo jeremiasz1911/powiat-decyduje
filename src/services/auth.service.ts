@@ -1,45 +1,45 @@
 import { FirebaseError } from 'firebase/app';
 import {
-  createUserWithEmailAndPassword,
-  fetchSignInMethodsForEmail,
-  linkWithCredential,
-  PhoneAuthProvider,
-  RecaptchaVerifier,
-  sendPasswordResetEmail,
-  signInAnonymously,
-  signInWithCredential,
-  signInWithCustomToken,
-  signInWithEmailAndPassword,
-  signInWithPhoneNumber,
-  signOut,
-  type Auth,
-  type PhoneAuthCredential,
-  type User,
+    createUserWithEmailAndPassword,
+    fetchSignInMethodsForEmail,
+    linkWithCredential,
+    PhoneAuthProvider,
+    RecaptchaVerifier,
+    sendPasswordResetEmail,
+    signInAnonymously,
+    signInWithCredential,
+    signInWithCustomToken,
+    signInWithEmailAndPassword,
+    signInWithPhoneNumber,
+    signOut,
+    type Auth,
+    type PhoneAuthCredential,
+    type User,
 } from 'firebase/auth';
 import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  query,
-  runTransaction,
-  serverTimestamp,
-  setDoc,
-  where,
-  type DocumentData,
-  type Firestore,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    limit,
+    query,
+    runTransaction,
+    serverTimestamp,
+    setDoc,
+    where,
+    type DocumentData,
+    type Firestore,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { Platform } from 'react-native';
 
 import { isDevSmsBypassEnabled } from '@/src/config/env';
 import {
-  COMMUNE_NAME,
-  COUNTY_NAME,
-  normalizePeselInput,
-  normalizePhoneInput,
-  type ResidentRegistrationFormValues,
+    COMMUNE_NAME,
+    COUNTY_NAME,
+    normalizePeselInput,
+    normalizePhoneInput,
+    type ResidentRegistrationFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { auth, db, functions } from '@/src/lib/firebase';
 
@@ -59,6 +59,33 @@ const SMS_RATE_LIMIT = {
   RESEND_COOLDOWN_MS: 30 * 1000, // 30 seconds
   MAX_RESENDS: 5,
 };
+
+const firebaseErrorMessages: Record<string, string> = {
+  'auth/app-not-authorized':
+    'Ta aplikacja nie ma uprawnień do logowania SMS. Sprawdź konfigurację SHA-1/SHA-256 w Firebase.',
+  'auth/invalid-phone-number': 'Nieprawidłowy numer telefonu.',
+  'auth/too-many-requests': 'Zbyt wiele prób. Spróbuj ponownie później.',
+  'auth/quota-exceeded': 'Limit SMS został przekroczony. Spróbuj później.',
+  'auth/network-request-failed': 'Błąd sieci. Sprawdź połączenie internetowe.',
+  'auth/missing-client-identifier': 'Brak identyfikatora klienta. Sprawdź konfigurację aplikacji.',
+  'auth/session-expired': 'Sesja weryfikacji SMS wygasła. Wyślij kod ponownie.',
+  'auth/invalid-verification-code': 'Nieprawidłowy kod SMS.',
+  'permission-denied': 'Brak uprawnień do danych. Zaloguj się ponownie lub skontaktuj się z administratorem.',
+  'functions/unauthenticated': 'Sesja logowania SMS nie jest gotowa. Spróbuj ponownie za chwilę.',
+  'functions/not-found': 'Usługa SMS nie jest dostępna. Skontaktuj się z administratorem.',
+  'functions/resource-exhausted': 'Przekroczono limit prób lub wysyłek. Spróbuj ponownie później.',
+  'functions/invalid-argument': 'Nieprawidłowe dane wejściowe. Sprawdź numer telefonu lub kod.',
+  'functions/internal': 'Błąd serwera podczas wysyłki SMS. Spróbuj ponownie później.',
+};
+
+function toFriendlyFirebaseError(error: unknown): Error | null {
+  if (!(error instanceof FirebaseError)) {
+    return null;
+  }
+
+  const message = firebaseErrorMessages[error.code];
+  return message ? new Error(message) : null;
+}
 
 type ResidentConsents = {
   residentDeclaration: boolean;
@@ -647,24 +674,32 @@ export async function resolveResidentLoginTarget(identifier: string): Promise<Re
 export async function checkResidentRegistrationAvailability(
   payload: ResidentRegistrationAvailabilityPayload
 ): Promise<ResidentRegistrationAvailabilityResult> {
-  await ensureAnonymousAuth();
-  const dbInstance = requireDb();
-  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
-  const normalizedPesel = normalizePesel(payload.pesel);
+  try {
+    await ensureAnonymousAuth();
+    const dbInstance = requireDb();
+    const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+    const normalizedPesel = normalizePesel(payload.pesel);
 
-  const [phoneResolution, peselResolution] = await Promise.all([
-    resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber),
-    resolveHouseholdByPesel(dbInstance, normalizedPesel),
-  ]);
+    const [phoneResolution, peselResolution] = await Promise.all([
+      resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber),
+      resolveHouseholdByPesel(dbInstance, normalizedPesel),
+    ]);
 
-  const phoneAccountsCount = getAccountCount(phoneResolution.data, phoneResolution.residentAccounts.length);
+    const phoneAccountsCount = getAccountCount(phoneResolution.data, phoneResolution.residentAccounts.length);
 
-  return {
-    phoneRegistered: Boolean(phoneResolution.data),
-    peselTaken: Boolean(peselResolution.data && peselResolution.uid),
-    phoneAccountsCount,
-    phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
-  };
+    return {
+      phoneRegistered: Boolean(phoneResolution.data),
+      peselTaken: Boolean(peselResolution.data && peselResolution.uid),
+      phoneAccountsCount,
+      phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
+    };
+  } catch (error) {
+    const friendly = toFriendlyFirebaseError(error);
+    if (friendly) {
+      throw friendly;
+    }
+    throw error;
+  }
 }
 
 export async function checkPhoneRegistrationLimit(phoneNumber: string): Promise<{
@@ -807,6 +842,10 @@ export async function sendResidentPhoneVerificationCode(
       expiresAt: Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS,
     };
   } catch (error) {
+    const friendly = toFriendlyFirebaseError(error);
+    if (friendly) {
+      throw friendly;
+    }
     console.error('[SMS] sendResidentPhoneVerificationCode ERROR', {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof FirebaseError ? error.code : 'unknown',
@@ -992,6 +1031,10 @@ export async function completeResidentRegistration(
 
     return signedInUser;
   } catch (error) {
+    const friendly = toFriendlyFirebaseError(error);
+    if (friendly) {
+      throw friendly;
+    }
     console.error('[SMS] completeResidentRegistration ERROR', {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof FirebaseError ? error.code : 'unknown',
@@ -1044,6 +1087,10 @@ export async function confirmResidentPhoneVerificationCode(
 
     return signedInUser;
   } catch (error) {
+    const friendly = toFriendlyFirebaseError(error);
+    if (friendly) {
+      throw friendly;
+    }
     console.error('[SMS] confirmResidentPhoneVerificationCode ERROR', {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof FirebaseError ? error.code : 'unknown',
@@ -1138,6 +1185,10 @@ export async function confirmResidentPhoneLoginCode(
     console.log('[SMS] Phone login verification complete');
     return signedInUser;
   } catch (error) {
+    const friendly = toFriendlyFirebaseError(error);
+    if (friendly) {
+      throw friendly;
+    }
     console.error('[SMS] confirmResidentPhoneLoginCode ERROR', {
       error: error instanceof Error ? error.message : String(error),
       code: error instanceof FirebaseError ? error.code : 'unknown',

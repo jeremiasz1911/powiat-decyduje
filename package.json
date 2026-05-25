@@ -31,8 +31,6 @@
     "@react-native-aria/slider": "^0.2.12",
     "@react-native-aria/utils": "^0.2.12",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-native-firebase/app": "^24.0.0",
-    "@react-native-firebase/auth": "^24.0.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/drawer": "^7.5.0",
     "@react-navigation/elements": "^2.6.3",

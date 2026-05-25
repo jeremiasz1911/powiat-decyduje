@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Drawer } from 'expo-router/drawer';
-import { useRouter } from 'expo-router';
-import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import { Box, Divider, Text, VStack } from '@gluestack-ui/themed';
+import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
+import { useRouter } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
 
+import { envFlags } from '@/src/config/env';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicTheme } from '@/src/theme/futuristic';
@@ -12,6 +13,7 @@ export default function DrawerLayout() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { activeResidentAccount, logout } = useAuthContext();
+  const showDiagnostics = __DEV__ || envFlags.diagnosticsEnabled;
 
   const handleLogout = async () => {
     try {
@@ -121,6 +123,15 @@ export default function DrawerLayout() {
           drawerIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />
+      {showDiagnostics ? (
+        <Drawer.Screen
+          name="diagnostics"
+          options={{
+            title: 'Diagnostyka',
+            drawerIcon: ({ color, size }) => <Ionicons name="bug-outline" size={size} color={color} />,
+          }}
+        />
+      ) : null}
       <Drawer.Screen
         name="map"
         options={{

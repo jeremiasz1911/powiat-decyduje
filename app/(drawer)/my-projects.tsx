@@ -1,17 +1,17 @@
+import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { ProjectCard } from '@/src/features/projects/components/project-card';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, listMyProjects, type ProjectItem } from '@/src/services';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { AppScreen } from '@/src/components/layout/app-screen';
 
 export default function DrawerMyProjectsScreen() {
   const router = useRouter();
@@ -104,7 +104,7 @@ export default function DrawerMyProjectsScreen() {
   }, [items, search]);
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.content}>
           <VStack space="md">
@@ -187,14 +187,11 @@ export default function DrawerMyProjectsScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   content: {
     padding: 16,
     paddingBottom: 36,

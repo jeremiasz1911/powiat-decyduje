@@ -1,24 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { ProjectCard } from '@/src/features/projects/components/project-card';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
-  ensureAnonymousAuth,
-  getInstallationId,
-  listProjectsVotedByUser,
-  getVotesSummary,
-  listProjects,
-  type ProjectItem,
-  voteForProject,
+    ensureAnonymousAuth,
+    getInstallationId,
+    getVotesSummary,
+    listProjects,
+    listProjectsVotedByUser,
+    type ProjectItem,
+    voteForProject,
 } from '@/src/services';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { AppScreen } from '@/src/components/layout/app-screen';
 
 export default function MyVotesScreen() {
   const router = useRouter();
@@ -152,7 +152,7 @@ export default function MyVotesScreen() {
   const hasMore = Boolean(cursor);
 
   return (
-    <LinearGradient colors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]} style={styles.gradient}>
+    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
       <Box flex={1}>
         <ScrollView contentContainerStyle={styles.content}>
           <VStack space="md">
@@ -225,14 +225,11 @@ export default function MyVotesScreen() {
           </VStack>
         </ScrollView>
       </Box>
-    </LinearGradient>
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
   content: {
     padding: 16,
     paddingBottom: 36,

@@ -116,13 +116,6 @@ export default function DrawerLayout() {
           drawerIcon: ({ color, size }) => <Ionicons name="folder-open-outline" size={size} color={color} />,
         }}
       />
-      <Drawer.Screen
-        name="settings"
-        options={{
-          title: 'Ustawienia',
-          drawerIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
-        }}
-      />
       {showDiagnostics ? (
         <Drawer.Screen
           name="diagnostics"
@@ -133,30 +126,16 @@ export default function DrawerLayout() {
         />
       ) : null}
       <Drawer.Screen
-        name="map"
-        options={{
-          title: 'Mapa',
-          drawerIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
-        name="my-votes"
-        options={{
-          title: 'Moje głosy',
-          drawerIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
         name="submit-project"
         options={{
-          title: 'Zgłoś projekt',
+          title: 'Zgo projekt',
           drawerItemStyle: { display: 'none' },
         }}
       />
       <Drawer.Screen
         name="project/[id]"
         options={{
-          title: 'Szczegóły projektu',
+          title: 'Szczegy projektu',
           drawerItemStyle: { display: 'none' },
         }}
       />

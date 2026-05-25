@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Drawer } from 'expo-router/drawer';
-import { useRouter } from 'expo-router';
-import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
 import { Box, Divider, Text, VStack } from '@gluestack-ui/themed';
+import { DrawerContentScrollView, DrawerItem, DrawerItemList } from '@react-navigation/drawer';
+import { useRouter } from 'expo-router';
+import { Drawer } from 'expo-router/drawer';
 
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { useAuthContext } from '@/src/store/auth-context';
@@ -112,27 +112,6 @@ export default function DrawerLayout() {
         options={{
           title: 'Moje projekty',
           drawerIcon: ({ color, size }) => <Ionicons name="folder-open-outline" size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
-        name="settings"
-        options={{
-          title: 'Ustawienia',
-          drawerIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
-        name="map"
-        options={{
-          title: 'Mapa',
-          drawerIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
-        }}
-      />
-      <Drawer.Screen
-        name="my-votes"
-        options={{
-          title: 'Moje głosy',
-          drawerIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" size={size} color={color} />,
         }}
       />
       <Drawer.Screen

@@ -6,17 +6,15 @@ admin.initializeApp();
 const db = admin.firestore();
 const auth = admin.auth();
 
-// SMS rate limit constants
 const SMS_RATE_LIMIT = {
   SMS_MAX_PER_5_MIN: 3,
   SMS_MAX_PER_DAY: 10,
-  SMS_BLOCK_DURATION_MS: 3600000, // 1 hour
-  SMS_CODE_EXPIRY_MS: 600000, // 10 minutes
+  SMS_BLOCK_DURATION_MS: 3600000,
+  SMS_CODE_EXPIRY_MS: 600000,
   SMS_MAX_VERIFY_ATTEMPTS: 5,
-  SMS_VERIFY_ATTEMPT_BLOCK_MS: 900000, // 15 minutes
+  SMS_VERIFY_ATTEMPT_BLOCK_MS: 900000,
 };
 
-// Dev bypass phone number
 const DEV_PHONE = '+48500400300';
 
 interface SmsRateLimitStatus {
@@ -31,86 +29,100 @@ interface ResidentPhoneVerificationResult {
   normalizedPhoneNumber: string;
   expiresAt: number;
 }
+
 interface ResidentPhoneLoginResult {
   success: boolean;
   phoneNumber: string;
   uid?: string;
   customToken?: string;
 }
-/**
- * Create resident phone verification code on backend
- * Called from native app to handle SMS verification on devices without recaptcha
- */
+
+function normalizePhoneNumber(phoneNumber: string): string {
+  const digits = phoneNumber.replace(/\D/g, '');
+
+  if (digits.startsWith('48')) {
+    return `+${digits}`;
+  }
+
+  if (digits.length === 9) {
+    return `+48${digits}`;
+  }
+
+  return `+${digits}`;
+}
+
 export const createResidentPhoneVerificationCode = functions.https.onCall(
   async (data: any, context: any) => {
-    console.log('[SMS-CF] createResidentPhoneVerificationCode START', {
-      uid: context.auth?.uid,
-      isAnonymous: context.auth?.firebase?.identities?.anonymous?.[0] ? true : false,
-    });
+    console.log('========== [SMS-CF] AUTH DEBUG ==========');
+    console.log('[SMS-CF] context.auth exists:', !!context.auth);
+    console.log('[SMS-CF] uid:', context.auth?.uid);
+    console.log('[SMS-CF] token email:', context.auth?.token?.email);
+    console.log('[SMS-CF] token firebase:', context.auth?.token?.firebase);
+    console.log('[SMS-CF] authorization header exists:', !!context.rawRequest.headers.authorization);
+    console.log('[SMS-CF] user-agent:', context.rawRequest.headers['user-agent']);
+    console.log('=========================================');
 
-    if (!context.auth) {
-      console.error('[SMS-CF] Unauthenticated request');
+    if (!context.auth?.uid) {
       throw new functions.https.HttpsError(
         'unauthenticated',
         'Authentication is required before requesting an SMS code.'
       );
     }
+
     const phoneNumber = data.phoneNumber as string;
 
     if (!phoneNumber) {
-      console.error('[SMS-CF] Missing phoneNumber');
-      throw new functions.https.HttpsError('invalid-argument', 'Phone number is required');
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Phone number is required'
+      );
     }
 
     try {
-      // Normalize phone number
-      const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '');
-      console.log('[SMS-CF] Normalized phone number');
+      const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
 
-      // Check rate limits (bypass for dev phone)
-      if (normalizedPhoneNumber !== DEV_PHONE.replace(/\D/g, '')) {
+      console.log('[SMS-CF] Phone normalized', {
+        uid: context.auth.uid,
+        normalizedPhoneNumber,
+      });
+
+      if (normalizedPhoneNumber !== DEV_PHONE) {
         const rateLimitStatus = await checkSmsRateLimit(normalizedPhoneNumber);
+
         if (!rateLimitStatus.allowed) {
-          console.log('[SMS-CF] Rate limit exceeded', rateLimitStatus);
           throw new functions.https.HttpsError(
             'resource-exhausted',
-            `SMS sending is temporarily blocked. Try again in ${Math.ceil((rateLimitStatus.blockedUntil! - Date.now()) / 1000)} seconds.`
+            `SMS sending is temporarily blocked. Try again later.`
           );
         }
-        console.log('[SMS-CF] Rate limit check passed');
-      } else {
-        console.log('[SMS-CF] Using dev phone, skipping rate limit');
       }
 
-      // Generate 6-digit code
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = Date.now() + SMS_RATE_LIMIT.SMS_CODE_EXPIRY_MS;
+      const verificationId = `verify_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 11)}`;
 
-      // Store verification code in Firestore
-      const verificationId = `verify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await db.collection('sms_verifications').doc(verificationId).set({
+        uid: context.auth.uid,
+        phoneNumber: normalizedPhoneNumber,
+        code,
+        expiresAt,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        attempts: 0,
+        blockedUntil: null,
+        status: 'pending',
+      });
 
-      await db.collection('sms_verifications').doc(verificationId).set(
-        {
-          phoneNumber: normalizedPhoneNumber,
-          code,
-          expiresAt,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          attempts: 0,
-          blockedUntil: null,
-          status: 'pending',
-        },
-        { merge: true }
-      );
-      console.log('[SMS-CF] SMS code stored in Firestore', { verificationId });
-
-      // Record SMS send attempt in rate limit tracker
       await recordSmsSend(normalizedPhoneNumber);
-      console.log('[SMS-CF] SMS send recorded in rate limits');
 
-      // Log code for debugging (not in production)
-      console.log(`[SMS-CF] Verification code for ${normalizedPhoneNumber}: ${code} (expires at ${new Date(expiresAt).toISOString()})`);
+      console.log('[SMS-CF] Verification code created', {
+        verificationId,
+        normalizedPhoneNumber,
+        code,
+        expiresAt,
+      });
 
-      console.log('[SMS-CF] createResidentPhoneVerificationCode SUCCESS', { verificationId });
       return {
         verificationId,
         normalizedPhoneNumber,
@@ -121,9 +133,11 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
         error: error instanceof Error ? error.message : String(error),
         code: error instanceof functions.https.HttpsError ? error.code : 'unknown',
       });
+
       if (error instanceof functions.https.HttpsError) {
         throw error;
       }
+
       throw new functions.https.HttpsError(
         'internal',
         'Failed to create verification code'
@@ -132,214 +146,232 @@ export const createResidentPhoneVerificationCode = functions.https.onCall(
   }
 );
 
-/**
- * Verify SMS code and create authentication token
- */
-export const verifyResidentPhoneCode = functions.https.onCall(async (data: any, context: any) => {
-  console.log('[SMS-CF] verifyResidentPhoneCode START', {
-    uid: context.auth?.uid,
-    hasVerificationId: !!data.verificationId,
-    hasCode: !!data.code,
-  });
-
-  if (!context.auth) {
-    console.error('[SMS-CF] Unauthenticated request');
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Authentication is required before verifying an SMS code.'
-    );
-  }
-  const { verificationId, code, phoneNumber } = data;
-
-  if (!verificationId || !code) {
-    console.error('[SMS-CF] Missing verificationId or code');
-    throw new functions.https.HttpsError('invalid-argument', 'verificationId and code are required');
-  }
-
-  try {
-    // Get verification record
-    const verificationDoc = await db.collection('sms_verifications').doc(verificationId).get();
-
-    if (!verificationDoc.exists) {
-      console.error('[SMS-CF] Verification record not found', { verificationId });
-      throw new functions.https.HttpsError('not-found', 'Verification not found');
-    }
-
-    const verification = verificationDoc.data()!;
-    console.log('[SMS-CF] Verification record found', {
-      phoneNumber: verification.phoneNumber,
-      status: verification.status,
-      attempts: verification.attempts,
+export const verifyResidentPhoneCode = functions.https.onCall(
+  async (data: any, context: any) => {
+    console.log('[SMS-CF] verifyResidentPhoneCode START', {
+      uid: context.auth?.uid,
+      hasAuth: !!context.auth,
+      hasVerificationId: !!data.verificationId,
+      hasCode: !!data.code,
     });
 
-    // Check if code is expired
-    if (Date.now() > verification.expiresAt) {
-      console.log('[SMS-CF] Code expired');
-      throw new functions.https.HttpsError('invalid-argument', 'SMS code has expired');
-    }
-
-    // Check if blocked due to too many attempts
-    if (verification.blockedUntil && Date.now() < verification.blockedUntil) {
-      console.log('[SMS-CF] Too many attempts, account blocked');
+    if (!context.auth?.uid) {
       throw new functions.https.HttpsError(
-        'resource-exhausted',
-        'Too many failed attempts. Please try again later.'
+        'unauthenticated',
+        'Authentication is required before verifying an SMS code.'
       );
     }
 
-    // Check code
-    if (verification.code !== code) {
-      console.log('[SMS-CF] Code mismatch');
-      // Increment attempts
-      const newAttempts = (verification.attempts || 0) + 1;
-      const shouldBlock = newAttempts >= SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS;
+    const { verificationId, code } = data;
 
-      await db.collection('sms_verifications').doc(verificationId).update({
-        attempts: newAttempts,
-        blockedUntil: shouldBlock ? Date.now() + SMS_RATE_LIMIT.SMS_VERIFY_ATTEMPT_BLOCK_MS : null,
-      });
-
-      console.log('[SMS-CF] Invalid code attempt', { newAttempts, shouldBlock });
+    if (!verificationId || !code) {
       throw new functions.https.HttpsError(
         'invalid-argument',
-        `Invalid code. ${SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS - newAttempts} attempts remaining.`
+        'verificationId and code are required'
       );
     }
 
-    console.log('[SMS-CF] Code verification successful');
+    try {
+      const verificationRef = db
+        .collection('sms_verifications')
+        .doc(verificationId);
 
-    // Code is valid - mark as verified
-    await db.collection('sms_verifications').doc(verificationId).update({
-      status: 'verified',
-      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+      const verificationDoc = await verificationRef.get();
 
-    const phoneIndexDoc = await db.collection('auth_index_phone').doc(verification.phoneNumber).get();
-    const phoneIndexData = phoneIndexDoc.data();
-    const uid = typeof phoneIndexData?.uid === 'string' ? phoneIndexData.uid : undefined;
-    const customToken = uid
-      ? await auth.createCustomToken(uid, {
-          phoneNumber: verification.phoneNumber,
-        })
-      : undefined;
+      if (!verificationDoc.exists) {
+        throw new functions.https.HttpsError(
+          'not-found',
+          'Verification not found'
+        );
+      }
 
-    console.log('[SMS-CF] verifyResidentPhoneCode SUCCESS', { uid: !!uid, customToken: !!customToken });
+      const verification = verificationDoc.data()!;
 
-    return {
-      success: true,
-      phoneNumber: verification.phoneNumber,
-      uid,
-      customToken,
-    } as ResidentPhoneLoginResult;
-  } catch (error) {
-    console.error('[SMS-CF] verifyResidentPhoneCode ERROR', {
-      error: error instanceof Error ? error.message : String(error),
-      code: error instanceof functions.https.HttpsError ? error.code : 'unknown',
-    });
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
+      if (verification.uid !== context.auth.uid) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          'This verification does not belong to the current user.'
+        );
+      }
+
+      if (Date.now() > verification.expiresAt) {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          'SMS code has expired'
+        );
+      }
+
+      if (verification.blockedUntil && Date.now() < verification.blockedUntil) {
+        throw new functions.https.HttpsError(
+          'resource-exhausted',
+          'Too many failed attempts. Please try again later.'
+        );
+      }
+
+      if (verification.code !== code) {
+        const newAttempts = (verification.attempts || 0) + 1;
+        const shouldBlock =
+          newAttempts >= SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS;
+
+        await verificationRef.update({
+          attempts: newAttempts,
+          blockedUntil: shouldBlock
+            ? Date.now() + SMS_RATE_LIMIT.SMS_VERIFY_ATTEMPT_BLOCK_MS
+            : null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          `Invalid code. ${Math.max(
+            SMS_RATE_LIMIT.SMS_MAX_VERIFY_ATTEMPTS - newAttempts,
+            0
+          )} attempts remaining.`
+        );
+      }
+
+      await verificationRef.update({
+        status: 'verified',
+        verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      const phoneIndexDoc = await db
+        .collection('auth_index_phone')
+        .doc(verification.phoneNumber)
+        .get();
+
+      const phoneIndexData = phoneIndexDoc.data();
+      const uid =
+        typeof phoneIndexData?.uid === 'string'
+          ? phoneIndexData.uid
+          : undefined;
+
+      const customToken = uid
+        ? await auth.createCustomToken(uid, {
+            phoneNumber: verification.phoneNumber,
+          })
+        : undefined;
+
+      console.log('[SMS-CF] verifyResidentPhoneCode SUCCESS', {
+        uid: !!uid,
+        customToken: !!customToken,
+      });
+
+      return {
+        success: true,
+        phoneNumber: verification.phoneNumber,
+        uid,
+        customToken,
+      } as ResidentPhoneLoginResult;
+    } catch (error) {
+      console.error('[SMS-CF] verifyResidentPhoneCode ERROR', {
+        error: error instanceof Error ? error.message : String(error),
+        code: error instanceof functions.https.HttpsError ? error.code : 'unknown',
+      });
+
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+
+      throw new functions.https.HttpsError(
+        'internal',
+        'Failed to verify code'
+      );
     }
-    throw new functions.https.HttpsError('internal', 'Failed to verify code');
   }
-});
+);
 
-/**
- * Check SMS rate limit for a phone number
- */
-async function checkSmsRateLimit(normalizedPhoneNumber: string): Promise<SmsRateLimitStatus> {
-  try {
-    const rateLimitRef = db.collection('sms_rate_limits').doc(normalizedPhoneNumber);
-    const rateLimitDoc = await rateLimitRef.get();
+async function checkSmsRateLimit(
+  normalizedPhoneNumber: string
+): Promise<SmsRateLimitStatus> {
+  const rateLimitRef = db
+    .collection('sms_rate_limits')
+    .doc(normalizedPhoneNumber);
 
-    if (!rateLimitDoc.exists) {
-      return { allowed: true };
-    }
+  const rateLimitDoc = await rateLimitRef.get();
 
-    const rateLimit = rateLimitDoc.data()!;
-    const now = Date.now();
+  if (!rateLimitDoc.exists) {
+    return { allowed: true };
+  }
 
-    // Check if blocked
-    if (rateLimit.blockedUntil && now < rateLimit.blockedUntil) {
-      return {
-        allowed: false,
-        blockedUntil: rateLimit.blockedUntil,
-      };
-    }
+  const rateLimit = rateLimitDoc.data()!;
+  const now = Date.now();
 
-    // Check 5-minute limit
-    const timeSince5Min = now - (rateLimit.lastSmsTime || 0);
-    const smsCountIn5Min =
-      timeSince5Min < 300000 ? (rateLimit.smsCount5Min || 0) : 0;
-
-    if (smsCountIn5Min >= SMS_RATE_LIMIT.SMS_MAX_PER_5_MIN) {
-      return {
-        allowed: false,
-        blockedUntil: (rateLimit.lastSmsTime || 0) + 300000,
-        smsCountIn5Min,
-      };
-    }
-
-    // Check daily limit
-    const timeSinceDay = now - (rateLimit.dayResetTime || now);
-    const smsCountToday =
-      timeSinceDay < 86400000 ? (rateLimit.smsCountDay || 0) : 0;
-
-    if (smsCountToday >= SMS_RATE_LIMIT.SMS_MAX_PER_DAY) {
-      return {
-        allowed: false,
-        blockedUntil: (rateLimit.dayResetTime || now) + 86400000,
-        smsCountToday,
-      };
-    }
-
+  if (rateLimit.blockedUntil && now < rateLimit.blockedUntil) {
     return {
-      allowed: true,
+      allowed: false,
+      blockedUntil: rateLimit.blockedUntil,
+    };
+  }
+
+  const timeSince5Min = now - (rateLimit.lastSmsTime || 0);
+  const smsCountIn5Min =
+    timeSince5Min < 300000 ? rateLimit.smsCount5Min || 0 : 0;
+
+  if (smsCountIn5Min >= SMS_RATE_LIMIT.SMS_MAX_PER_5_MIN) {
+    return {
+      allowed: false,
+      blockedUntil: (rateLimit.lastSmsTime || 0) + 300000,
       smsCountIn5Min,
+    };
+  }
+
+  const timeSinceDay = now - (rateLimit.dayResetTime || now);
+  const smsCountToday =
+    timeSinceDay < 86400000 ? rateLimit.smsCountDay || 0 : 0;
+
+  if (smsCountToday >= SMS_RATE_LIMIT.SMS_MAX_PER_DAY) {
+    return {
+      allowed: false,
+      blockedUntil: (rateLimit.dayResetTime || now) + 86400000,
       smsCountToday,
     };
-  } catch (error) {
-    console.error('Error checking SMS rate limit:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to check rate limit');
   }
+
+  return {
+    allowed: true,
+    smsCountIn5Min,
+    smsCountToday,
+  };
 }
 
-/**
- * Record SMS send attempt for rate limiting
- */
 async function recordSmsSend(normalizedPhoneNumber: string): Promise<void> {
-  try {
-    const rateLimitRef = db.collection('sms_rate_limits').doc(normalizedPhoneNumber);
-    const now = Date.now();
+  const rateLimitRef = db
+    .collection('sms_rate_limits')
+    .doc(normalizedPhoneNumber);
 
-    await db.runTransaction(async (transaction) => {
-      const doc = await transaction.get(rateLimitRef);
+  const now = Date.now();
 
-      if (!doc.exists) {
-        transaction.set(rateLimitRef, {
-          smsCount5Min: 1,
-          smsCountDay: 1,
-          lastSmsTime: now,
-          dayResetTime: now,
-          blockedUntil: null,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } else {
-        const rateLimit = doc.data()!;
-        const timeSince5Min = now - (rateLimit.lastSmsTime || 0);
-        const timeSinceDay = now - (rateLimit.dayResetTime || now);
+  await db.runTransaction(async transaction => {
+    const doc = await transaction.get(rateLimitRef);
 
-        transaction.update(rateLimitRef, {
-          smsCount5Min: timeSince5Min < 300000 ? (rateLimit.smsCount5Min || 0) + 1 : 1,
-          smsCountDay: timeSinceDay < 86400000 ? (rateLimit.smsCountDay || 0) + 1 : 1,
-          lastSmsTime: now,
-          dayResetTime: timeSinceDay >= 86400000 ? now : rateLimit.dayResetTime,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      }
+    if (!doc.exists) {
+      transaction.set(rateLimitRef, {
+        smsCount5Min: 1,
+        smsCountDay: 1,
+        lastSmsTime: now,
+        dayResetTime: now,
+        blockedUntil: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return;
+    }
+
+    const rateLimit = doc.data()!;
+    const timeSince5Min = now - (rateLimit.lastSmsTime || 0);
+    const timeSinceDay = now - (rateLimit.dayResetTime || now);
+
+    transaction.update(rateLimitRef, {
+      smsCount5Min:
+        timeSince5Min < 300000 ? (rateLimit.smsCount5Min || 0) + 1 : 1,
+      smsCountDay:
+        timeSinceDay < 86400000 ? (rateLimit.smsCountDay || 0) + 1 : 1,
+      lastSmsTime: now,
+      dayResetTime:
+        timeSinceDay >= 86400000 ? now : rateLimit.dayResetTime,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-  } catch (error) {
-    console.error('Error recording SMS send:', error);
-    throw error;
-  }
+  });
 }

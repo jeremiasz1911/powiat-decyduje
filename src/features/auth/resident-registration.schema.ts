@@ -77,31 +77,14 @@ export const residentRegistrationSchema = z.object({
 export type ResidentRegistrationFormValues = z.infer<typeof residentRegistrationSchema>;
 
 export const residentLoginSchema = z.object({
-  identifier: z
-    .string()
-    .trim()
-    .min(1, 'Wpisz numer telefonu lub PESEL.')
-    .refine(
-      (value) => /^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value)) || /^\d{11}$/.test(normalizePeselInput(value)),
-      'Wpisz poprawny numer telefonu lub PESEL.'
-    ),
+  email: emailSchema,
   password: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
 });
 
 export type ResidentLoginFormValues = z.infer<typeof residentLoginSchema>;
 
 export const passwordResetSchema = z.object({
-  identifier: z
-    .string()
-    .trim()
-    .min(1, 'Wpisz e-mail, numer telefonu lub PESEL.')
-    .refine(
-      (value) =>
-        z.string().email().safeParse(value).success ||
-        /^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value)) ||
-        /^\d{11}$/.test(normalizePeselInput(value)),
-      'Wpisz poprawny e-mail, numer telefonu lub PESEL.'
-    ),
+  phoneNumber: normalizedPhoneSchema,
 });
 
 export type PasswordResetFormValues = z.infer<typeof passwordResetSchema>;

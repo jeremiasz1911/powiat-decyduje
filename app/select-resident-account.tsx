@@ -1,12 +1,10 @@
+import { Box, Button, ButtonText, Text, VStack } from '@gluestack-ui/themed';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Box, Button, ButtonText, Text, VStack } from '@gluestack-ui/themed';
 
 import { ScreenContainer } from '@/src/components/screen-container';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { loginWithEmailPassword } from '@/src/services';
-import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
@@ -15,24 +13,14 @@ export default function SelectResidentAccountScreen() {
   const { notify } = useAppFeedback();
   const { residentAccounts, activeResidentAccountId, setActiveResidentAccountId, refreshResidentAccounts } =
     useAuthContext();
-  const { pendingPasswordLogin, consumePasswordLogin, clearFlow } = useAuthFlow();
   const [isWorking, setIsWorking] = useState(false);
 
   const handleSelect = async (accountId: string) => {
     setIsWorking(true);
 
     try {
-      if (pendingPasswordLogin) {
-        await loginWithEmailPassword({
-          email: pendingPasswordLogin.email,
-          password: pendingPasswordLogin.password,
-        });
-        await refreshResidentAccounts();
-        await setActiveResidentAccountId(accountId);
-        consumePasswordLogin();
-      } else {
-        await setActiveResidentAccountId(accountId);
-      }
+      await refreshResidentAccounts();
+      await setActiveResidentAccountId(accountId);
 
       await notify('Konto wybrane', 'Wybrany profil mieszkańca jest aktywny.', 'success');
       router.replace('/(drawer)/(tabs)/projects');
@@ -45,7 +33,6 @@ export default function SelectResidentAccountScreen() {
   };
 
   const handleBack = async () => {
-    clearFlow();
     router.back();
   };
 

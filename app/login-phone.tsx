@@ -27,39 +27,28 @@ import Animated, {
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import {
-    getResidentAccountsByPhoneNumber,
-    loginWithEmailPassword,
-    resolveResidentLoginTarget,
-    sendResidentPhoneVerificationCode,
-} from '@/src/services';
+import { loginWithEmailPassword } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { useAuthFlow } from '@/src/store/auth-flow-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function LoginPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
-  const { beginPasswordLogin, beginPhoneLogin } = useAuthFlow();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isSendingSms, setIsSendingSms] = useState(false);
 
   const {
     control,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<ResidentLoginFormValues>({
     resolver: zodResolver(residentLoginSchema),
     defaultValues: {
-      identifier: '',
+      email: '',
       password: '',
     },
     mode: 'onBlur',
   });
-
-  const identifierValue = watch('identifier');
 
   const logoScale = useSharedValue(0.88);
   const glow = useSharedValue(0.45);
@@ -78,13 +67,17 @@ export default function LoginPhoneScreen() {
     transform: [{ scale: 0.94 + glow.value * 0.08 }],
   }));
 
-  const finishLogin = async (email: string, password: string, selectedResidentAccountId?: string) => {
+  const finishLogin = async (email: string, password: string) => {
     await loginWithEmailPassword({ email, password });
     const accounts = await refreshResidentAccounts();
-    const nextActive = selectedResidentAccountId ?? accounts[0]?.id ?? null;
 
-    if (nextActive) {
-      await setActiveResidentAccountId(nextActive);
+    if (accounts.length > 1) {
+      router.replace('/select-resident-account');
+      return;
+    }
+
+    if (accounts[0]) {
+      await setActiveResidentAccountId(accounts[0].id);
     }
 
     await notify('Zalogowano', 'Witamy w systemie Powiat Decyduje.', 'success');
@@ -95,82 +88,12 @@ export default function LoginPhoneScreen() {
     setIsSigningIn(true);
 
     try {
-      const resolution = await resolveResidentLoginTarget(values.identifier);
-
-      if (resolution.requiresSelection) {
-        beginPasswordLogin({
-          identifier: values.identifier,
-          password: values.password,
-          email: resolution.email,
-          residentAccounts: resolution.residentAccounts,
-        });
-        router.push('/select-resident-account');
-        return;
-      }
-
-      await finishLogin(resolution.email, values.password, resolution.matchedResidentAccount?.id ?? undefined);
+      await finishLogin(values.email, values.password);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się zalogować.';
       await notify('Błąd logowania', message, 'error');
     } finally {
       setIsSigningIn(false);
-    }
-  };
-
-  const onSmsLogin = async () => {
-    const identifier = identifierValue.trim();
-    if (!/^(?:\+48)?\d{9}$/.test(identifier.replace(/[\s-]/g, ''))) {
-      await notify('Błędny numer', 'Do logowania SMS wpisz numer telefonu.', 'error');
-      return;
-    }
-
-    setIsSendingSms(true);
-
-    try {
-      const accounts = await getResidentAccountsByPhoneNumber(identifier);
-
-      if (accounts.length === 0) {
-        await notify('Brak konta', 'Ten numer telefonu nie jest zarejestrowany.', 'error');
-        return;
-      }
-
-      if (accounts.length === 1) {
-        // If only one account, go directly to SMS verification
-        try {
-          const verification = await sendResidentPhoneVerificationCode({ phoneNumber: identifier });
-          beginPhoneLogin({
-            phoneNumber: identifier,
-            verificationId: verification.verificationId,
-            residentAccounts: accounts,
-            expiresAt: verification.expiresAt,
-          });
-          router.push({
-            pathname: '/verify-resident-phone',
-            params: {
-              mode: 'login',
-              phoneNumber: verification.normalizedPhoneNumber,
-              verificationId: verification.verificationId,
-            },
-          });
-        } catch (smsError) {
-          const smsMessage = smsError instanceof Error ? smsError.message : 'Nie udało się wysłać kodu SMS.';
-          await notify('Błąd SMS', smsMessage, 'error');
-        }
-      } else {
-        // If multiple accounts, show selection screen first
-        beginPhoneLogin({
-          phoneNumber: identifier,
-          verificationId: '',
-          residentAccounts: accounts,
-          expiresAt: 0,
-        });
-        router.push('/pre-select-resident-account');
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udało się sprawdzić dostępnych kont.';
-      await notify('Błąd', message, 'error');
-    } finally {
-      setIsSendingSms(false);
     }
   };
 
@@ -190,30 +113,30 @@ export default function LoginPhoneScreen() {
         </Animated.Text>
 
         <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.subtitle}>
-          Logowanie, rejestracja i SMS w jednym futurystycznym flow.
+          Zaloguj się do Powiat Decyduje.
         </Animated.Text>
 
         <Box style={styles.card}>
           <VStack space="md">
             <Controller
               control={control}
-              name="identifier"
+              name="email"
               render={({ field: { onChange, onBlur, value } }) => (
                 <VStack space="xs">
-                  <Text style={styles.label}>Numer telefonu albo PESEL</Text>
+                  <Text style={styles.label}>Adres e-mail</Text>
                   <Input style={styles.input}>
                     <InputField
                       value={value}
                       onBlur={onBlur}
                       onChangeText={onChange}
-                      placeholder="+48 500 600 700 lub PESEL"
+                      placeholder="twoj@email.pl"
                       placeholderTextColor={futuristicTheme.colors.textMuted}
-                      keyboardType="default"
+                      keyboardType="email-address"
                       autoCapitalize="none"
                       style={styles.inputText}
                     />
                   </Input>
-                  {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
+                  {errors.email ? <Text style={styles.errorText}>{errors.email.message}</Text> : null}
                 </VStack>
               )}
             />
@@ -244,12 +167,6 @@ export default function LoginPhoneScreen() {
             <Button onPress={handleSubmit(onSubmit)} isDisabled={isSigningIn} style={styles.primaryButton}>
               <ButtonText style={styles.primaryButtonText}>
                 {isSigningIn ? 'Logowanie...' : 'Zaloguj się'}
-              </ButtonText>
-            </Button>
-
-            <Button variant="outline" onPress={onSmsLogin} isDisabled={isSendingSms} style={styles.secondaryButton}>
-              <ButtonText style={styles.secondaryButtonText}>
-                {isSendingSms ? 'Wysyłanie SMS...' : 'Zaloguj przez SMS'}
               </ButtonText>
             </Button>
 

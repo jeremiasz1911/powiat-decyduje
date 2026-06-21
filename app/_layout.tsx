@@ -16,6 +16,7 @@ export default function RootLayout() {
         <Stack.Screen name="login-phone" options={{ title: 'Logowanie' }} />
         <Stack.Screen name="login-password" options={{ title: 'Logowanie' }} />
         <Stack.Screen name="recover-access-phone" options={{ title: 'Nie pamiętam hasła' }} />
+        <Stack.Screen name="reset-password" options={{ title: 'Reset hasła' }} />
         <Stack.Screen name="verify-resident-phone" options={{ title: 'Kod SMS' }} />
         <Stack.Screen name="select-resident-account" options={{ title: 'Wybór profilu' }} />
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />

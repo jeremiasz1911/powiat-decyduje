@@ -109,3 +109,16 @@ export const passwordResetSchema = z.object({
 });
 
 export type PasswordResetFormValues = z.infer<typeof passwordResetSchema>;
+
+export const passwordResetConfirmSchema = z
+  .object({
+    smsCode: z.string().trim().regex(/^\d{6}$/, 'Kod SMS musi miec 6 cyfr.'),
+    newPassword: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
+    confirmPassword: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Hasla musza byc takie same.',
+    path: ['confirmPassword'],
+  });
+
+export type PasswordResetConfirmFormValues = z.infer<typeof passwordResetConfirmSchema>;

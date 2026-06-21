@@ -13,6 +13,8 @@ const envSchema = z.object({
   EXPO_PUBLIC_BUILD_PROFILE: z.string().optional(),
   EXPO_PUBLIC_ENABLE_DIAGNOSTICS: z.string().optional(),
   EXPO_PUBLIC_DEV_SMS_BYPASS: z.string().optional(),
+  EXPO_PUBLIC_USE_FUNCTIONS_EMULATOR: z.string().optional(),
+  EXPO_PUBLIC_FUNCTIONS_EMULATOR_HOST: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -35,5 +37,6 @@ export const envFlags = {
   firebaseMeasurementId: Boolean(process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID),
   googleMapsApiKey: Boolean(process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY),
   diagnosticsEnabled: process.env.EXPO_PUBLIC_ENABLE_DIAGNOSTICS === 'true',
+  useFunctionsEmulator: process.env.EXPO_PUBLIC_USE_FUNCTIONS_EMULATOR === 'true',
   buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE ?? null,
 };

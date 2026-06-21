@@ -8,7 +8,7 @@ import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@glues
 import { ScreenContainer } from '@/src/components/screen-container';
 import { passwordResetSchema, type PasswordResetFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { sendResidentPasswordReset } from '@/src/services';
+import { sendPasswordResetSmsCode } from '@/src/services';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function RecoverAccessPhoneScreen() {
@@ -22,7 +22,7 @@ export default function RecoverAccessPhoneScreen() {
     formState: { errors },
   } = useForm<PasswordResetFormValues>({
     resolver: zodResolver(passwordResetSchema),
-    defaultValues: { identifier: '' },
+    defaultValues: { phoneNumber: '' },
     mode: 'onBlur',
   });
 
@@ -30,15 +30,15 @@ export default function RecoverAccessPhoneScreen() {
     setIsSubmitting(true);
 
     try {
-      await sendResidentPasswordReset({ identifier: values.identifier });
+      await sendPasswordResetSmsCode({ phoneNumber: values.phoneNumber });
       await notify(
-        'Wysłano instrukcję',
-        'Jeżeli konto istnieje, wysłaliśmy bezpieczny link do resetu hasła na e-mail przypisany do konta.',
+        'Kod SMS wysłany',
+        'Jeżeli konto istnieje, wysłaliśmy kod resetu hasła na podany numer telefonu.',
         'success'
       );
       router.replace('/login-phone');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udało się wysłać instrukcji resetu hasła.';
+      const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu resetu hasła.';
       await notify('Błąd resetu hasła', message, 'error');
     } finally {
       setIsSubmitting(false);
@@ -48,39 +48,39 @@ export default function RecoverAccessPhoneScreen() {
   return (
     <ScreenContainer
       title="Nie pamiętam hasła"
-      description="Wpisz e-mail, numer telefonu albo PESEL, aby rozpocząć bezpieczny reset hasła.">
+      description="Wpisz numer telefonu przypisany do konta, aby otrzymać kod SMS do resetu hasła.">
       <Box style={styles.card}>
         <VStack space="md">
           <Text style={styles.helper}>
-            Dla e-maila użyjemy Firebase Auth. Dla PESEL lub telefonu spróbujemy odnaleźć konto i wysłać reset na
-            przypisany adres e-mail.
+            Reset hasła odbywa się przez SMS na numer telefonu powiązany z kontem mieszkańca.
           </Text>
 
           <Controller
             control={control}
-            name="identifier"
+            name="phoneNumber"
             render={({ field: { onChange, onBlur, value } }) => (
               <VStack space="xs">
-                <Text style={styles.label}>E-mail, telefon albo PESEL</Text>
+                <Text style={styles.label}>Numer telefonu</Text>
                 <Input style={styles.input}>
                   <InputField
                     value={value}
                     onBlur={onBlur}
                     onChangeText={onChange}
-                    placeholder="np. jan@adres.pl albo +48 500 600 700"
+                    placeholder="+48 500 600 700"
                     placeholderTextColor={futuristicTheme.colors.textMuted}
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
                     style={styles.inputText}
                   />
                 </Input>
-                {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
+                {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
               </VStack>
             )}
           />
 
           <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
             <ButtonText style={styles.primaryButtonText}>
-              {isSubmitting ? 'Wysyłanie...' : 'Wyślij link resetu'}
+              {isSubmitting ? 'Wysyłanie...' : 'Wyślij kod SMS'}
             </ButtonText>
           </Button>
         </VStack>

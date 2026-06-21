@@ -19,8 +19,8 @@ export default function SelectResidentAccountScreen() {
     setIsWorking(true);
 
     try {
-      await refreshResidentAccounts();
-      await setActiveResidentAccountId(accountId);
+      const accounts = await refreshResidentAccounts();
+      await setActiveResidentAccountId(accountId, accounts);
 
       await notify('Konto wybrane', 'Wybrany profil mieszkańca jest aktywny.', 'success');
       router.replace('/(drawer)/(tabs)/projects');

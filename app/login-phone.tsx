@@ -27,7 +27,7 @@ import Animated, {
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { loginWithEmailPassword } from '@/src/services';
+import { loginWithIdentifier } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
@@ -44,7 +44,7 @@ export default function LoginPhoneScreen() {
   } = useForm<ResidentLoginFormValues>({
     resolver: zodResolver(residentLoginSchema),
     defaultValues: {
-      email: '',
+      identifier: '',
       password: '',
     },
     mode: 'onBlur',
@@ -67,8 +67,8 @@ export default function LoginPhoneScreen() {
     transform: [{ scale: 0.94 + glow.value * 0.08 }],
   }));
 
-  const finishLogin = async (email: string, password: string) => {
-    await loginWithEmailPassword({ email, password });
+  const finishLogin = async (identifier: string, password: string) => {
+    await loginWithIdentifier({ identifier, password });
     const accounts = await refreshResidentAccounts();
 
     if (accounts.length > 1) {
@@ -77,7 +77,7 @@ export default function LoginPhoneScreen() {
     }
 
     if (accounts[0]) {
-      await setActiveResidentAccountId(accounts[0].id);
+      await setActiveResidentAccountId(accounts[0].id, accounts);
     }
 
     await notify('Zalogowano', 'Witamy w systemie Powiat Decyduje.', 'success');
@@ -88,7 +88,7 @@ export default function LoginPhoneScreen() {
     setIsSigningIn(true);
 
     try {
-      await finishLogin(values.email, values.password);
+      await finishLogin(values.identifier, values.password);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się zalogować.';
       await notify('Błąd logowania', message, 'error');
@@ -120,23 +120,22 @@ export default function LoginPhoneScreen() {
           <VStack space="md">
             <Controller
               control={control}
-              name="email"
+              name="identifier"
               render={({ field: { onChange, onBlur, value } }) => (
                 <VStack space="xs">
-                  <Text style={styles.label}>Adres e-mail</Text>
+                  <Text style={styles.label}>Email lub numer telefonu</Text>
                   <Input style={styles.input}>
                     <InputField
                       value={value}
                       onBlur={onBlur}
                       onChangeText={onChange}
-                      placeholder="twoj@email.pl"
+                      placeholder="jan@example.com lub 500 600 700"
                       placeholderTextColor={futuristicTheme.colors.textMuted}
-                      keyboardType="email-address"
                       autoCapitalize="none"
                       style={styles.inputText}
                     />
                   </Input>
-                  {errors.email ? <Text style={styles.errorText}>{errors.email.message}</Text> : null}
+                  {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
                 </VStack>
               )}
             />

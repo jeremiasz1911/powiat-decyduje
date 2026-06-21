@@ -2,4 +2,5 @@ node_modules
 lib
 *.log
 *.local
+.env
 .DS_Store

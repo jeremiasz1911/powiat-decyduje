@@ -77,7 +77,28 @@ export const residentRegistrationSchema = z.object({
 export type ResidentRegistrationFormValues = z.infer<typeof residentRegistrationSchema>;
 
 export const residentLoginSchema = z.object({
-  email: emailSchema,
+  identifier: z
+    .string()
+    .trim()
+    .min(1, 'Wpisz email lub numer telefonu.')
+    .superRefine((value, ctx) => {
+      if (value.includes('@')) {
+        if (!z.string().email().safeParse(value).success) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Wpisz poprawny adres e-mail.',
+          });
+        }
+        return;
+      }
+
+      if (!/^(?:\+48)?\d{9}$/.test(normalizePhoneInput(value))) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Wpisz poprawny numer telefonu.',
+        });
+      }
+    }),
   password: z.string().min(8, 'Haslo musi miec co najmniej 8 znakow.'),
 });
 

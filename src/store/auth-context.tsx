@@ -4,7 +4,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { useAuth } from '@/src/hooks/use-auth';
 import { secureStore } from '@/src/lib/secure-store';
-import { getResidentAccountsForSignedInUser, logoutResidentSession, type ResidentAccount } from '@/src/services';
+import {
+  getSignedInUserResidentProfile,
+  logoutResidentSession,
+  resolveActiveResidentAccountId,
+  type ResidentAccount,
+} from '@/src/services';
 
 type AuthContextValue = {
   user: User | null;
@@ -13,8 +18,8 @@ type AuthContextValue = {
   residentAccounts: ResidentAccount[];
   activeResidentAccount: ResidentAccount | null;
   activeResidentAccountId: string | null;
-  setActiveResidentAccountId: (accountId: string) => Promise<void>;
-  refreshResidentAccounts: () => Promise<ResidentAccount[]>;
+  setActiveResidentAccountId: (accountId: string, knownAccounts?: ResidentAccount[]) => Promise<void>;
+  refreshResidentAccounts: (preferredActiveAccountId?: string) => Promise<ResidentAccount[]>;
   logout: () => Promise<void>;
 };
 
@@ -27,9 +32,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [accountsLoading, setAccountsLoading] = useState(false);
 
   const setActiveResidentAccountId = useCallback(
-    async (accountId: string) => {
-      const accountExists = residentAccounts.some((account) => account.id === accountId);
-      if (!accountExists) {
+    async (accountId: string, knownAccounts?: ResidentAccount[]) => {
+      let accountsToCheck = knownAccounts ?? residentAccounts;
+
+      if (!accountsToCheck.some((account) => account.id === accountId)) {
+        const profile = await getSignedInUserResidentProfile();
+        accountsToCheck = profile.accounts;
+        if (profile.accounts.length > 0) {
+          setResidentAccounts(profile.accounts);
+        }
+      }
+
+      if (!accountsToCheck.some((account) => account.id === accountId)) {
         throw new Error('Wybrane konto mieszkanca nie jest dostepne.');
       }
 
@@ -39,36 +53,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
     [residentAccounts]
   );
 
-  const refreshResidentAccounts = useCallback(async (): Promise<ResidentAccount[]> => {
-    if (!user) {
-      setResidentAccounts([]);
-      setActiveResidentAccountIdState(null);
-      await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
-      return [];
-    }
+  const refreshResidentAccounts = useCallback(
+    async (preferredActiveAccountId?: string): Promise<ResidentAccount[]> => {
+      setAccountsLoading(true);
+      try {
+        const profile = await getSignedInUserResidentProfile();
+        const accounts = profile.accounts;
+        setResidentAccounts(accounts);
 
-    setAccountsLoading(true);
-    try {
-      const accounts = await getResidentAccountsForSignedInUser();
-      setResidentAccounts(accounts);
+        if (!accounts.length) {
+          setActiveResidentAccountIdState(null);
+          await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+          return [];
+        }
 
-      if (!accounts.length) {
-        setActiveResidentAccountIdState(null);
-        await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
-        return [];
+        const persisted = await secureStore.get(STORAGE_KEYS.activeResidentAccountId);
+        const nextActiveId = resolveActiveResidentAccountId(accounts, [
+          preferredActiveAccountId,
+          profile.activeResidentAccountId,
+          persisted,
+        ]);
+
+        if (nextActiveId) {
+          setActiveResidentAccountIdState(nextActiveId);
+          await secureStore.set(STORAGE_KEYS.activeResidentAccountId, nextActiveId);
+        }
+
+        return accounts;
+      } finally {
+        setAccountsLoading(false);
       }
-
-      const persisted = await secureStore.get(STORAGE_KEYS.activeResidentAccountId);
-      const nextActiveId =
-        persisted && accounts.some((account) => account.id === persisted) ? persisted : accounts[0].id;
-
-      setActiveResidentAccountIdState(nextActiveId);
-      await secureStore.set(STORAGE_KEYS.activeResidentAccountId, nextActiveId);
-      return accounts;
-    } finally {
-      setAccountsLoading(false);
-    }
-  }, [user]);
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
@@ -78,8 +95,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    if (!user || user.isAnonymous) {
+      setResidentAccounts([]);
+      setActiveResidentAccountIdState(null);
+      void secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+      return;
+    }
+
     void refreshResidentAccounts();
-  }, [refreshResidentAccounts]);
+  }, [loading, refreshResidentAccounts, user]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

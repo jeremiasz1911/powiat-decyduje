@@ -9,6 +9,8 @@ import { auth, createCallable, db } from '@/src/lib/firebase';
 import { FirebaseError } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  linkWithCredential,
   signInAnonymously,
   signInWithEmailAndPassword,
   signOut,
@@ -30,15 +32,19 @@ import {
 } from 'firebase/firestore';
 
 const MAX_PHONE_ACCOUNTS = 5;
+const GENERIC_LOGIN_ERROR = 'Nieprawidłowy email/numer telefonu lub hasło.';
+const INVALID_LOGIN_ATTEMPT_EMAIL = 'invalid-login@powiat-decyduje.invalid';
 const firebaseErrorMessages: Record<string, string> = {
   'auth/email-already-in-use': 'Ten adres e-mail jest już używany.',
   'auth/invalid-email': 'Wpisz poprawny adres e-mail.',
   'auth/user-not-found': 'Nie znaleziono konta dla podanego adresu e-mail.',
   'auth/wrong-password': 'Nieprawidłowe hasło.',
+  'auth/weak-password': 'Hasło jest zbyt słabe. Użyj co najmniej 8 znaków.',
   'functions/not-found': 'Usługa SMS nie jest dostępna. Skontaktuj się z administratorem.',
   'functions/resource-exhausted': 'Przekroczono limit wysyłek lub prób. Spróbuj ponownie później.',
   'functions/invalid-argument': 'Nieprawidłowe dane wejściowe. Sprawdź numer telefonu lub kod.',
-  'functions/failed-precondition': 'Usługa SMS nie jest skonfigurowana.',
+  'functions/failed-precondition':
+    'Wysyłka SMS nie jest skonfigurowana. Skontaktuj się z administratorem lub użyj trybu emulatora.',
   'functions/already-exists': 'Nie można zarejestrować konta.',
   'functions/permission-denied': 'Brak uprawnień do wykonania operacji.',
   'functions/internal': 'Błąd serwera. Spróbuj ponownie później.',
@@ -124,6 +130,11 @@ export type EmailPasswordLoginPayload = {
   password: string;
 };
 
+export type IdentifierLoginPayload = {
+  identifier: string;
+  password: string;
+};
+
 export type ResidentRegistrationAvailabilityPayload = {
   phoneNumber: string;
   pesel: string;
@@ -201,7 +212,16 @@ async function ensureUserToken(user: User): Promise<void> {
 
 async function createEmailPasswordAccount(email: string, password: string): Promise<User> {
   const authInstance = requireAuth();
-  const credentials = await createUserWithEmailAndPassword(authInstance, email.trim(), password);
+  const normalizedEmail = email.trim();
+
+  if (authInstance.currentUser?.isAnonymous) {
+    const credential = EmailAuthProvider.credential(normalizedEmail, password);
+    const linkedCredentials = await linkWithCredential(authInstance.currentUser, credential);
+    await ensureUserToken(linkedCredentials.user);
+    return linkedCredentials.user;
+  }
+
+  const credentials = await createUserWithEmailAndPassword(authInstance, normalizedEmail, password);
   await ensureUserToken(credentials.user);
   return credentials.user;
 }
@@ -444,10 +464,50 @@ export async function logoutResidentSession(): Promise<void> {
   await signOut(authInstance);
 }
 
-export async function loginWithEmailPassword(payload: EmailPasswordLoginPayload): Promise<User> {
+export async function loginWithIdentifier(payload: IdentifierLoginPayload): Promise<User> {
   const authInstance = requireAuth();
-  const credentials = await signInWithEmailAndPassword(authInstance, payload.email.trim(), payload.password);
-  return credentials.user;
+  const identifier = payload.identifier.trim();
+  const password = payload.password;
+  let candidateEmails: string[] = [];
+
+  if (identifier.includes('@')) {
+    candidateEmails = [identifier];
+  } else {
+    try {
+      const resolveLogin = createCallable<{ identifier: string }, { emails: string[] }>(
+        'resolveLoginIdentifier'
+      );
+      const { data } = await resolveLogin({ identifier });
+      candidateEmails = Array.isArray(data.emails) ? data.emails : [];
+    } catch (error) {
+      if (error instanceof FirebaseError && error.code === 'functions/not-found') {
+        throw new Error('Usługa logowania jest chwilowo niedostępna. Spróbuj ponownie później.');
+      }
+      candidateEmails = [];
+    }
+  }
+
+  if (candidateEmails.length === 0) {
+    candidateEmails = [INVALID_LOGIN_ATTEMPT_EMAIL];
+  }
+
+  for (const email of candidateEmails) {
+    try {
+      const credentials = await signInWithEmailAndPassword(authInstance, email.trim(), password);
+      return credentials.user;
+    } catch {
+      // Try the next candidate without revealing which identifier exists.
+    }
+  }
+
+  throw new Error(GENERIC_LOGIN_ERROR);
+}
+
+export async function loginWithEmailPassword(payload: EmailPasswordLoginPayload): Promise<User> {
+  return loginWithIdentifier({
+    identifier: payload.email,
+    password: payload.password,
+  });
 }
 
 export async function checkResidentRegistrationAvailability(
@@ -457,12 +517,16 @@ export async function checkResidentRegistrationAvailability(
     await ensureAnonymousAuth();
     const dbInstance = requireDb();
     const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
-    const phoneResolution = await resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber);
+    const normalizedPesel = normalizePesel(payload.pesel);
+    const [phoneResolution, peselResolution] = await Promise.all([
+      resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber),
+      resolveHouseholdByPesel(dbInstance, normalizedPesel),
+    ]);
     const phoneAccountsCount = getAccountCount(phoneResolution.data, phoneResolution.residentAccounts.length);
 
     return {
       phoneRegistered: Boolean(phoneResolution.data),
-      peselTaken: false,
+      peselTaken: Boolean(peselResolution.account),
       phoneAccountsCount,
       phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
     };
@@ -494,19 +558,51 @@ export async function checkPhoneRegistrationLimit(phoneNumber: string): Promise<
 }
 
 export async function getResidentAccountsForSignedInUser(): Promise<ResidentAccount[]> {
+  const profile = await getSignedInUserResidentProfile();
+  return profile.accounts;
+}
+
+export type SignedInUserResidentProfile = {
+  accounts: ResidentAccount[];
+  activeResidentAccountId: string | null;
+};
+
+export async function getSignedInUserResidentProfile(): Promise<SignedInUserResidentProfile> {
   const authInstance = requireAuth();
   const dbInstance = requireDb();
 
   if (!authInstance.currentUser || authInstance.currentUser.isAnonymous) {
-    return [];
+    return { accounts: [], activeResidentAccountId: null };
   }
 
   const userSnapshot = await getDoc(doc(dbInstance, 'users', authInstance.currentUser.uid));
   if (!userSnapshot.exists()) {
-    return [];
+    return { accounts: [], activeResidentAccountId: null };
   }
 
-  return mapResidentAccountsFromUserDoc(userSnapshot.data() as DocumentData);
+  const data = userSnapshot.data() as DocumentData;
+  return {
+    accounts: mapResidentAccountsFromUserDoc(data),
+    activeResidentAccountId:
+      typeof data.activeResidentAccountId === 'string' ? data.activeResidentAccountId : null,
+  };
+}
+
+export function resolveActiveResidentAccountId(
+  accounts: ResidentAccount[],
+  preferredIds: (string | null | undefined)[] = []
+): string | null {
+  if (!accounts.length) {
+    return null;
+  }
+
+  for (const preferredId of preferredIds) {
+    if (preferredId && accounts.some((account) => account.id === preferredId)) {
+      return preferredId;
+    }
+  }
+
+  return accounts[0]?.id ?? null;
 }
 
 export async function getResidentAccountsByPhoneNumber(phoneNumber: string): Promise<ResidentAccount[]> {
@@ -524,16 +620,15 @@ export async function sendRegistrationSmsCode(
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
 
   try {
-    const createVerification = await createCallable<
-      { phoneNumber: string },
-      RegistrationSmsResult
-    >('createResidentPhoneVerificationCode');
+    const createVerification = createCallable<{ phoneNumber: string }, RegistrationSmsResult>(
+      'sendRegistrationSmsCode'
+    );
 
-    const result = await createVerification({ phoneNumber: normalizedPhoneNumber });
+    const { data } = await createVerification({ phoneNumber: normalizedPhoneNumber });
 
     return {
-      ...result,
-      normalizedPhoneNumber: normalizePhoneNumber(result.normalizedPhoneNumber ?? normalizedPhoneNumber),
+      ...data,
+      normalizedPhoneNumber: normalizePhoneNumber(data.normalizedPhoneNumber ?? normalizedPhoneNumber),
     };
   } catch (error) {
     const friendly = toFriendlyFirebaseError(error);
@@ -557,20 +652,19 @@ export async function verifyRegistrationSmsCode(
   }
 
   try {
-    const verifyCode = await createCallable<
-      { verificationId: string; code: string },
-      RegistrationSmsResult
-    >('verifyResidentPhoneCode');
-    const result = await verifyCode({
+    const verifyCode = createCallable<{ verificationId: string; code: string }, RegistrationSmsResult>(
+      'verifyRegistrationSmsCode'
+    );
+    const { data } = await verifyCode({
       verificationId: payload.verificationId,
       code: smsCode,
     });
 
-    if (normalizePhoneNumber(result.normalizedPhoneNumber) !== normalizedPhoneNumber) {
+    if (normalizePhoneNumber(data.normalizedPhoneNumber) !== normalizedPhoneNumber) {
       throw new Error('Kod SMS nie pasuje do podanego numeru telefonu.');
     }
 
-    return result;
+    return data;
   } catch (error) {
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {
@@ -586,12 +680,19 @@ export async function registerResidentAccount(
 ): Promise<User> {
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
-  let createdUser: User | null = null;
+  let authUserForRollback: User | null = null;
+  let linkedAnonymousUser = false;
+  let createdNewEmailUser = false;
 
   try {
+    const authInstance = requireAuth();
+    const wasAnonymous = authInstance.currentUser?.isAnonymous === true;
     const signedInUser = await createEmailPasswordAccount(payload.email, payload.password);
-    createdUser = signedInUser;
-    const registerAccount = await createCallable<
+    authUserForRollback = signedInUser;
+    linkedAnonymousUser = wasAnonymous;
+    createdNewEmailUser = !wasAnonymous;
+
+    const registerAccount = createCallable<
       {
         verificationId: string;
         phoneNumber: string;
@@ -635,8 +736,13 @@ export async function registerResidentAccount(
 
     return signedInUser;
   } catch (error) {
-    if (createdUser) {
-      await createdUser.delete();
+    if (authUserForRollback && (createdNewEmailUser || linkedAnonymousUser)) {
+      try {
+        // Roll back a fresh email account or a newly linked anonymous session if Firestore write failed.
+        await authUserForRollback.delete();
+      } catch {
+        // Best-effort rollback; the cloud function also cleans up on failure.
+      }
     }
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {
@@ -664,11 +770,11 @@ export async function sendPasswordResetSmsCode(
 ): Promise<{ verificationId: string; expiresAt: number }> {
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   try {
-    const sendSms = await createCallable<
-      { phoneNumber: string },
-      { verificationId: string; expiresAt: number }
-    >('sendPasswordResetSmsCode');
-    return await sendSms({ phoneNumber: normalizedPhoneNumber });
+    const sendSms = createCallable<{ phoneNumber: string }, { verificationId: string; expiresAt: number }>(
+      'sendPasswordResetSmsCode'
+    );
+    const { data } = await sendSms({ phoneNumber: normalizedPhoneNumber });
+    return data;
   } catch (error) {
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {
@@ -687,11 +793,12 @@ export async function verifyPasswordResetSmsCode(
   }
 
   try {
-    const verifySms = await createCallable<
+    const verifySms = createCallable<
       { verificationId: string; code: string },
       { verificationId: string; expiresAt: number }
     >('verifyPasswordResetSmsCode');
-    return await verifySms({ verificationId: payload.verificationId, code: smsCode });
+    const { data } = await verifySms({ verificationId: payload.verificationId, code: smsCode });
+    return data;
   } catch (error) {
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {
@@ -713,7 +820,7 @@ export async function resetPasswordWithSmsCode(
   }
 
   try {
-    const resetPassword = await createCallable<
+    const resetPassword = createCallable<
       { verificationId: string; code: string; newPassword: string },
       { success: boolean }
     >('resetPasswordWithSmsCode');

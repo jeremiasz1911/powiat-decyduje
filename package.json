@@ -12,6 +12,10 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
+    "functions:build": "npm --prefix functions run build",
+    "functions:deploy": "firebase deploy --only functions",
+    "functions:list": "firebase functions:list",
+    "emulators:start": "npm run functions:build && firebase emulators:start --only functions,firestore",
     "build:android": "expo export --platform android",
     "build:ios": "expo export --platform ios"
   },

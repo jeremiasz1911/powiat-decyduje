@@ -1,26 +1,20 @@
 import { createContext, useCallback, useContext, useMemo, useState, type PropsWithChildren } from 'react';
 
-import type { ResidentRegistrationFormValues } from '@/src/features/auth/resident-registration.schema';
-import type { ResidentAccount } from '@/src/services';
+import {
+  normalizePhoneInput,
+  type ResidentRegistrationFormValues,
+} from '@/src/features/auth/resident-registration.schema';
 
 type PendingRegistration = ResidentRegistrationFormValues & {
   verificationId: string;
   normalizedPhoneNumber: string;
 };
 
-type PendingPasswordLogin = {
-  email: string;
-  password: string;
-  residentAccounts: ResidentAccount[];
-};
-
 type AuthFlowContextValue = {
   pendingRegistration: PendingRegistration | null;
-  pendingPasswordLogin: PendingPasswordLogin | null;
   beginRegistration: (payload: ResidentRegistrationFormValues, verificationId: string) => void;
   consumeRegistration: () => PendingRegistration | null;
-  beginPasswordLogin: (payload: PendingPasswordLogin) => void;
-  consumePasswordLogin: () => PendingPasswordLogin | null;
+  updateRegistrationVerificationId: (verificationId: string) => void;
   clearFlow: () => void;
 };
 
@@ -28,14 +22,13 @@ const AuthFlowContext = createContext<AuthFlowContextValue | null>(null);
 
 export function AuthFlowProvider({ children }: PropsWithChildren) {
   const [pendingRegistration, setPendingRegistration] = useState<PendingRegistration | null>(null);
-  const [pendingPasswordLogin, setPendingPasswordLogin] = useState<PendingPasswordLogin | null>(null);
 
   const beginRegistration = useCallback(
     (payload: ResidentRegistrationFormValues, verificationId: string) => {
       setPendingRegistration({
         ...payload,
         verificationId,
-        normalizedPhoneNumber: payload.phoneNumber,
+        normalizedPhoneNumber: normalizePhoneInput(payload.phoneNumber),
       });
     },
     []
@@ -47,40 +40,23 @@ export function AuthFlowProvider({ children }: PropsWithChildren) {
     return next;
   }, [pendingRegistration]);
 
-  const beginPasswordLogin = useCallback((payload: PendingPasswordLogin) => {
-    setPendingPasswordLogin(payload);
+  const updateRegistrationVerificationId = useCallback((verificationId: string) => {
+    setPendingRegistration((current) => (current ? { ...current, verificationId } : current));
   }, []);
-
-  const consumePasswordLogin = useCallback(() => {
-    const next = pendingPasswordLogin;
-    setPendingPasswordLogin(null);
-    return next;
-  }, [pendingPasswordLogin]);
 
   const clearFlow = useCallback(() => {
     setPendingRegistration(null);
-    setPendingPasswordLogin(null);
   }, []);
 
   const value = useMemo<AuthFlowContextValue>(
     () => ({
       pendingRegistration,
-      pendingPasswordLogin,
       beginRegistration,
       consumeRegistration,
-      beginPasswordLogin,
-      consumePasswordLogin,
+      updateRegistrationVerificationId,
       clearFlow,
     }),
-    [
-      beginPasswordLogin,
-      beginRegistration,
-      clearFlow,
-      consumePasswordLogin,
-      consumeRegistration,
-      pendingPasswordLogin,
-      pendingRegistration,
-    ]
+    [beginRegistration, clearFlow, consumeRegistration, pendingRegistration, updateRegistrationVerificationId]
   );
 
   return <AuthFlowContext.Provider value={value}>{children}</AuthFlowContext.Provider>;

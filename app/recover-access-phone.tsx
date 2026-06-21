@@ -8,7 +8,7 @@ import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@glues
 import { ScreenContainer } from '@/src/components/screen-container';
 import { passwordResetSchema, type PasswordResetFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { sendPasswordResetSmsCode } from '@/src/services';
+import { normalizePhoneNumber, sendPasswordResetSmsCode } from '@/src/services';
 import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
 
 export default function RecoverAccessPhoneScreen() {
@@ -30,13 +30,21 @@ export default function RecoverAccessPhoneScreen() {
     setIsSubmitting(true);
 
     try {
-      await sendPasswordResetSmsCode({ phoneNumber: values.phoneNumber });
+      const normalizedPhoneNumber = normalizePhoneNumber(values.phoneNumber);
+      const result = await sendPasswordResetSmsCode({ phoneNumber: normalizedPhoneNumber });
+
       await notify(
         'Kod SMS wysłany',
         'Jeżeli konto istnieje, wysłaliśmy kod resetu hasła na podany numer telefonu.',
         'success'
       );
-      router.replace('/login-phone');
+      router.push({
+        pathname: '/reset-password',
+        params: {
+          phoneNumber: normalizedPhoneNumber,
+          verificationId: result.verificationId,
+        },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się wysłać kodu resetu hasła.';
       await notify('Błąd resetu hasła', message, 'error');

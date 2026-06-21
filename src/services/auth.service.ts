@@ -33,9 +33,12 @@ import {
 
 const MAX_PHONE_ACCOUNTS = 5;
 const GENERIC_LOGIN_ERROR = 'Nieprawidłowy email/numer telefonu lub hasło.';
+const INVALID_SMS_CODE_MESSAGE = 'Kod SMS musi miec 6 cyfr.';
 const INVALID_LOGIN_ATTEMPT_EMAIL = 'invalid-login@powiat-decyduje.invalid';
 const firebaseErrorMessages: Record<string, string> = {
+  'auth/credential-already-in-use': 'Ten adres e-mail jest już używany.',
   'auth/email-already-in-use': 'Ten adres e-mail jest już używany.',
+  'auth/invalid-credential': GENERIC_LOGIN_ERROR,
   'auth/invalid-email': 'Wpisz poprawny adres e-mail.',
   'auth/user-not-found': 'Nie znaleziono konta dla podanego adresu e-mail.',
   'auth/wrong-password': 'Nieprawidłowe hasło.',
@@ -210,7 +213,13 @@ async function ensureUserToken(user: User): Promise<void> {
   await user.getIdToken(true);
 }
 
-async function createEmailPasswordAccount(email: string, password: string): Promise<User> {
+type EmailPasswordAccountResult = {
+  user: User;
+  linkedAnonymousUser: boolean;
+  createdNewEmailUser: boolean;
+};
+
+async function createEmailPasswordAccount(email: string, password: string): Promise<EmailPasswordAccountResult> {
   const authInstance = requireAuth();
   const normalizedEmail = email.trim();
 
@@ -218,12 +227,20 @@ async function createEmailPasswordAccount(email: string, password: string): Prom
     const credential = EmailAuthProvider.credential(normalizedEmail, password);
     const linkedCredentials = await linkWithCredential(authInstance.currentUser, credential);
     await ensureUserToken(linkedCredentials.user);
-    return linkedCredentials.user;
+    return {
+      user: linkedCredentials.user,
+      linkedAnonymousUser: true,
+      createdNewEmailUser: false,
+    };
   }
 
   const credentials = await createUserWithEmailAndPassword(authInstance, normalizedEmail, password);
   await ensureUserToken(credentials.user);
-  return credentials.user;
+  return {
+    user: credentials.user,
+    linkedAnonymousUser: false,
+    createdNewEmailUser: true,
+  };
 }
 
 function phoneIndexRef(dbInstance: Firestore, normalizedPhoneNumber: string) {
@@ -433,7 +450,6 @@ function getAccountCount(data: ResidentHouseholdData | null, phoneCountFallback 
   return phoneCountFallback > 0 ? phoneCountFallback : 1;
 }
 
-
 export async function ensureAnonymousAuth(): Promise<User> {
   const authInstance = requireAuth();
 
@@ -462,6 +478,20 @@ export async function ensureAnonymousAuth(): Promise<User> {
 export async function logoutResidentSession(): Promise<void> {
   const authInstance = requireAuth();
   await signOut(authInstance);
+}
+
+export async function cleanupAnonymousAuthSession(): Promise<void> {
+  const authInstance = requireAuth();
+
+  if (!authInstance.currentUser?.isAnonymous) {
+    return;
+  }
+
+  try {
+    await authInstance.currentUser.delete();
+  } catch {
+    await signOut(authInstance);
+  }
 }
 
 export async function loginWithIdentifier(payload: IdentifierLoginPayload): Promise<User> {
@@ -648,7 +678,7 @@ export async function verifyRegistrationSmsCode(
   const smsCode = payload.smsCode.trim();
 
   if (!isValidSmsCodeShape(smsCode)) {
-    throw new Error('Wpisz 6-cyfrowy kod SMS.');
+    throw new Error(INVALID_SMS_CODE_MESSAGE);
   }
 
   try {
@@ -681,16 +711,16 @@ export async function registerResidentAccount(
   const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
   const normalizedPesel = normalizePesel(payload.pesel);
   let authUserForRollback: User | null = null;
-  let linkedAnonymousUser = false;
   let createdNewEmailUser = false;
 
   try {
-    const authInstance = requireAuth();
-    const wasAnonymous = authInstance.currentUser?.isAnonymous === true;
-    const signedInUser = await createEmailPasswordAccount(payload.email, payload.password);
+    await ensureAnonymousAuth();
+    const { user: signedInUser, createdNewEmailUser: isNewEmailUser } = await createEmailPasswordAccount(
+      payload.email,
+      payload.password
+    );
     authUserForRollback = signedInUser;
-    linkedAnonymousUser = wasAnonymous;
-    createdNewEmailUser = !wasAnonymous;
+    createdNewEmailUser = isNewEmailUser;
 
     const registerAccount = createCallable<
       {
@@ -736,9 +766,10 @@ export async function registerResidentAccount(
 
     return signedInUser;
   } catch (error) {
-    if (authUserForRollback && (createdNewEmailUser || linkedAnonymousUser)) {
+    if (authUserForRollback && createdNewEmailUser) {
       try {
-        // Roll back a fresh email account or a newly linked anonymous session if Firestore write failed.
+        // Roll back only accounts created via createUserWithEmailAndPassword.
+        // Linked anonymous accounts are left intact — deleting them would orphan the session.
         await authUserForRollback.delete();
       } catch {
         // Best-effort rollback; the cloud function also cleans up on failure.
@@ -789,7 +820,7 @@ export async function verifyPasswordResetSmsCode(
 ): Promise<{ verificationId: string; expiresAt: number }> {
   const smsCode = payload.smsCode.trim();
   if (!isValidSmsCodeShape(smsCode)) {
-    throw new Error('Wpisz 6-cyfrowy kod SMS.');
+    throw new Error(INVALID_SMS_CODE_MESSAGE);
   }
 
   try {
@@ -813,7 +844,7 @@ export async function resetPasswordWithSmsCode(
 ): Promise<void> {
   const smsCode = payload.smsCode.trim();
   if (!isValidSmsCodeShape(smsCode)) {
-    throw new Error('Wpisz 6-cyfrowy kod SMS.');
+    throw new Error(INVALID_SMS_CODE_MESSAGE);
   }
   if (payload.newPassword.trim().length < 8) {
     throw new Error('Haslo musi miec co najmniej 8 znakow.');
@@ -829,6 +860,8 @@ export async function resetPasswordWithSmsCode(
       code: smsCode,
       newPassword: payload.newPassword,
     });
+
+    await cleanupAnonymousAuthSession();
   } catch (error) {
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {

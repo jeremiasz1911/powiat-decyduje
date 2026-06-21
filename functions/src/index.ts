@@ -60,10 +60,6 @@ function resolveRateLimitTimestamp(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function isDevEnv(): boolean {
-  return process.env.FUNCTIONS_EMULATOR === 'true';
-}
-
 function isFunctionsEmulator(): boolean {
   return process.env.FUNCTIONS_EMULATOR === 'true';
 }

@@ -1,41 +1,43 @@
-import {
-    Box,
-    Button,
-    ButtonText,
-    Input,
-    InputField,
-    Text,
-    VStack,
-} from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet } from 'react-native';
-import Animated, {
-    Easing,
-    FadeIn,
-    FadeInDown,
-    FadeInUp,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { FloatingLoginLogo } from '@/src/components/auth/FloatingLoginLogo';
+import { LoginAnimatedBackground, LoginSlashLines } from '@/src/components/auth/LoginAnimatedBackground';
+import { AuthScreenOverlay } from '@/src/components/layout/auth-screen-overlay';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { FormCard } from '@/src/components/ui/FormCard';
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { loginWithIdentifier } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
 
 export default function LoginPhoneScreen() {
   const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
   const { notify } = useAppFeedback();
   const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('LoginPhone screen mounted');
+    }
+  }, []);
 
   const {
     control,
@@ -49,23 +51,6 @@ export default function LoginPhoneScreen() {
     },
     mode: 'onBlur',
   });
-
-  const logoScale = useSharedValue(0.88);
-  const glow = useSharedValue(0.45);
-
-  useEffect(() => {
-    logoScale.value = withSpring(1, { damping: 14, stiffness: 160 });
-    glow.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.cubic) }), -1, true);
-  }, [glow, logoScale]);
-
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-    transform: [{ scale: 0.94 + glow.value * 0.08 }],
-  }));
 
   const finishLogin = async (identifier: string, password: string) => {
     await loginWithIdentifier({ identifier, password });
@@ -81,7 +66,7 @@ export default function LoginPhoneScreen() {
     }
 
     await notify('Zalogowano', 'Witamy w systemie Powiat Decyduje.', 'success');
-    router.replace('/(drawer)/(tabs)/projects');
+    router.replace('/(drawer)/(tabs)');
   };
 
   const onSubmit = async (values: ResidentLoginFormValues) => {
@@ -98,194 +83,186 @@ export default function LoginPhoneScreen() {
   };
 
   return (
-    <AppScreen
-      gradientColors={[futuristicTheme.colors.bgTop, '#061b33', futuristicTheme.colors.bgBottom]}
-      contentContainerStyle={styles.safeArea}>
-      <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
-        <Animated.View style={[styles.glow, glowStyle]} />
+    <View
+      style={[
+        styles.root,
+        Platform.OS === 'web' ? { height: windowHeight, maxHeight: windowHeight } : null,
+      ]}>
+      <LoginAnimatedBackground />
+      <AuthScreenOverlay />
 
-        <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
-          <Text style={styles.logoText}>PD</Text>
-        </Animated.View>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
+          <View style={styles.page}>
+            <View style={styles.logoSection}>
+              <FloatingLoginLogo compact description="Zaloguj się do Powiat Decyduje." />
+              <View style={styles.logoSlashBand} pointerEvents="none">
+                <LoginSlashLines scope="screen" />
+              </View>
+            </View>
 
-        <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
-          Powiat Decyduje
-        </Animated.Text>
+            <Animated.View entering={FadeInUp.delay(160).duration(560)} style={styles.formWrap}>
+              <FormCard style={styles.formCard}>
+                <View style={styles.form}>
+                  <Controller
+                    control={control}
+                    name="identifier"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Email lub numer telefonu"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="jan@example.com lub 500 600 700"
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        error={errors.identifier?.message}
+                        inputStyle={styles.input}
+                      />
+                    )}
+                  />
 
-        <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.subtitle}>
-          Zaloguj się do Powiat Decyduje.
-        </Animated.Text>
+                  <Controller
+                    control={control}
+                    name="password"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Hasło"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        secureTextEntry
+                        placeholder="Wpisz hasło"
+                        autoCapitalize="none"
+                        error={errors.password?.message}
+                        inputStyle={styles.input}
+                      />
+                    )}
+                  />
 
-        <Box style={styles.card}>
-          <VStack space="md">
-            <Controller
-              control={control}
-              name="identifier"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <VStack space="xs">
-                  <Text style={styles.label}>Email lub numer telefonu</Text>
-                  <Input style={styles.input}>
-                    <InputField
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      placeholder="jan@example.com lub 500 600 700"
-                      placeholderTextColor={futuristicTheme.colors.textMuted}
-                      autoCapitalize="none"
-                      style={styles.inputText}
-                    />
-                  </Input>
-                  {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
-                </VStack>
-              )}
-            />
+                  <AppButton
+                    title="Zaloguj się"
+                    loadingTitle="Logowanie..."
+                    loading={isSigningIn}
+                    disabled={isSigningIn}
+                    onPress={handleSubmit(onSubmit)}
+                    style={styles.primaryButton}
+                  />
 
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <VStack space="xs">
-                  <Text style={styles.label}>Hasło</Text>
-                  <Input style={styles.input}>
-                    <InputField
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      secureTextEntry
-                      placeholder="Wpisz hasło"
-                      placeholderTextColor={futuristicTheme.colors.textMuted}
-                      autoCapitalize="none"
-                      style={styles.inputText}
-                    />
-                  </Input>
-                  {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
-                </VStack>
-              )}
-            />
+                  <AppButton
+                    title="Zarejestruj konto"
+                    variant="secondary"
+                    onPress={() => router.push('/register-resident')}
+                    style={styles.secondaryButton}
+                  />
 
-            <Button onPress={handleSubmit(onSubmit)} isDisabled={isSigningIn} style={styles.primaryButton}>
-              <ButtonText style={styles.primaryButtonText}>
-                {isSigningIn ? 'Logowanie...' : 'Zaloguj się'}
-              </ButtonText>
-            </Button>
+                  <Pressable onPress={() => router.push('/recover-access-phone')} style={styles.linkButton}>
+                    <Text style={styles.linkText}>Nie pamiętasz hasła?</Text>
+                  </Pressable>
+                </View>
+              </FormCard>
+            </Animated.View>
 
-            <Button variant="outline" onPress={() => router.push('/register-resident')} style={styles.secondaryButton}>
-              <ButtonText style={styles.secondaryButtonText}>Zarejestruj konto</ButtonText>
-            </Button>
-
-            <Button variant="outline" onPress={() => router.push('/recover-access-phone')} style={styles.ghostButton}>
-              <ButtonText style={styles.ghostButtonText}>Nie pamiętam hasła</ButtonText>
-            </Button>
-          </VStack>
-        </Box>
-      </Animated.View>
-    </AppScreen>
+            <Text style={styles.footerText}>
+              Nie masz konta?{' '}
+              <Text style={styles.footerLink} onPress={() => router.push('/register-resident')}>
+                Zarejestruj się
+              </Text>
+            </Text>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: appColors.background,
+    overflow: 'hidden',
+  },
   safeArea: {
     flex: 1,
+    backgroundColor: 'transparent',
+    zIndex: 2,
   },
-  content: {
+  flex: {
+    flex: 1,
+  },
+  page: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    gap: 18,
+    paddingHorizontal: appTheme.spacing.lg,
+    paddingVertical: appTheme.spacing.md,
+    gap: appTheme.spacing.md,
+    position: 'relative',
   },
-  glow: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(34, 211, 238, 0.22)',
-  },
-  logo: {
-    alignSelf: 'center',
-    width: 124,
-    height: 124,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
+  logoSection: {
+    position: 'relative',
+    zIndex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    ...futuristicShadows.glow,
+    overflow: 'visible',
   },
-  logoText: {
-    color: futuristicTheme.colors.accent,
-    fontSize: 44,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+  logoSlashBand: {
+    ...StyleSheet.absoluteFillObject,
+    top: -48,
+    bottom: -48,
+    left: -appTheme.spacing.lg,
+    right: -appTheme.spacing.lg,
+    zIndex: 2,
+    overflow: 'visible',
+    elevation: 2,
   },
-  title: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    textAlign: 'center',
+  formWrap: {
+    width: '100%',
+    zIndex: 3,
   },
-  subtitle: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 4,
+  formCard: {
+    borderRadius: 16,
+    paddingVertical: appTheme.spacing.lg,
+    paddingHorizontal: appTheme.spacing.lg,
+    backgroundColor: appColors.surface,
+    borderColor: appColors.border,
+    ...appShadows.soft,
   },
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    padding: 18,
-    ...futuristicShadows.soft,
-  },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
+  form: {
+    gap: appTheme.spacing.md,
   },
   input: {
-    minHeight: 60,
+    minHeight: 52,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 16,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
+    backgroundColor: appColors.surfaceSoft,
+    borderColor: appColors.border,
   },
   primaryButton: {
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
-  },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontSize: 16,
-    fontWeight: '800',
+    minHeight: 52,
+    marginTop: appTheme.spacing.xs,
   },
   secondaryButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: 'rgba(13, 47, 79, 0.5)',
+    minHeight: 48,
+    backgroundColor: appColors.surface,
   },
-  secondaryButtonText: {
-    color: futuristicTheme.colors.textPrimary,
+  linkButton: {
+    alignSelf: 'center',
+    paddingVertical: 2,
+  },
+  linkText: {
+    color: appColors.primary,
     fontSize: 14,
     fontWeight: '700',
   },
-  ghostButton: {
-    borderRadius: 14,
+  footerText: {
+    textAlign: 'center',
+    color: appColors.textMuted,
+    fontSize: 13,
+    lineHeight: 20,
   },
-  ghostButtonText: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 14,
+  footerLink: {
+    color: appColors.primary,
+    fontWeight: '800',
   },
 });

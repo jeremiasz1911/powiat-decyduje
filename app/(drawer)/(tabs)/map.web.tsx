@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/screen-container';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { appShadows, appTheme } from '@/src/theme/app-theme';
 
 export default function MapWebScreen() {
   const router = useRouter();
@@ -28,27 +28,27 @@ export default function MapWebScreen() {
     <ScreenContainer
       title="Mapa"
       description="Wersja web. Kliknij + w prawym dolnym rogu, aby przejsc do akcji.">
-      <Text color="$textLight600">Szczegolowa mapa dziala na Android i iOS. Na webie udostepniamy szybkie akcje.</Text>
+      <Text color={appTheme.colors.textMuted}>Szczegolowa mapa dziala na Android i iOS. Na webie udostepniamy szybkie akcje.</Text>
 
       <View style={styles.fabContainer}>
         {isOpen ? (
           <>
             <View style={styles.actionButtonWrap}>
-              <Button onPress={handleOpenProjects} size="md" action="secondary" borderRadius="$full" bg={futuristicTheme.colors.panel}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>Przegladaj projekty</ButtonText>
+              <Button onPress={handleOpenProjects} size="md" action="secondary" borderRadius="$full" bg={appTheme.colors.surface}>
+                <ButtonText color={appTheme.colors.primary}>Przegladaj projekty</ButtonText>
               </Button>
             </View>
 
             <View style={styles.actionButtonWrap}>
-              <Button onPress={handleSubmitProject} size="md" action="secondary" borderRadius="$full" bg={futuristicTheme.colors.panel}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>Zglos projekt</ButtonText>
+              <Button onPress={handleSubmitProject} size="md" action="secondary" borderRadius="$full" bg={appTheme.colors.surface}>
+                <ButtonText color={appTheme.colors.primary}>Zglos projekt</ButtonText>
               </Button>
             </View>
           </>
         ) : null}
 
-        <Button onPress={() => setIsOpen((prev) => !prev)} size="lg" borderRadius="$full" bg={futuristicTheme.colors.accent} style={styles.fabMain}>
-          <Ionicons name={isOpen ? 'close' : 'add'} size={26} color={futuristicTheme.colors.textDark} />
+        <Button onPress={() => setIsOpen((prev) => !prev)} size="lg" borderRadius="$full" bg={appTheme.colors.primary} style={styles.fabMain}>
+          <Ionicons name={isOpen ? 'close' : 'add'} size={26} color={appTheme.colors.textDark} />
         </Button>
       </View>
     </ScreenContainer>
@@ -64,9 +64,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionButtonWrap: {
-    ...futuristicShadows.soft,
+    ...appShadows.soft,
   },
   fabMain: {
-    ...futuristicShadows.glow,
+    ...appShadows.button,
   },
 });

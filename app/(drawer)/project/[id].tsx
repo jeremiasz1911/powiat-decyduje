@@ -14,7 +14,7 @@ import {
     voteForProject,
     type ProjectItem,
 } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appShadows as futuristicShadows, appTheme as futuristicTheme } from '@/src/theme/app-theme';
 
 export default function ProjectDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();

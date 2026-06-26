@@ -13,7 +13,14 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding/index" options={{ headerShown: false }} />
         <Stack.Screen name="register-resident" options={{ title: 'Rejestracja' }} />
-        <Stack.Screen name="login-phone" options={{ title: 'Logowanie' }} />
+        <Stack.Screen
+          name="login-phone"
+          options={{
+            headerShown: false,
+            contentStyle: { backgroundColor: 'transparent' },
+            animation: 'fade',
+          }}
+        />
         <Stack.Screen name="login-password" options={{ title: 'Logowanie' }} />
         <Stack.Screen name="recover-access-phone" options={{ title: 'Nie pamiętam hasła' }} />
         <Stack.Screen name="reset-password" options={{ title: 'Reset hasła' }} />
@@ -21,7 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="select-resident-account" options={{ title: 'Wybór profilu' }} />
         <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </AppProviders>
   );
 }

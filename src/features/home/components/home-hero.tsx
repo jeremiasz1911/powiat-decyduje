@@ -1,0 +1,86 @@
+import { useEffect } from 'react';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+
+import { PowiatLogoImage } from '@/src/components/brand/PowiatLogoImage';
+import { appColors, appTheme } from '@/src/theme/app-theme';
+
+const LOGO_ASPECT = 1448 / 1086;
+
+type HomeHeroProps = {
+  residentLabel?: string | null;
+};
+
+export function HomeHero({ residentLabel }: HomeHeroProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const logoWidth = Math.min(screenWidth * 0.34, 128);
+  const logoHeight = Math.round(logoWidth * LOGO_ASPECT);
+  const float = useSharedValue(0);
+
+  useEffect(() => {
+    float.value = withRepeat(
+      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+  }, [float]);
+
+  const logoStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(float.value, [0, 1], [5, -5]) }],
+  }));
+
+  const greeting = residentLabel ? `Witaj, ${residentLabel}` : 'Witaj w Powiat Decyduje';
+
+  return (
+    <View style={styles.hero}>
+      <Animated.View style={[styles.logoWrap, logoStyle]}>
+        <PowiatLogoImage width={logoWidth} height={logoHeight} />
+      </Animated.View>
+
+      <Text style={styles.appName}>Powiat Decyduje</Text>
+      <Text style={styles.greeting}>{greeting}</Text>
+      <Text style={styles.subline}>
+        Twój głos ma znaczenie — współdecyduj o projektach realizowanych w powiecie mławskim.
+      </Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  hero: {
+    alignItems: 'center',
+    gap: appTheme.spacing.sm,
+    paddingBottom: appTheme.spacing.sm,
+  },
+  logoWrap: {
+    marginBottom: appTheme.spacing.xs,
+  },
+  appName: {
+    color: appColors.textPrimary,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+    textAlign: 'center',
+  },
+  greeting: {
+    color: appColors.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  subline: {
+    color: appColors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    maxWidth: 340,
+    paddingHorizontal: appTheme.spacing.sm,
+  },
+});

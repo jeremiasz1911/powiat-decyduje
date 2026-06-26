@@ -1,24 +1,22 @@
 import {
-    Box,
-    Button,
-    ButtonText,
     Checkbox,
     CheckboxIcon,
     CheckboxIndicator,
     CheckboxLabel,
     CheckIcon,
-    Input,
-    InputField,
-    Text,
     VStack,
 } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text as RNText, View } from 'react-native';
 
+import { AuthBrandHeader } from '@/src/components/brand/AuthBrandHeader';
 import { AppScreen } from '@/src/components/layout/app-screen';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { FormCard } from '@/src/components/ui/FormCard';
 import { isDevSmsBypassEnabled } from '@/src/config/env';
 import {
     residentRegistrationSchema,
@@ -30,7 +28,7 @@ import {
     sendResidentPhoneVerificationCode,
 } from '@/src/services';
 import { useAuthFlow } from '@/src/store/auth-flow-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appColors, appTheme, formStyles } from '@/src/theme/app-theme';
 
 const defaultValues: ResidentRegistrationFormValues = {
   phoneNumber: '',
@@ -79,6 +77,12 @@ export default function RegisterResidentScreen() {
   const { notify } = useAppFeedback();
   const { beginRegistration } = useAuthFlow();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('RegisterResident screen mounted');
+    }
+  }, []);
 
   const {
     control,
@@ -151,43 +155,31 @@ export default function RegisterResidentScreen() {
   };
 
   return (
-    <AppScreen
-      gradientColors={[futuristicTheme.colors.bgTop, '#08203a', futuristicTheme.colors.bgBottom]}
-      contentContainerStyle={styles.content}
-      scroll>
-      <View style={styles.header}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>PD</Text>
-        </View>
-        <Text style={styles.title}>Rejestracja mieszkańca</Text>
-        <Text style={styles.subtitle}>Utwórz konto, potwierdź telefon i zapisz dane mieszkańca.</Text>
-      </View>
+    <AppScreen cherryBackground softOverlay contentContainerStyle={styles.content} scroll>
+      <AuthBrandHeader
+        compact
+        description="Rejestracja mieszkańca i potwierdzenie numeru telefonu."
+      />
 
-        <Box style={styles.card}>
-          <VStack space="lg">
-            <Text style={styles.intro}>
-              Wypełnij dane mieszkańca powiatu mławskiego. Kod SMS otrzymasz po zapisaniu formularza.
-            </Text>
+      <FormCard>
+        <View style={styles.form}>
+          <RNText style={formStyles.helper}>
+            Wypełnij dane mieszkańca powiatu mławskiego. Kod SMS otrzymasz po zapisaniu formularza.
+          </RNText>
 
             <Controller
               control={control}
               name="phoneNumber"
               render={({ field: { onChange, onBlur, value } }) => (
-                <VStack space="xs">
-                  <Text style={styles.label}>Numer telefonu</Text>
-                  <Input style={styles.input}>
-                    <InputField
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      placeholder="+48 500 600 700"
-                      placeholderTextColor={futuristicTheme.colors.textMuted}
-                      keyboardType="phone-pad"
-                      style={styles.inputText}
-                    />
-                  </Input>
-                  {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
-                </VStack>
+                <AppTextInput
+                  label="Numer telefonu"
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="+48 500 600 700"
+                  keyboardType="phone-pad"
+                  error={errors.phoneNumber?.message}
+                />
               )}
             />
 
@@ -195,22 +187,16 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="pesel"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>PESEL</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="00000000000"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        keyboardType="number-pad"
-                        maxLength={11}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.pesel ? <Text style={styles.errorText}>{errors.pesel.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="PESEL"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="00000000000"
+                    keyboardType="number-pad"
+                    maxLength={11}
+                    error={errors.pesel?.message}
+                  />
                 )}
               />
 
@@ -218,22 +204,16 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>E-mail</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="twoj@email.pl"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.email ? <Text style={styles.errorText}>{errors.email.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="E-mail"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="twoj@email.pl"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    error={errors.email?.message}
+                  />
                 )}
               />
 
@@ -241,22 +221,16 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="password"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Hasło</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Minimum 8 znaków"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        secureTextEntry
-                        autoCapitalize="none"
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Hasło"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Minimum 8 znaków"
+                    secureTextEntry
+                    autoCapitalize="none"
+                    error={errors.password?.message}
+                  />
                 )}
               />
 
@@ -264,20 +238,14 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="firstName"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Imię</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Jan"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.firstName ? <Text style={styles.errorText}>{errors.firstName.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Imię"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Jan"
+                    error={errors.firstName?.message}
+                  />
                 )}
               />
 
@@ -285,43 +253,31 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="lastName"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Nazwisko</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Kowalski"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.lastName ? <Text style={styles.errorText}>{errors.lastName.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Nazwisko"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Kowalski"
+                    error={errors.lastName?.message}
+                  />
                 )}
               />
 
-              <Text style={styles.sectionTitle}>Adres</Text>
+              <RNText style={formStyles.sectionTitle}>Adres</RNText>
 
               <Controller
                 control={control}
                 name="address.street"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Ulica</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Sienkiewicza"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.address?.street ? <Text style={styles.errorText}>{errors.address.street.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Ulica"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Sienkiewicza"
+                    error={errors.address?.street?.message}
+                  />
                 )}
               />
 
@@ -329,22 +285,14 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="address.houseNumber"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Numer domu / lokalu</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="12 / 4"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.address?.houseNumber ? (
-                      <Text style={styles.errorText}>{errors.address.houseNumber.message}</Text>
-                    ) : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Numer domu / lokalu"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="12 / 4"
+                    error={errors.address?.houseNumber?.message}
+                  />
                 )}
               />
 
@@ -352,19 +300,13 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="address.apartmentNumber"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Numer lokalu (opcjonalnie)</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value ?? ''}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="4"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                  </VStack>
+                  <AppTextInput
+                    label="Numer lokalu (opcjonalnie)"
+                    value={value ?? ''}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="4"
+                  />
                 )}
               />
 
@@ -372,22 +314,14 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="address.postalCode"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Kod pocztowy</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="06-500"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.address?.postalCode ? (
-                      <Text style={styles.errorText}>{errors.address.postalCode.message}</Text>
-                    ) : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Kod pocztowy"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="06-500"
+                    error={errors.address?.postalCode?.message}
+                  />
                 )}
               />
 
@@ -395,20 +329,14 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="address.city"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Miejscowość</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Mława"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.address?.city ? <Text style={styles.errorText}>{errors.address.city.message}</Text> : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Miejscowość"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Mława"
+                    error={errors.address?.city?.message}
+                  />
                 )}
               />
 
@@ -416,22 +344,14 @@ export default function RegisterResidentScreen() {
                 control={control}
                 name="address.commune"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <VStack space="xs">
-                    <Text style={styles.label}>Gmina</Text>
-                    <Input style={styles.input}>
-                      <InputField
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="Mława"
-                        placeholderTextColor={futuristicTheme.colors.textMuted}
-                        style={styles.inputText}
-                      />
-                    </Input>
-                    {errors.address?.commune ? (
-                      <Text style={styles.errorText}>{errors.address.commune.message}</Text>
-                    ) : null}
-                  </VStack>
+                  <AppTextInput
+                    label="Gmina"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Mława"
+                    error={errors.address?.commune?.message}
+                  />
                 )}
               />
 
@@ -495,125 +415,47 @@ export default function RegisterResidentScreen() {
 
               {isDevSmsBypassEnabled ? (
                 <>
-                  <Button variant="outline" onPress={fillTestRegistration} style={styles.testButton}>
-                    <ButtonText style={styles.testButtonText}>Uzupelnij rejestracje mieszkanca</ButtonText>
-                  </Button>
-                  <Button variant="outline" onPress={testSmsOnly} style={styles.testButton}>
-                    <ButtonText style={styles.testButtonText}>Test SMS +48500400300</ButtonText>
-                  </Button>
+                  <AppButton
+                    title="Uzupełnij rejestrację mieszkańca"
+                    variant="secondary"
+                    onPress={fillTestRegistration}
+                  />
+                  <AppButton
+                    title="Test SMS +48500400300"
+                    variant="ghost"
+                    onPress={() => {
+                      void testSmsOnly();
+                    }}
+                  />
                 </>
               ) : null}
 
-              <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
-                <ButtonText style={styles.primaryButtonText}>
-                  {isSubmitting ? 'Wysyłanie kodu SMS...' : 'Wyślij kod SMS'}
-                </ButtonText>
-              </Button>
-          </VStack>
-        </Box>
+              <AppButton
+                title="Wyślij kod SMS"
+                loadingTitle="Wysyłanie kodu SMS..."
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                onPress={handleSubmit(onSubmit)}
+              />
+        </View>
+      </FormCard>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
+    paddingHorizontal: appTheme.spacing.lg,
+    paddingTop: appTheme.spacing.md,
+    paddingBottom: appTheme.spacing.xxl,
+    gap: appTheme.spacing.lg,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    ...futuristicShadows.glow,
-  },
-  logoText: {
-    color: futuristicTheme.colors.accent,
-    fontSize: 36,
-    fontWeight: '900',
-  },
-  title: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '900',
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  card: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 20,
-    padding: 16,
-    ...futuristicShadows.soft,
-  },
-  intro: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  sectionTitle: {
-    color: futuristicTheme.colors.accent,
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 4,
-  },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
+  form: {
+    gap: appTheme.spacing.lg,
   },
   checkboxLabel: {
-    color: futuristicTheme.colors.textPrimary,
+    color: appColors.textPrimary,
     fontSize: 13,
-  },
-  testButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: 'rgba(13, 47, 79, 0.5)',
-  },
-  testButtonText: {
-    color: futuristicTheme.colors.textPrimary,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    marginTop: 4,
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
-  },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontWeight: '800',
+    lineHeight: 20,
   },
 });

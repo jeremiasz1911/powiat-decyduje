@@ -1,53 +1,51 @@
-import { Box, Heading, Text, VStack } from '@gluestack-ui/themed';
 import { PropsWithChildren } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { useSettings } from '@/src/store/settings-context';
-import { futuristicTheme } from '@/src/theme/futuristic';
+import { appColors, appTheme } from '@/src/theme/app-theme';
 
 type ScreenContainerProps = PropsWithChildren<{
   title: string;
   description?: string;
+  softOverlay?: boolean;
 }>;
 
-export function ScreenContainer({ title, description, children }: ScreenContainerProps) {
+export function ScreenContainer({ title, description, children, softOverlay = false }: ScreenContainerProps) {
   const { fontScaleMultiplier } = useSettings();
 
   return (
-    <AppScreen
-      gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}
-      contentContainerStyle={styles.content}>
-      <VStack space="md">
-        <Box style={styles.headerPanel}>
-          <VStack space="xs">
-            <Heading size="lg" color={futuristicTheme.colors.textPrimary} style={{ fontSize: 24 * fontScaleMultiplier }}>
-              {title}
-            </Heading>
-            {description ? (
-              <Text color={futuristicTheme.colors.textMuted} style={{ fontSize: 14 * fontScaleMultiplier }}>
-                {description}
-              </Text>
-            ) : null}
-          </VStack>
-        </Box>
-        {children}
-      </VStack>
+    <AppScreen cherryBackground softOverlay={softOverlay} scroll contentContainerStyle={styles.content}>
+      <View style={styles.headerPanel}>
+        <Text style={[styles.title, { fontSize: 28 * fontScaleMultiplier }]}>{title}</Text>
+        {description ? (
+          <Text style={[styles.description, { fontSize: 15 * fontScaleMultiplier }]}>{description}</Text>
+        ) : null}
+      </View>
+      {children}
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 24,
+    flexGrow: 1,
+    paddingHorizontal: appTheme.spacing.lg,
+    paddingTop: appTheme.spacing.lg,
+    paddingBottom: appTheme.spacing.xxl,
+    gap: appTheme.spacing.md,
   },
   headerPanel: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    borderRadius: 18,
-    padding: 14,
+    gap: appTheme.spacing.sm,
+    paddingBottom: appTheme.spacing.xs,
+  },
+  title: {
+    color: appColors.textPrimary,
+    fontWeight: '900',
+    lineHeight: 34,
+  },
+  description: {
+    color: appColors.textMuted,
+    lineHeight: 22,
   },
 });

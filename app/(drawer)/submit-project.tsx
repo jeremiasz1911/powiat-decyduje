@@ -33,7 +33,7 @@ import {
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { createProject, ensureAnonymousAuth } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appShadows as futuristicShadows, appTheme as futuristicTheme } from '@/src/theme/app-theme';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 const MAX_PROJECT_IMAGES = 5;

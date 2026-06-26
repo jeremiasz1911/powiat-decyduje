@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { appShadows, appTheme } from '@/src/theme/app-theme';
 import { RichDescriptionPreview } from './rich-description-preview';
 
 const DESCRIPTION_ACTIONS = [
@@ -250,7 +250,7 @@ export function DescriptionEditorModal({
                       ]}
                       onPress={() => handleToggleAction(action.key)}>
                       <ButtonText
-                        color={active ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
+                        color={active ? appTheme.colors.textDark : appTheme.colors.textPrimary}>
                         {action.label}
                       </ButtonText>
                     </Button>
@@ -258,15 +258,15 @@ export function DescriptionEditorModal({
                 })}
               </ScrollView>
               <Pressable onPress={onClose} style={styles.closeIconButton}>
-                <Ionicons name="close" size={20} color={futuristicTheme.colors.textPrimary} />
+                <Ionicons name="close" size={20} color={appTheme.colors.textPrimary} />
               </Pressable>
             </View>
           </View>
 
-          <Text color={futuristicTheme.colors.textPrimary} style={styles.title}>
+          <Text color={appTheme.colors.textPrimary} style={styles.title}>
             {title}
           </Text>
-          <Text color={futuristicTheme.colors.accent} style={styles.modeLabel}>
+          <Text color={appTheme.colors.primary} style={styles.modeLabel}>
             {activeModeLabel}
           </Text>
 
@@ -279,9 +279,9 @@ export function DescriptionEditorModal({
               numberOfLines={18}
               textAlignVertical="top"
               scrollEnabled={false}
-              selectionColor={futuristicTheme.colors.accent}
+              selectionColor={appTheme.colors.primary}
               placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
-              placeholderTextColor={futuristicTheme.colors.textMuted}
+              placeholderTextColor={appTheme.colors.textMuted}
               style={[styles.editorInput, { height: Math.max(300, editorHeight) }]}
               onContentSizeChange={(event) => {
                 setEditorHeight(event.nativeEvent.contentSize.height + 10);
@@ -289,7 +289,7 @@ export function DescriptionEditorModal({
             />
           </View>
 
-          <Text color={futuristicTheme.colors.textMuted} style={styles.previewLabel}>
+          <Text color={appTheme.colors.textMuted} style={styles.previewLabel}>
             Podglad formatowania
           </Text>
           <View style={styles.previewWrap}>
@@ -305,7 +305,7 @@ export function DescriptionEditorModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(2, 10, 24, 0.88)',
+    backgroundColor: 'rgba(17, 24, 39, 0.34)',
     justifyContent: 'center',
     padding: 12,
   },
@@ -319,17 +319,17 @@ const styles = StyleSheet.create({
   panel: {
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(34, 211, 238, 0.65)',
-    backgroundColor: 'rgba(2, 22, 40, 0.96)',
+    borderColor: appTheme.colors.border,
+    backgroundColor: appTheme.colors.surface,
     padding: 14,
     gap: 12,
-    ...futuristicShadows.soft,
+    ...appShadows.soft,
   },
   navSection: {
     borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
+    borderColor: appTheme.colors.border,
     borderRadius: 12,
-    backgroundColor: futuristicTheme.colors.panel,
+    backgroundColor: appTheme.colors.surfaceSoft,
     padding: 8,
   },
   topNav: {
@@ -352,8 +352,8 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
+    borderColor: appTheme.colors.primary,
+    backgroundColor: appTheme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -366,29 +366,29 @@ const styles = StyleSheet.create({
     minWidth: 48,
   },
   toolbarButtonInactive: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: 'rgba(9, 45, 76, 0.72)',
+    borderColor: appTheme.colors.border,
+    backgroundColor: appTheme.colors.surface,
   },
   toolbarButtonActive: {
-    borderColor: futuristicTheme.colors.accent,
-    backgroundColor: futuristicTheme.colors.accentStrong,
-    shadowColor: futuristicTheme.colors.accent,
+    borderColor: appTheme.colors.primary,
+    backgroundColor: appTheme.colors.primaryStrong,
+    shadowColor: appTheme.colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.38,
     shadowRadius: 10,
     elevation: 9,
   },
   editorWrap: {
-    borderColor: 'rgba(34, 211, 238, 0.58)',
+    borderColor: appTheme.colors.border,
     borderWidth: 1,
     borderRadius: 14,
-    backgroundColor: 'rgba(4, 32, 56, 0.95)',
+    backgroundColor: appTheme.colors.surfaceSoft,
     minHeight: 320,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   editorInput: {
-    color: futuristicTheme.colors.textPrimary,
+    color: appTheme.colors.textPrimary,
     fontSize: 16,
     lineHeight: 24,
     backgroundColor: 'transparent',
@@ -401,10 +401,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   previewWrap: {
-    borderColor: 'rgba(34, 211, 238, 0.5)',
+    borderColor: appTheme.colors.border,
     borderWidth: 1,
     borderRadius: 14,
-    backgroundColor: 'rgba(7, 39, 66, 0.88)',
+    backgroundColor: appTheme.colors.surface,
     minHeight: 140,
     paddingHorizontal: 12,
     paddingVertical: 10,

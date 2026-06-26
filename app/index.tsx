@@ -5,17 +5,39 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
-import { futuristicTheme } from '@/src/theme/futuristic';
+import { appTheme } from '@/src/theme/app-theme';
+
+const FORCE_SHOW_INTRO_IN_DEV = true;
+const RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV = false;
+let forcedIntroShownInCurrentSession = false;
 
 export default function AppEntryScreen() {
   const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
-  const [completed, setCompleted] = useState(false);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
 
   useEffect(() => {
     const checkOnboarding = async () => {
+      if (__DEV__ && RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV) {
+        await secureStore.remove(STORAGE_KEYS.onboardingCompleted);
+      }
+
       const done = await secureStore.get(STORAGE_KEYS.onboardingCompleted);
-      setCompleted(done === 'true');
+      const onboardingCompleted = done === 'true';
+      const forceIntroNow = __DEV__ && FORCE_SHOW_INTRO_IN_DEV && !forcedIntroShownInCurrentSession;
+      const nextShouldShowOnboarding = forceIntroNow ? true : !onboardingCompleted;
+
+      if (forceIntroNow) {
+        forcedIntroShownInCurrentSession = true;
+      }
+
+      if (__DEV__) {
+        console.log('[AppEntry] onboardingCompleted:', onboardingCompleted);
+        console.log('[AppEntry] forceIntroNow:', forceIntroNow);
+        console.log('[AppEntry] shouldShowOnboarding:', nextShouldShowOnboarding);
+      }
+
+      setShouldShowOnboarding(nextShouldShowOnboarding);
       setLoading(false);
     };
 
@@ -24,13 +46,13 @@ export default function AppEntryScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={futuristicTheme.colors.accent} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: appTheme.colors.background }}>
+        <ActivityIndicator size="large" color={appTheme.colors.primary} />
       </View>
     );
   }
 
-  if (!completed) {
+  if (shouldShowOnboarding) {
     return <Redirect href="/onboarding" />;
   }
 
@@ -38,5 +60,5 @@ export default function AppEntryScreen() {
     return <Redirect href="/login-phone" />;
   }
 
-  return <Redirect href="/(drawer)/(tabs)/projects" />;
+  return <Redirect href="/(drawer)/(tabs)" />;
 }

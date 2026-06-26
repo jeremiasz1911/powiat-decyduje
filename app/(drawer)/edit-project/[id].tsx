@@ -16,7 +16,7 @@ import {
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appShadows as futuristicShadows, appTheme as futuristicTheme } from '@/src/theme/app-theme';
 
 const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
 export default function EditProjectScreen() {

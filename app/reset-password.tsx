@@ -1,18 +1,22 @@
-import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { AuthBrandHeader } from '@/src/components/brand/AuthBrandHeader';
 import { ScreenContainer } from '@/src/components/screen-container';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { FormCard } from '@/src/components/ui/FormCard';
+import { StepIndicator } from '@/src/components/ui/StepIndicator';
 import {
   passwordResetConfirmSchema,
   type PasswordResetConfirmFormValues,
 } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { resetPasswordWithSmsCode } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appTheme, formStyles } from '@/src/theme/app-theme';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -24,6 +28,12 @@ export default function ResetPasswordScreen() {
 
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const verificationId = useMemo(() => params.verificationId ?? '', [params.verificationId]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('ResetPassword screen mounted');
+    }
+  }, []);
 
   const {
     control,
@@ -69,33 +79,31 @@ export default function ResetPasswordScreen() {
 
   return (
     <ScreenContainer
-      title="Reset hasła"
-      description="Wpisz kod SMS i ustaw nowe hasło do konta mieszkańca.">
-      <Box style={styles.card}>
-        <VStack space="md">
-          <Text style={styles.meta}>Numer telefonu: {phoneNumber || '-'}</Text>
+      softOverlay
+      title="Ustaw nowe hasło"
+      description="Wpisz kod SMS i wybierz nowe hasło do konta.">
+      <StepIndicator current={2} total={2} labels={['Numer telefonu', 'Nowe hasło']} />
+      <AuthBrandHeader compact showLogo={false} description="Ostatni krok odzyskiwania dostępu." />
+      <FormCard>
+        <View style={styles.form}>
+          <Text style={formStyles.meta}>Numer telefonu: {phoneNumber || '—'}</Text>
 
           <Controller
             control={control}
             name="smsCode"
             render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text style={styles.label}>Kod SMS</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    placeholder="000000"
-                    autoComplete="one-time-code"
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                    style={styles.inputText}
-                  />
-                </Input>
-                {errors.smsCode ? <Text style={styles.errorText}>{errors.smsCode.message}</Text> : null}
-              </VStack>
+              <AppTextInput
+                label="Kod SMS"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="000000"
+                autoComplete="one-time-code"
+                smsCode
+                error={errors.smsCode?.message}
+              />
             )}
           />
 
@@ -103,22 +111,16 @@ export default function ResetPasswordScreen() {
             control={control}
             name="newPassword"
             render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text style={styles.label}>Nowe hasło</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    secureTextEntry
-                    placeholder="Wpisz nowe hasło"
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                    autoCapitalize="none"
-                    style={styles.inputText}
-                  />
-                </Input>
-                {errors.newPassword ? <Text style={styles.errorText}>{errors.newPassword.message}</Text> : null}
-              </VStack>
+              <AppTextInput
+                label="Nowe hasło"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                secureTextEntry
+                placeholder="Minimum 8 znaków"
+                autoCapitalize="none"
+                error={errors.newPassword?.message}
+              />
             )}
           />
 
@@ -126,76 +128,34 @@ export default function ResetPasswordScreen() {
             control={control}
             name="confirmPassword"
             render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text style={styles.label}>Powtórz nowe hasło</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    secureTextEntry
-                    placeholder="Powtórz nowe hasło"
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                    autoCapitalize="none"
-                    style={styles.inputText}
-                  />
-                </Input>
-                {errors.confirmPassword ? (
-                  <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
-                ) : null}
-              </VStack>
+              <AppTextInput
+                label="Powtórz nowe hasło"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                secureTextEntry
+                placeholder="Powtórz nowe hasło"
+                autoCapitalize="none"
+                error={errors.confirmPassword?.message}
+              />
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
-            <ButtonText style={styles.primaryButtonText}>
-              {isSubmitting ? 'Zmienianie hasła...' : 'Zmień hasło'}
-            </ButtonText>
-          </Button>
-        </VStack>
-      </Box>
+          <AppButton
+            title="Zmień hasło"
+            loadingTitle="Zmienianie hasła..."
+            loading={isSubmitting}
+            disabled={isSubmitting}
+            onPress={handleSubmit(onSubmit)}
+          />
+        </View>
+      </FormCard>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 20,
-    padding: 16,
-    ...futuristicShadows.soft,
-  },
-  meta: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 13,
-  },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
-  },
-  primaryButton: {
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
-  },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontWeight: '800',
+  form: {
+    gap: appTheme.spacing.lg,
   },
 });

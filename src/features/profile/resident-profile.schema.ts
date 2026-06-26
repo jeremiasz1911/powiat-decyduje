@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const residentProfileSchema = z.object({
+export const residentProfileEditSchema = z.object({
   fullName: z.string().trim().min(3, 'Podaj imie i nazwisko.'),
   email: z
     .string()
@@ -16,9 +16,12 @@ export const residentProfileSchema = z.object({
     .refine((value) => !value || value.length >= 9, 'Numer telefonu jest za krotki.'),
   village: z.string().trim().min(2, 'Podaj miejscowosc.'),
   street: z.string().trim().optional().or(z.literal('')),
-  acceptedRegulations: z.boolean().refine((value) => value, {
-    message: 'Musisz zaakceptowac oswiadczenie mieszkanca.',
-  }),
 });
 
-export type ResidentProfileFormValues = z.infer<typeof residentProfileSchema>;
+export type ResidentProfileEditValues = z.infer<typeof residentProfileEditSchema>;
+
+/** @deprecated Use residentProfileEditSchema — declaration belongs to registration only. */
+export const residentProfileSchema = residentProfileEditSchema;
+
+/** @deprecated Use ResidentProfileEditValues */
+export type ResidentProfileFormValues = ResidentProfileEditValues;

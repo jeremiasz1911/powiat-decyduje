@@ -3,16 +3,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { ScreenContainer } from '@/src/components/screen-container';
 import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
-import { AppButton } from '@/src/components/ui/AppButton';
 import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { MyProjectRow } from '@/src/features/projects/components/my-project-row';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { ensureAnonymousAuth, listMyProjects, type ProjectItem } from '@/src/services';
+import { listMyProjects, type ProjectItem } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
 import { appColors, appTheme } from '@/src/theme/app-theme';
 
 const DEFAULT_MAP_COORDS = {
@@ -23,13 +23,14 @@ const DEFAULT_MAP_COORDS = {
 export default function DrawerMyProjectsScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { user } = useAuthContext();
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = user?.uid ?? null;
 
   const openSubmitProject = useCallback(() => {
     router.push({
@@ -73,22 +74,9 @@ export default function DrawerMyProjectsScreen() {
   );
 
   useEffect(() => {
-    const bootstrap = async () => {
-      try {
-        const user = await ensureAnonymousAuth();
-        setUserId(user.uid);
-      } catch (bootstrapError) {
-        const message = bootstrapError instanceof Error ? bootstrapError.message : 'Nie udalo sie zalogowac.';
-        setError(message);
-        setLoading(false);
-      }
-    };
-
-    void bootstrap();
-  }, []);
-
-  useEffect(() => {
     if (!userId) {
+      setLoading(false);
+      setError('Zaloguj się, aby zobaczyć swoje projekty.');
       return;
     }
 
@@ -133,7 +121,7 @@ export default function DrawerMyProjectsScreen() {
   return (
     <ScreenContainer
       title="Moje projekty"
-      description="Twoje zgloszenia projektow obywatelskich i ich status.">
+      description="Tutaj widzisz swoje projekty — również te, które oczekują na akceptację.">
       <View style={styles.sections}>
         <SettingsGroup title="Nowy projekt">
           <SettingsCard>
@@ -176,16 +164,28 @@ export default function DrawerMyProjectsScreen() {
             </View>
             <Text style={styles.emptyTitle}>Brak Twoich projektow</Text>
             <Text style={styles.emptyDescription}>
-              Zglos pierwszy projekt obywatelski, aby sledzic jego status w tym miejscu.
+              Zgłoś pierwszy projekt obywatelski, aby śledzić jego status w tym miejscu.
             </Text>
-            <AppButton title="Dodaj projekt" variant="secondary" onPress={openSubmitProject} />
+            <Pressable
+              onPress={openSubmitProject}
+              style={({ pressed }) => [styles.emptyAction, pressed ? styles.emptyActionPressed : null]}
+              accessibilityRole="button">
+              <Ionicons name="add" size={16} color={appColors.primary} />
+              <Text style={styles.emptyActionText}>Dodaj projekt</Text>
+            </Pressable>
           </View>
         ) : null}
 
         {showEmptySearch ? (
           <View style={styles.emptyStateCompact}>
-            <Text style={styles.emptyDescription}>Brak wynikow dla podanej frazy.</Text>
-            <AppButton title="Wyczysc wyszukiwanie" variant="ghost" onPress={() => setSearch('')} />
+            <Text style={styles.emptyDescription}>Brak wyników dla podanej frazy.</Text>
+            <Pressable
+              onPress={() => setSearch('')}
+              style={({ pressed }) => [styles.emptyActionGhost, pressed ? styles.emptyActionPressed : null]}
+              accessibilityRole="button">
+              <Ionicons name="close-circle-outline" size={15} color={appColors.textMuted} />
+              <Text style={styles.emptyActionGhostText}>Wyczyść wyszukiwanie</Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -280,5 +280,37 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: appTheme.spacing.xs,
+  },
+  emptyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: appColors.borderStrong,
+    backgroundColor: appColors.surface,
+  },
+  emptyActionGhost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  emptyActionPressed: {
+    opacity: 0.8,
+  },
+  emptyActionText: {
+    color: appColors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyActionGhostText: {
+    color: appColors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

@@ -1,9 +1,25 @@
-import 'dotenv/config';
+import { config as loadEnv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+
+const projectRoot = __dirname;
+
+loadEnv({ path: path.join(projectRoot, '.env') });
+if (existsSync(path.join(projectRoot, '.env.local'))) {
+  loadEnv({ path: path.join(projectRoot, '.env.local'), override: true });
+}
 
 const appJson = require('./app.json');
 
 const expo = appJson.expo ?? {};
-const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || undefined;
+
+if (!googleMapsApiKey) {
+  console.warn(
+    '[app.config] Brak EXPO_PUBLIC_GOOGLE_MAPS_API_KEY — mapa na Androidzie/iOS nie zadziała. ' +
+      'Dodaj klucz do .env.local i uruchom ponownie: npx expo prebuild --platform android --clean'
+  );
+}
 
 const plugins = Array.isArray(expo.plugins)
   ? expo.plugins.filter((plugin: string | [string, Record<string, unknown>]) => plugin !== '@react-native-firebase/app')
@@ -18,9 +34,17 @@ export default {
       googleMaps: googleMapsApiKey ? { apiKey: googleMapsApiKey } : undefined,
     },
   },
+  ios: {
+    ...expo.ios,
+    config: {
+      ...(expo.ios?.config ?? {}),
+      googleMapsApiKey,
+    },
+  },
   plugins,
   extra: {
     ...(expo.extra ?? {}),
     buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE ?? expo.extra?.buildProfile,
+    googleMapsConfigured: Boolean(googleMapsApiKey),
   },
 };

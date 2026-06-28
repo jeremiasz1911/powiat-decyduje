@@ -8,6 +8,7 @@ import { ScreenContainer } from '@/src/components/screen-container';
 import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
 import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { VoteProjectRow } from '@/src/features/votes/components/vote-project-row';
+import { VoteAnonymousToggle } from '@/src/features/projects/components/vote-anonymous-toggle';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import {
   ensureAnonymousAuth,
@@ -34,6 +35,7 @@ export default function MyVotesScreen() {
   const [votesRemaining, setVotesRemaining] = useState<number | null>(null);
   const [votingProjectId, setVotingProjectId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [voteAnonymously, setVoteAnonymously] = useState(false);
 
   const refreshVotesMeta = useCallback(async (uid: string) => {
     const summary = await getVotesSummary(uid);
@@ -135,7 +137,9 @@ export default function MyVotesScreen() {
 
     try {
       const installationId = await getInstallationId();
-      const result = await voteForProject(project.id, userId, installationId);
+      const result = await voteForProject(project.id, userId, installationId, {
+        anonymous: voteAnonymously,
+      });
 
       setItems((prev) =>
         prev.map((item) => (item.id === project.id ? { ...item, votesCount: result.votesCount } : item))
@@ -145,7 +149,7 @@ export default function MyVotesScreen() {
 
       if (result.added) {
         setVotedIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]));
-        await notify('Glos zapisany', 'Oddales glos na projekt.', 'success');
+        await notify('Glos zapisany', voteAnonymously ? 'Oddales anonimowy glos.' : 'Oddales glos na projekt.', 'success');
       } else if (result.reason === 'vote_limit_reached') {
         await notify('Limit glosow', 'Wykorzystales limit 5 glosow.', 'error');
       } else {
@@ -199,6 +203,12 @@ export default function MyVotesScreen() {
           </SettingsCard>
         </SettingsGroup>
 
+        <SettingsGroup title="Anonimowosc">
+          <SettingsCard style={styles.anonymousCard}>
+            <VoteAnonymousToggle value={voteAnonymously} onValueChange={setVoteAnonymously} />
+          </SettingsCard>
+        </SettingsGroup>
+
         <SettingsGroup title="Szukaj">
           <SettingsCard style={styles.searchCard}>
             <View style={styles.searchWrap}>
@@ -225,8 +235,8 @@ export default function MyVotesScreen() {
 
         {!loading && !error && filteredItems.length === 0 ? (
           <EmptyState
-            title="Brak projektow"
-            description="Sprobuj zmienic fraze wyszukiwania."
+            title="Brak projektów do głosowania"
+            description="Głosować można tylko na projekty zaakceptowane przez administratora. Jeśli właśnie coś zgłosiłeś, poczekaj na akceptację w panelu admina."
             actionLabel="Wyczysc"
             onActionPress={() => setSearch('')}
           />
@@ -268,6 +278,10 @@ export default function MyVotesScreen() {
 const styles = StyleSheet.create({
   sections: {
     gap: appTheme.spacing.lg,
+  },
+  anonymousCard: {
+    paddingHorizontal: appTheme.spacing.sm,
+    paddingVertical: appTheme.spacing.sm,
   },
   searchCard: {
     paddingVertical: appTheme.spacing.sm,

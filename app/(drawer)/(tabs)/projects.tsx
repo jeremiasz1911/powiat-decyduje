@@ -120,8 +120,8 @@ export default function ProjectsScreen() {
 
         {!loading && filteredBySearch.length === 0 && !error ? (
           <EmptyState
-            title="Brak projektow"
-            description="Sprobuj zmienic filtry lub wyszukiwanie."
+            title="Brak zaakceptowanych projektów"
+            description="Na liście publicznej widać tylko projekty zaakceptowane przez administratora. Twoje zgłoszenia oczekujące na weryfikację znajdziesz w Moje projekty."
             actionLabel="Wyczysc filtry"
             onActionPress={handleClearFilters}
           />

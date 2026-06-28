@@ -9,6 +9,27 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function projectAuthorId(data) {
+      return data.authorId != null && data.authorId is string && data.authorId.size() > 0
+        ? data.authorId
+        : data.createdBy;
+    }
+
+    function isProjectAuthor(data) {
+      return isSignedIn() && (
+        data.createdBy == request.auth.uid ||
+        (data.authorId != null && data.authorId is string && data.authorId == request.auth.uid)
+      );
+    }
+
+    function isApprovedProject(data) {
+      return data.status == 'approved';
+    }
+
+    function canReadProject(data) {
+      return isApprovedProject(data) || isProjectAuthor(data);
+    }
+
     function userVoteDoc(projectId, uid) {
       return /databases/$(database)/documents/projects/$(projectId)/votes/$(uid);
     }
@@ -26,14 +47,18 @@ service cloud.firestore {
         'icon',
         'imageUrl',
         'imageUrls',
+        'markerColor',
+        'authorId',
         'createdBy',
         'createdByResidentAccountId',
         'createdByResidentPesel',
         'createdByResidentLabel',
         'createdAt',
+        'updatedAt',
         'status',
         'votesCount'
       ]) &&
+      request.resource.data.authorId == request.auth.uid &&
       request.resource.data.createdBy == request.auth.uid &&
       request.resource.data.createdByResidentAccountId is string &&
       request.resource.data.createdByResidentPesel is string &&
@@ -43,47 +68,56 @@ service cloud.firestore {
       request.resource.data.votesCount == 0;
     }
 
-    match /projects/{projectId} {
-      // Public projects list/details.
-      allow get, list: if true;
+    function validProjectOwnerUpdate() {
+      return resource.data.status == 'submitted' &&
+        isProjectAuthor(resource.data) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'title',
+          'description',
+          'category',
+          'locationLabel',
+          'commune',
+          'village',
+          'cost',
+          'location',
+          'icon',
+          'markerColor',
+          'updatedAt'
+        ]) &&
+        request.resource.data.updatedAt == request.time &&
+        projectAuthorId(request.resource.data) == projectAuthorId(resource.data) &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.votesCount == resource.data.votesCount &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.imageUrl == resource.data.imageUrl &&
+        request.resource.data.imageUrls == resource.data.imageUrls &&
+        request.resource.data.icon is string &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
 
-      // Authenticated user can submit only their own project.
+    function validVoteCountUpdate(projectId) {
+      return isSignedIn() &&
+        isApprovedProject(resource.data) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['votesCount']) &&
+        request.resource.data.votesCount == resource.data.votesCount + 1 &&
+        !exists(userVoteDoc(projectId, request.auth.uid)) &&
+        existsAfter(userVoteDoc(projectId, request.auth.uid));
+    }
+
+    match /projects/{projectId} {
+      allow get: if canReadProject(resource.data);
+
+      // Osobne reguły list — Firestore wymaga zgodności zapytania z regułami (bez OR w jednej regule).
+      allow list: if resource.data.status == 'approved';
+      allow list: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      allow list: if isSignedIn() &&
+        resource.data.authorId != null &&
+        resource.data.authorId is string &&
+        resource.data.authorId == request.auth.uid;
+
       allow create: if isSignedIn() && validProjectCreate();
 
-      // votesCount can only be incremented by exactly 1 and only
-      // when a new vote document for this user is created in the same write.
-      allow update: if isSignedIn() &&
-        (
-          (
-            request.resource.data.diff(resource.data).changedKeys().hasOnly(['votesCount']) &&
-            request.resource.data.votesCount == resource.data.votesCount + 1 &&
-            !exists(userVoteDoc(projectId, request.auth.uid)) &&
-            existsAfter(userVoteDoc(projectId, request.auth.uid))
-          ) ||
-          (
-            resource.data.createdBy == request.auth.uid &&
-            request.resource.data.diff(resource.data).changedKeys().hasOnly([
-              'title',
-              'description',
-              'category',
-              'locationLabel',
-              'commune',
-              'village',
-              'cost',
-              'location',
-              'icon',
-              'updatedAt'
-            ]) &&
-            request.resource.data.updatedAt == request.time &&
-            request.resource.data.createdBy == resource.data.createdBy &&
-            request.resource.data.votesCount == resource.data.votesCount &&
-            request.resource.data.status == resource.data.status &&
-            request.resource.data.imageUrl == resource.data.imageUrl &&
-            request.resource.data.imageUrls == resource.data.imageUrls &&
-            request.resource.data.icon is string &&
-            request.resource.data.createdAt == resource.data.createdAt
-          )
-        );
+      allow update: if isSignedIn() && (validVoteCountUpdate(projectId) || validProjectOwnerUpdate());
 
       allow delete: if false;
 
@@ -91,8 +125,9 @@ service cloud.firestore {
         allow read: if isOwner(uid);
 
         allow create: if isOwner(uid) &&
+          get(/databases/$(database)/documents/projects/$(projectId)).data.status == 'approved' &&
           !exists(userVoteDoc(projectId, uid)) &&
-          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt']) &&
+          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt', 'isAnonymous']) &&
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.installationId is string &&
           request.resource.data.installationId.size() >= 8 &&
@@ -102,13 +137,13 @@ service cloud.firestore {
       }
 
       match /installationVotes/{installationId} {
-        // vote transaction reads this doc to prevent duplicate votes per installation
         allow get: if isSignedIn();
         allow list: if false;
 
         allow create: if isSignedIn() &&
+          get(/databases/$(database)/documents/projects/$(projectId)).data.status == 'approved' &&
           !exists(/databases/$(database)/documents/projects/$(projectId)/installationVotes/$(installationId)) &&
-          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt']) &&
+          request.resource.data.keys().hasOnly(['userId', 'installationId', 'createdAt', 'isAnonymous']) &&
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.installationId == installationId &&
           installationId.size() >= 8 &&
@@ -138,6 +173,7 @@ service cloud.firestore {
           'consents',
           'residentAccounts',
           'activeResidentAccountId',
+          'votesUsed',
           'createdAt',
           'updatedAt'
         ]) &&
@@ -214,6 +250,15 @@ service cloud.firestore {
         request.resource.data.dayResets is int &&
         request.resource.data.updatedAt == request.time;
       allow delete: if false;
+    }
+
+    match /app_settings/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /sms_logs/{logId} {
+      allow read, write: if false;
     }
 
     match /{document=**} {

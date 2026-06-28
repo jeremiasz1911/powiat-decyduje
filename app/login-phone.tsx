@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FloatingLoginLogo } from '@/src/components/auth/FloatingLoginLogo';
 import { LoginAnimatedBackground, LoginSlashLines } from '@/src/components/auth/LoginAnimatedBackground';
+import { PowiatCountyPartnerSection } from '@/src/components/brand/PowiatCountyPartnerSection';
 import { AuthScreenOverlay } from '@/src/components/layout/auth-screen-overlay';
 import { AppButton } from '@/src/components/ui/AppButton';
 import { AppTextInput } from '@/src/components/ui/AppTextInput';
@@ -97,81 +99,91 @@ export default function LoginPhoneScreen() {
           style={styles.flex}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
           <View style={styles.page}>
-            <View style={styles.logoSection}>
-              <FloatingLoginLogo compact description="Zaloguj się do Powiat Decyduje." />
-              <View style={styles.logoSlashBand} pointerEvents="none">
-                <LoginSlashLines scope="screen" />
-              </View>
-            </View>
-
-            <Animated.View entering={FadeInUp.delay(160).duration(560)} style={styles.formWrap}>
-              <FormCard style={styles.formCard}>
-                <View style={styles.form}>
-                  <Controller
-                    control={control}
-                    name="identifier"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <AppTextInput
-                        label="Email lub numer telefonu"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        placeholder="jan@example.com lub 500 600 700"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        error={errors.identifier?.message}
-                        inputStyle={styles.input}
-                      />
-                    )}
-                  />
-
-                  <Controller
-                    control={control}
-                    name="password"
-                    render={({ field: { onChange, onBlur, value } }) => (
-                      <AppTextInput
-                        label="Hasło"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        secureTextEntry
-                        placeholder="Wpisz hasło"
-                        autoCapitalize="none"
-                        error={errors.password?.message}
-                        inputStyle={styles.input}
-                      />
-                    )}
-                  />
-
-                  <AppButton
-                    title="Zaloguj się"
-                    loadingTitle="Logowanie..."
-                    loading={isSigningIn}
-                    disabled={isSigningIn}
-                    onPress={handleSubmit(onSubmit)}
-                    style={styles.primaryButton}
-                  />
-
-                  <AppButton
-                    title="Zarejestruj konto"
-                    variant="secondary"
-                    onPress={() => router.push('/register-resident')}
-                    style={styles.secondaryButton}
-                  />
-
-                  <Pressable onPress={() => router.push('/recover-access-phone')} style={styles.linkButton}>
-                    <Text style={styles.linkText}>Nie pamiętasz hasła?</Text>
-                  </Pressable>
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.logoSection}>
+                <FloatingLoginLogo compact description="Zaloguj się do Powiat Decyduje." />
+                <View style={styles.logoSlashBand} pointerEvents="none">
+                  <LoginSlashLines scope="screen" />
                 </View>
-              </FormCard>
-            </Animated.View>
+              </View>
 
-            <Text style={styles.footerText}>
-              Nie masz konta?{' '}
-              <Text style={styles.footerLink} onPress={() => router.push('/register-resident')}>
-                Zarejestruj się
+              <Animated.View entering={FadeInUp.delay(160).duration(560)} style={styles.formWrap}>
+                <FormCard style={styles.formCard}>
+                  <View style={styles.form}>
+                    <Controller
+                      control={control}
+                      name="identifier"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <AppTextInput
+                          label="Email lub numer telefonu"
+                          value={value}
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          placeholder="jan@example.com lub 500 600 700"
+                          autoCapitalize="none"
+                          keyboardType="email-address"
+                          error={errors.identifier?.message}
+                          inputStyle={styles.input}
+                        />
+                      )}
+                    />
+
+                    <Controller
+                      control={control}
+                      name="password"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <AppTextInput
+                          label="Hasło"
+                          value={value}
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          secureTextEntry
+                          placeholder="Wpisz hasło"
+                          autoCapitalize="none"
+                          error={errors.password?.message}
+                          inputStyle={styles.input}
+                        />
+                      )}
+                    />
+
+                    <AppButton
+                      title="Zaloguj się"
+                      loadingTitle="Logowanie..."
+                      loading={isSigningIn}
+                      disabled={isSigningIn}
+                      onPress={handleSubmit(onSubmit)}
+                      style={styles.primaryButton}
+                    />
+
+                    <AppButton
+                      title="Zarejestruj konto"
+                      variant="secondary"
+                      onPress={() => router.push('/register-resident')}
+                      style={styles.secondaryButton}
+                    />
+
+                    <Pressable onPress={() => router.push('/recover-access-phone')} style={styles.linkButton}>
+                      <Text style={styles.linkText}>Nie pamiętasz hasła?</Text>
+                    </Pressable>
+                  </View>
+                </FormCard>
+              </Animated.View>
+
+              <Text style={styles.footerText}>
+                Nie masz konta?{' '}
+                <Text style={styles.footerLink} onPress={() => router.push('/register-resident')}>
+                  Zarejestruj się
+                </Text>
               </Text>
-            </Text>
+            </ScrollView>
+
+            <View style={styles.partnerBar}>
+              <PowiatCountyPartnerSection compact showCaption={false} />
+            </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -195,11 +207,26 @@ const styles = StyleSheet.create({
   },
   page: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: appTheme.spacing.lg,
-    paddingVertical: appTheme.spacing.md,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingTop: appTheme.spacing.md,
+    paddingBottom: appTheme.spacing.lg,
     gap: appTheme.spacing.md,
-    position: 'relative',
+  },
+  partnerBar: {
+    flexShrink: 0,
+    alignItems: 'center',
+    paddingTop: appTheme.spacing.sm,
+    paddingBottom: appTheme.spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: appColors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
   },
   logoSection: {
     position: 'relative',

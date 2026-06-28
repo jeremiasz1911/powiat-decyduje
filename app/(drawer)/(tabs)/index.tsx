@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { AppScreen } from '@/src/components/layout/app-screen';
+import { PowiatCountyPartnerSection } from '@/src/components/brand/PowiatCountyPartnerSection';
 import { SettingsCard, SettingsGroup } from '@/src/components/settings/settings-ui';
 import { HomeHero } from '@/src/features/home/components/home-hero';
 import { HomeTileGrid, type HomeTileConfig } from '@/src/features/home/components/home-tile';
@@ -70,6 +71,7 @@ export default function HomeScreen() {
                 Powiatu, aby wykorzystać nowoczesne technologie do wspierania dialogu między mieszkańcami a
                 samorządem.
               </Text>
+              <PowiatCountyPartnerSection style={styles.aboutPartner} />
             </View>
           </SettingsCard>
         </SettingsGroup>
@@ -106,6 +108,12 @@ const styles = StyleSheet.create({
   aboutStrong: {
     color: appColors.textPrimary,
     fontWeight: '700',
+  },
+  aboutPartner: {
+    marginTop: appTheme.spacing.sm,
+    paddingTop: appTheme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: appColors.border,
   },
   tilesSection: {
     width: '100%',

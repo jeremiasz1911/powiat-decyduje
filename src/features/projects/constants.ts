@@ -18,12 +18,14 @@ export const ALL_CATEGORIES_LABEL = 'Wszystkie kategorie';
 export const ALL_COMMUNES_LABEL = 'Wszystkie gminy';
 
 export const PROJECT_STATUS_LABELS: Record<string, string> = {
-  submitted: 'Zlozony',
-  pending: 'Oczekuje',
-  review: 'W weryfikacji',
+  submitted: 'Zgłoszony',
   approved: 'Zaakceptowany',
   rejected: 'Odrzucony',
-  voting: 'W glosowaniu',
-  active: 'Aktywny',
-  completed: 'Zrealizowany',
+  // Legacy aliases (migration / old records)
+  pending: 'Zgłoszony',
+  review: 'Zgłoszony',
+  zgloszony: 'Zgłoszony',
+  voting: 'Zaakceptowany',
+  active: 'Zaakceptowany',
+  completed: 'Zaakceptowany',
 };

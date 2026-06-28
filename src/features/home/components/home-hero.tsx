@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { PowiatCountyLogoImage } from '@/src/components/brand/PowiatCountyLogoImage';
 import { PowiatLogoImage } from '@/src/components/brand/PowiatLogoImage';
 import { appColors, appTheme } from '@/src/theme/app-theme';
 
@@ -44,7 +45,10 @@ export function HomeHero({ residentLabel }: HomeHeroProps) {
         <PowiatLogoImage width={logoWidth} height={logoHeight} />
       </Animated.View>
 
-      <Text style={styles.appName}>Powiat Decyduje</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.appName}>Powiat Decyduje</Text>
+        <PowiatCountyLogoImage height={40} maxWidth={40} style={styles.countyLogo} />
+      </View>
       <Text style={styles.greeting}>{greeting}</Text>
       <Text style={styles.subline}>
         Twój głos ma znaczenie — współdecyduj o projektach realizowanych w powiecie mławskim.
@@ -61,6 +65,17 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     marginBottom: appTheme.spacing.xs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: appTheme.spacing.sm,
+    maxWidth: '100%',
+    paddingHorizontal: appTheme.spacing.sm,
+  },
+  countyLogo: {
+    opacity: 0.92,
   },
   appName: {
     color: appColors.textPrimary,

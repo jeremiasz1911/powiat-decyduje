@@ -144,7 +144,38 @@ function createVerificationId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type SmsLogType = 'registration' | 'password_reset';
+
+async function logSmsEvent(params: {
+  phoneNumber: string;
+  type: SmsLogType;
+  status: 'sent' | 'error';
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    await db.collection('sms_logs').add({
+      phoneNumber: maskPhone(params.phoneNumber),
+      phoneMasked: maskPhone(params.phoneNumber),
+      type: params.type,
+      status: params.status,
+      errorMessage: params.errorMessage ?? null,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: 'logSmsEvent',
+        message: error instanceof Error ? error.message : 'unknown_error',
+      })
+    );
+  }
+}
+
 async function sendSms(phoneNumber: string, code: string, context: string): Promise<void> {
+  const smsType: SmsLogType =
+    context === 'password_reset' || context === 'password-reset' ? 'password_reset' : 'registration';
+
   if (isFunctionsEmulator()) {
     console.info(
       JSON.stringify({
@@ -153,6 +184,7 @@ async function sendSms(phoneNumber: string, code: string, context: string): Prom
         context,
       })
     );
+    await logSmsEvent({ phoneNumber, type: smsType, status: 'sent' });
     return;
   }
 
@@ -216,8 +248,16 @@ async function sendSms(phoneNumber: string, code: string, context: string): Prom
         response: responseText.slice(0, 500),
       })
     );
+    await logSmsEvent({
+      phoneNumber,
+      type: smsType,
+      status: 'error',
+      errorMessage: `SMS provider rejected the message (${response.status})`,
+    });
     throw new HttpsError('internal', 'SMS provider rejected the message');
   }
+
+  await logSmsEvent({ phoneNumber, type: smsType, status: 'sent' });
 
   console.info(
     JSON.stringify({

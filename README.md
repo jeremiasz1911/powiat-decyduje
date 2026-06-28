@@ -60,12 +60,51 @@ Skrypt utworzy testowe konto powiązane z numerem telefonu (`+48510490044`) i PE
 
 Szczegóły: [SEED_TEST_RESIDENT.md](./SEED_TEST_RESIDENT.md)
 
+## Google Maps (Android / iOS)
+
+Mapa w aplikacji używa `react-native-maps` z Google Maps. Klucz Firebase **nie zastępuje** klucza Maps.
+
+1. W [Google Cloud Console](https://console.cloud.google.com/) (ten sam projekt co Firebase) utwórz klucz API.
+2. Włącz **Maps SDK for Android** (oraz **Maps SDK for iOS** na iOS).
+3. Ogranicz klucz do pakietu `com.jeremiasz1911.powiatdecyduje` i SHA-1 certyfikatu debug/release.
+4. Dodaj do `.env.local`:
+
+```bash
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+```
+
+5. Przebuduj natywny projekt (wymagane — klucz trafia do `AndroidManifest.xml`):
+
+```bash
+npx expo prebuild --platform android --clean
+npx expo run:android
+```
+
+W diagnostyce aplikacji pole **Maps API key** powinno pokazywać `tak`.
+
+## Panel administracyjny (web)
+
+Osobna aplikacja Next.js w katalogu `admin/` — dashboard do zarządzania projektami, użytkownikami, głosami, SMS-ami i ustawieniami aplikacji. Wdrażana na Vercel, korzysta z Firebase Admin SDK i tego samego Firestore co aplikacja mobilna.
+
+```bash
+cd admin && cp .env.example .env.local
+# uzupełnij ADMIN_* i FIREBASE_ADMIN_*
+npm install
+npm run dev
+```
+
+Z katalogu głównego: `npm run admin:dev` (port 3001).
+
+Szczegóły wdrożenia na Vercel i lista zmiennych środowiskowych: [admin/README.md](./admin/README.md).
+
 ## Production checklist
 
 - [ ] Firebase Auth: Anonymous enabled
 - [ ] Firestore rules wdrozone (`firestore.rules`)
 - [ ] Firestore indexes wdrozone (`firestore.indexes.json`)
+- [ ] Panel admin wdrożony na Vercel (`admin/`, zmienne `ADMIN_*`, `FIREBASE_ADMIN_*`)
 - [ ] Storage rules wdrozone (jesli upload obrazow aktywny)
+- [ ] Google Maps API key ustawiony (`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`) i build natywny przebudowany
 - [ ] `.env.local` ustawione na produkcyjny projekt Firebase
 - [ ] `android.package` i `ios.bundleIdentifier` ustawione na finalne ID
 - [ ] `npm run check` przechodzi bez bledow

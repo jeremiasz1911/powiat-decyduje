@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isProjectIconId, type ProjectIconId } from './project-icons';
+import { isProjectMarkerColor } from './project-marker-colors';
 
 export const projectSubmissionSchema = z.object({
   title: z.string().min(3, 'Tytul musi miec minimum 3 znaki').max(100, 'Tytul jest za dlugi'),
@@ -26,6 +27,10 @@ export const projectSubmissionSchema = z.object({
   icon: z.custom<ProjectIconId>(
     (value) => typeof value === 'string' && isProjectIconId(value),
     'Wybierz ikonke projektu'
+  ),
+  markerColor: z.custom<string>(
+    (value) => typeof value === 'string' && isProjectMarkerColor(value),
+    'Wybierz kolor pinezki'
   ),
 });
 

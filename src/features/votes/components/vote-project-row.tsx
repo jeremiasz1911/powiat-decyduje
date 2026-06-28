@@ -5,6 +5,7 @@ import { resolveProjectIcon } from '@/src/features/projects/project-icons';
 import {
   getProjectCategoryLabel,
   getProjectCommuneLabel,
+  formatVotesCountLabel,
   truncateText,
 } from '@/src/features/projects/utils';
 import { type ProjectItem } from '@/src/services';
@@ -29,7 +30,9 @@ export function VoteProjectRow({
 }: VoteProjectRowProps) {
   const categoryLabel = getProjectCategoryLabel(project.category);
   const communeLabel = getProjectCommuneLabel(project.commune);
-  const subtitle = `${categoryLabel} · ${communeLabel} · ${project.votesCount ?? 0} glosow`;
+  const votesLabel =
+    project.votesCount < 0 ? 'Brak danych o głosach' : formatVotesCountLabel(project.votesCount);
+  const subtitle = `${categoryLabel} · ${communeLabel} · ${votesLabel}`;
 
   return (
     <View style={styles.row}>

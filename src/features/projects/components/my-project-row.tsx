@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CompactIconAction } from '@/src/features/projects/components/compact-icon-action';
+import { ProjectStatusBadge } from '@/src/features/projects/components/project-status-badge';
 import { resolveProjectIcon } from '@/src/features/projects/project-icons';
 import {
   getProjectCategoryLabel,
   getProjectCommuneLabel,
-  getProjectStatusLabel,
+  getProjectImageUrls,
   truncateText,
 } from '@/src/features/projects/utils';
+import { normalizeProjectStatus } from '@/src/features/projects/project-status';
 import { type ProjectItem } from '@/src/services';
 import { appColors, appTheme } from '@/src/theme/app-theme';
 
@@ -17,65 +20,39 @@ type MyProjectRowProps = {
   onEdit: () => void;
 };
 
-function resolveStatusStyle(status: string) {
-  switch (status) {
-    case 'approved':
-    case 'active':
-    case 'voting':
-      return styles.statusBadgePositive;
-    case 'completed':
-      return styles.statusBadgeDone;
-    case 'rejected':
-      return styles.statusBadgeNegative;
-    default:
-      return styles.statusBadgeNeutral;
-  }
-}
-
 export function MyProjectRow({ project, onOpen, onEdit }: MyProjectRowProps) {
   const categoryLabel = getProjectCategoryLabel(project.category);
   const communeLabel = getProjectCommuneLabel(project.commune);
-  const statusLabel = getProjectStatusLabel(project.status);
+  const images = getProjectImageUrls(project);
+  const coverImage = images[0];
   const locationLine =
     project.locationLabel?.trim() ||
     [project.village, project.commune].filter(Boolean).join(', ') ||
     communeLabel;
-  const subtitle = truncateText(project.description?.trim() || locationLine, 96);
+  const subtitle = truncateText(project.description?.trim() || locationLine, 88);
+  const canEdit = normalizeProjectStatus(project.status) === 'submitted';
 
   return (
     <View style={styles.row}>
       <Pressable
         onPress={onOpen}
-        style={({ pressed }) => [styles.mainArea, pressed ? styles.mainAreaPressed : null]}
+        style={({ pressed }) => [styles.mainArea, pressed ? styles.pressed : null]}
         accessibilityRole="button"
-        accessibilityLabel={`Podglad projektu ${project.title}`}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={resolveProjectIcon(project.icon)} size={18} color={appColors.primary} />
-        </View>
+        accessibilityLabel={`Podgląd projektu ${project.title}`}>
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <View style={styles.iconWrap}>
+            <Ionicons name={resolveProjectIcon(project.icon)} size={18} color={appColors.primary} />
+          </View>
+        )}
 
         <View style={styles.textBlock}>
           <View style={styles.titleRow}>
             <Text style={styles.title} numberOfLines={1}>
               {project.title}
             </Text>
-            <View style={[styles.statusBadge, resolveStatusStyle(project.status)]}>
-              <Text
-                style={[
-                  styles.statusBadgeText,
-                  project.status === 'rejected'
-                    ? styles.statusBadgeTextNegative
-                    : project.status === 'completed'
-                      ? styles.statusBadgeTextDone
-                      : project.status === 'approved' ||
-                          project.status === 'active' ||
-                          project.status === 'voting'
-                        ? styles.statusBadgeTextPositive
-                        : null,
-                ]}
-                numberOfLines={1}>
-                {statusLabel}
-              </Text>
-            </View>
+            <ProjectStatusBadge status={project.status} />
           </View>
 
           <Text style={styles.subtitle} numberOfLines={2}>
@@ -83,29 +60,39 @@ export function MyProjectRow({ project, onOpen, onEdit }: MyProjectRowProps) {
           </Text>
 
           <View style={styles.metaRow}>
-            <Ionicons name="pricetag-outline" size={12} color={appColors.textMuted} />
-            <Text style={styles.metaText} numberOfLines={1}>
-              {categoryLabel} · {communeLabel}
-            </Text>
+            <View style={styles.metaChip}>
+              <Ionicons name="pricetag-outline" size={12} color={appColors.textMuted} />
+              <Text style={styles.metaText} numberOfLines={1}>
+                {categoryLabel}
+              </Text>
+            </View>
+            <View style={styles.metaChip}>
+              <Ionicons name="location-outline" size={12} color={appColors.textMuted} />
+              <Text style={styles.metaText} numberOfLines={1}>
+                {communeLabel}
+              </Text>
+            </View>
           </View>
         </View>
+
+        <Ionicons name="chevron-forward" size={16} color={appColors.textMuted} style={styles.chevron} />
       </Pressable>
 
       <View style={styles.actions}>
-        <Pressable
-          onPress={onEdit}
-          style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
-          hitSlop={6}>
-          <Ionicons name="create-outline" size={14} color={appColors.primary} />
-          <Text style={styles.actionText}>Edytuj</Text>
-        </Pressable>
-        <Pressable
+        {canEdit ? (
+          <CompactIconAction
+            icon="create-outline"
+            onPress={onEdit}
+            accessibilityLabel={`Edytuj projekt ${project.title}`}
+            variant="primary"
+          />
+        ) : null}
+        <CompactIconAction
+          icon="eye-outline"
           onPress={onOpen}
-          style={({ pressed }) => [styles.actionButton, pressed ? styles.actionButtonPressed : null]}
-          hitSlop={6}>
-          <Ionicons name="eye-outline" size={14} color={appColors.primary} />
-          <Text style={styles.actionText}>Podglad</Text>
-        </Pressable>
+          accessibilityLabel={`Podgląd projektu ${project.title}`}
+          variant="default"
+        />
       </View>
     </View>
   );
@@ -123,17 +110,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: appTheme.spacing.sm,
   },
-  mainAreaPressed: {
+  pressed: {
     opacity: 0.76,
   },
+  thumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: appColors.surfaceSoft,
+  },
   iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: appColors.primarySoft,
-    marginTop: 2,
   },
   textBlock: {
     flex: 1,
@@ -142,46 +134,15 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appTheme.spacing.sm,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   title: {
-    flex: 1,
+    flexShrink: 1,
     color: appColors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 20,
-  },
-  statusBadge: {
-    maxWidth: 112,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: appColors.textSecondary,
-  },
-  statusBadgeTextPositive: {
-    color: appColors.primary,
-  },
-  statusBadgeTextDone: {
-    color: '#15803D',
-  },
-  statusBadgeTextNegative: {
-    color: appColors.danger,
-  },
-  statusBadgePositive: {
-    backgroundColor: appColors.primarySoft,
-  },
-  statusBadgeDone: {
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-  },
-  statusBadgeNegative: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-  },
-  statusBadgeNeutral: {
-    backgroundColor: appColors.surfaceSoft,
   },
   subtitle: {
     color: appColors.textMuted,
@@ -190,35 +151,29 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  metaChip: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    maxWidth: '48%',
   },
   metaText: {
-    flex: 1,
     color: appColors.textMuted,
     fontSize: 12,
     lineHeight: 16,
+    fontWeight: '600',
+  },
+  chevron: {
+    marginTop: 16,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: appTheme.spacing.sm,
-    paddingLeft: 40,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  actionButtonPressed: {
-    backgroundColor: appColors.primarySoft,
-  },
-  actionText: {
-    color: appColors.primary,
-    fontSize: 13,
-    fontWeight: '700',
+    paddingLeft: 56,
   },
 });

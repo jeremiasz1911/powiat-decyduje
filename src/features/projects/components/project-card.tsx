@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CompactIconAction } from '@/src/features/projects/components/compact-icon-action';
+import { ProjectRemoteImage } from '@/src/features/projects/components/project-remote-image';
+import { ProjectStatusBadge } from '@/src/features/projects/components/project-status-badge';
+import { ProjectVotesCount } from '@/src/features/projects/components/project-votes-count';
 import { resolveProjectIcon } from '@/src/features/projects/project-icons';
 import {
   getProjectCategoryLabel,
   getProjectCommuneLabel,
-  getProjectStatusLabel,
+  getProjectImageUrls,
   truncateText,
 } from '@/src/features/projects/utils';
 import { type ProjectItem } from '@/src/services';
@@ -26,81 +30,91 @@ type ProjectCardProps = {
 };
 
 function ProjectCardComponent({ project, onOpenDetails, voteAction }: ProjectCardProps) {
+  const images = getProjectImageUrls(project);
+  const coverImage = images[0];
   const categoryLabel = getProjectCategoryLabel(project.category);
   const communeLabel = getProjectCommuneLabel(project.commune);
-  const statusLabel = getProjectStatusLabel(project.status);
-  const description = truncateText(project.description || 'Brak opisu');
+  const description = truncateText(project.description || 'Brak opisu', 120);
+  const locationLine =
+    project.locationLabel?.trim() || [project.village, project.commune].filter(Boolean).join(', ');
 
   return (
-    <View style={styles.card}>
-      {project.imageUrl ? (
-        <Image source={{ uri: project.imageUrl }} style={styles.cardImage} resizeMode="cover" />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Ionicons name={resolveProjectIcon(project.icon)} size={28} color={appColors.primary} />
-        </View>
-      )}
+    <Pressable
+      onPress={() => onOpenDetails(project.id)}
+      style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
+      accessibilityRole="button"
+      accessibilityLabel={`Otwórz szczegóły projektu ${project.title}`}>
+      <View style={styles.imageArea}>
+        {coverImage ? (
+          <ProjectRemoteImage
+            uri={coverImage}
+            style={styles.cardImage}
+            resizeMode="cover"
+            fallbackIcon={project.icon}
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name={resolveProjectIcon(project.icon)} size={28} color={appColors.primary} />
+          </View>
+        )}
+        {images.length > 1 ? (
+          <View style={styles.imageCountBadge}>
+            <Ionicons name="images-outline" size={12} color={appColors.textOnPrimary} />
+            <Text style={styles.imageCountText}>{images.length}</Text>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.content}>
-        <View style={styles.metaRow}>
+        <View style={styles.badgesRow}>
           <View style={styles.categoryBadge}>
+            <Ionicons name="pricetag-outline" size={11} color={appColors.primary} />
             <Text style={styles.categoryBadgeText}>{categoryLabel}</Text>
           </View>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusBadgeText}>{statusLabel}</Text>
-          </View>
+          <ProjectStatusBadge status={project.status} />
         </View>
 
         <Text style={styles.title} numberOfLines={2}>
           {project.title}
         </Text>
 
-        <Text style={styles.description} numberOfLines={3}>
+        <Text style={styles.description} numberOfLines={2}>
           {description}
         </Text>
 
         <View style={styles.infoRow}>
           <View style={styles.infoChip}>
-            <Ionicons name="location-outline" size={14} color={appColors.textMuted} />
+            <Ionicons name="business-outline" size={13} color={appColors.textMuted} />
             <Text style={styles.infoChipText} numberOfLines={1}>
               {communeLabel}
             </Text>
           </View>
-          <View style={styles.votesChip}>
-            <Ionicons name="heart-outline" size={14} color={appColors.primary} />
-            <Text style={styles.votesChipText}>{project.votesCount ?? 0}</Text>
-          </View>
-        </View>
-
-        <View style={styles.actionsRow}>
-          <Pressable
-            onPress={() => onOpenDetails(project.id)}
-            style={({ pressed }) => [styles.detailsButton, pressed ? styles.detailsButtonPressed : null]}>
-            <Text style={styles.detailsButtonText}>Szczegoly</Text>
-            <Ionicons name="arrow-forward" size={16} color={appColors.primary} />
-          </Pressable>
-
-          {voteAction ? (
-            <Pressable
-              onPress={voteAction.onPress}
-              disabled={voteAction.disabled || voteAction.loading}
-              style={({ pressed }) => [
-                styles.voteButton,
-                voteAction.disabled ? styles.voteButtonDisabled : null,
-                pressed && !voteAction.disabled ? styles.voteButtonPressed : null,
-              ]}>
-              <Text
-                style={[
-                  styles.voteButtonText,
-                  voteAction.disabled || voteAction.loading ? styles.voteButtonTextDisabled : null,
-                ]}>
-                {voteAction.loading ? 'Glosowanie…' : voteAction.label}
+          {locationLine ? (
+            <View style={styles.infoChip}>
+              <Ionicons name="location-outline" size={13} color={appColors.textMuted} />
+              <Text style={styles.infoChipText} numberOfLines={1}>
+                {locationLine}
               </Text>
-            </Pressable>
+            </View>
           ) : null}
+          <ProjectVotesCount count={project.votesCount} variant="chip" style={styles.votesChip} />
         </View>
+
+        {voteAction ? (
+          <View style={styles.voteRow}>
+            <CompactIconAction
+              icon="heart-outline"
+              label={voteAction.loading ? 'Głosowanie…' : voteAction.label}
+              onPress={voteAction.onPress}
+              accessibilityLabel={voteAction.label}
+              variant="primary"
+              disabled={voteAction.disabled || voteAction.loading}
+              loading={voteAction.loading}
+            />
+          </View>
+        ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -115,148 +129,103 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...appShadows.soft,
   },
+  cardPressed: {
+    opacity: 0.94,
+  },
+  imageArea: {
+    position: 'relative',
+  },
   cardImage: {
     width: '100%',
-    height: 152,
+    height: 148,
     backgroundColor: appColors.backgroundSoft,
   },
   imagePlaceholder: {
     width: '100%',
-    height: 152,
+    height: 148,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: appColors.primarySoft,
   },
-  content: {
-    padding: appTheme.spacing.lg,
-    gap: appTheme.spacing.sm,
-  },
-  metaRow: {
+  imageCountBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(23, 29, 43, 0.72)',
   },
-  categoryBadge: {
-    borderRadius: appTheme.radius.pill,
-    backgroundColor: appColors.primarySoft,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  categoryBadgeText: {
-    color: appColors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  statusBadge: {
-    borderRadius: appTheme.radius.pill,
-    backgroundColor: appColors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusBadgeText: {
-    color: appColors.textSecondary,
+  imageCountText: {
+    color: appColors.textOnPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
+  content: {
+    padding: appTheme.spacing.md,
+    gap: 8,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: appTheme.radius.pill,
+    backgroundColor: appColors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  categoryBadgeText: {
+    color: appColors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
   title: {
     color: appColors.textPrimary,
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    lineHeight: 24,
+    lineHeight: 23,
   },
   description: {
     color: appColors.textMuted,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
   },
   infoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appTheme.spacing.sm,
+    gap: 8,
     marginTop: 2,
   },
   infoChip: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    maxWidth: '46%',
   },
   infoChipText: {
-    flex: 1,
     color: appColors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+    flexShrink: 1,
   },
   votesChip: {
+    marginLeft: 'auto',
+  },
+  voteRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: appTheme.radius.pill,
-    backgroundColor: appColors.backgroundSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  votesChipText: {
-    color: appColors.primary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-    marginTop: appTheme.spacing.xs,
-  },
-  detailsButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: appColors.primary,
-    backgroundColor: appColors.surface,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  detailsButtonPressed: {
-    backgroundColor: appColors.primarySoft,
-  },
-  detailsButtonText: {
-    color: appColors.primary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  voteButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: appColors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    ...appShadows.button,
-  },
-  voteButtonPressed: {
-    opacity: 0.92,
-  },
-  voteButtonDisabled: {
-    backgroundColor: appColors.surfaceSoft,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  voteButtonText: {
-    color: appColors.textOnPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  voteButtonTextDisabled: {
-    color: appColors.textMuted,
+    justifyContent: 'flex-end',
+    marginTop: 2,
   },
 });

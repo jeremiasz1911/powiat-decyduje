@@ -5,15 +5,24 @@ import {
   MLAWA_BOUNDS,
   MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
+import { MapConfigNotice } from '@/src/features/map/components/map-config-notice';
+import { MapProjectCalloutCard } from '@/src/features/map/components/map-project-callout-card';
+import {
+  MapProjectMarkers,
+  partitionMapProjects,
+} from '@/src/features/map/components/map-project-markers';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { listProjectsForMap, type ProjectItem } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
 import { appShadows, appTheme } from '@/src/theme/app-theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -71,31 +80,99 @@ const toTargetRegion = (latitude: number, longitude: number, delta = 0.02): Regi
   longitudeDelta: delta,
 });
 
+const MAP_LOAD_TIMEOUT_MS = 12000;
+
 export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { user } = useAuthContext();
+  const userId = user?.uid ?? null;
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const lastPanAtRef = useRef(0);
+  const isProgrammaticMoveRef = useRef(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [markerOutsideBoundary, setMarkerOutsideBoundary] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [showTapHint, setShowTapHint] = useState(true);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [mapLoadTimedOut, setMapLoadTimedOut] = useState(false);
+  const [mapProjects, setMapProjects] = useState<ProjectItem[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [selectedMapProject, setSelectedMapProject] = useState<ProjectItem | null>(null);
 
   const boundaryRings = useMemo(() => MLAWA_BOUNDARY_RINGS, []);
+
+  const { withCoordinates, withoutCoordinates } = useMemo(
+    () => partitionMapProjects(mapProjects),
+    [mapProjects]
+  );
+
+  const loadMapProjects = useCallback(async () => {
+    setProjectsLoading(true);
+    setProjectsError(null);
+
+    try {
+      const items = await listProjectsForMap(userId);
+      setMapProjects(items);
+    } catch (loadError) {
+      const message =
+        loadError instanceof Error ? loadError.message : 'Nie udało się pobrać projektów na mapę.';
+      setProjectsError(message);
+      setMapProjects([]);
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void loadMapProjects();
+  }, [loadMapProjects]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadMapProjects();
+    }, [loadMapProjects])
+  );
 
   const dismissTapHint = useCallback(() => {
     setShowTapHint(false);
   }, []);
 
+  useEffect(() => {
+    if (isMapReady) {
+      setMapLoadTimedOut(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!isMapReady) {
+        setMapLoadTimedOut(true);
+      }
+    }, MAP_LOAD_TIMEOUT_MS);
+
+    return () => clearTimeout(timer);
+  }, [isMapReady]);
+
   const moveCamera = (region: Region, animated = true) => {
+    isProgrammaticMoveRef.current = true;
     mapRef.current?.animateToRegion(region, animated ? 280 : 0);
   };
 
   const onRegionChangeComplete = (region: Region, details?: { isGesture?: boolean }) => {
     const clamped = clampToMlawa(region);
+
+    if (isProgrammaticMoveRef.current) {
+      isProgrammaticMoveRef.current = false;
+      setCurrentRegion(clamped);
+      if (details?.isGesture) {
+        dismissTapHint();
+      }
+      return;
+    }
 
     const hasChanged =
       Math.abs(clamped.latitude - region.latitude) > 0.00001 ||
@@ -103,15 +180,15 @@ export default function MapScreen() {
       Math.abs(clamped.latitudeDelta - region.latitudeDelta) > 0.00001 ||
       Math.abs(clamped.longitudeDelta - region.longitudeDelta) > 0.00001;
 
-    if (hasChanged && details?.isGesture !== false) {
+    if (hasChanged && details?.isGesture === true) {
       moveCamera(clamped);
+    } else {
+      setCurrentRegion(clamped);
     }
 
     if (details?.isGesture) {
       dismissTapHint();
     }
-
-    setCurrentRegion(clamped);
   };
 
   const handleMyLocation = async () => {
@@ -160,6 +237,7 @@ export default function MapScreen() {
 
   const handleMapPress = (latitude: number, longitude: number) => {
     dismissTapHint();
+    setSelectedMapProject(null);
 
     if (Date.now() - lastPanAtRef.current < 250) {
       return;
@@ -243,12 +321,15 @@ export default function MapScreen() {
   return (
     <AppScreen keyboardAvoiding={false} edges={['bottom']} contentContainerStyle={styles.safeArea}>
       <View style={styles.container}>
+        <MapConfigNotice />
+        {mapLoadTimedOut && !isMapReady ? <MapConfigNotice variant="loadFailed" /> : null}
         <MapView
           ref={mapRef}
           style={styles.map}
           initialRegion={INITIAL_REGION}
           maxDelta={MAX_REGION.latitudeDelta}
           minDelta={MIN_DELTA}
+          onMapReady={() => setIsMapReady(true)}
           onRegionChangeComplete={onRegionChangeComplete}
           onPress={(event) => {
             const { latitude, longitude } = event.nativeEvent.coordinate;
@@ -258,7 +339,7 @@ export default function MapScreen() {
             lastPanAtRef.current = Date.now();
             dismissTapHint();
           }}
-          loadingEnabled
+          loadingEnabled={!isMapReady}
           moveOnMarkerPress={false}
           toolbarEnabled={false}
           rotateEnabled={false}
@@ -288,12 +369,84 @@ export default function MapScreen() {
           {selectedCenter ? (
             <Marker
               coordinate={selectedCenter}
-              pinColor={markerOutsideBoundary ? appTheme.colors.warning : appTheme.colors.primary}
+              pinColor={markerOutsideBoundary ? appTheme.colors.warning : appTheme.colors.cherry}
               title="Lokalizacja projektu"
-              description="To miejsce zostanie przekazane do formularza zgloszenia."
+              description="To miejsce zostanie przekazane do formularza zgłoszenia."
             />
           ) : null}
+
+          <MapProjectMarkers
+            projects={mapProjects}
+            selectedProjectId={selectedMapProject?.id}
+            viewerUserId={userId}
+            onSelectProject={setSelectedMapProject}
+          />
         </MapView>
+
+        {selectedMapProject ? (
+          <View style={[styles.calloutWrap, { bottom: insets.bottom + 96 }]} pointerEvents="box-none">
+            <MapProjectCalloutCard
+              project={selectedMapProject}
+              onClose={() => setSelectedMapProject(null)}
+              onOpenDetails={(projectId) => {
+                setSelectedMapProject(null);
+                router.push(`/(drawer)/project/${projectId}`);
+              }}
+            />
+          </View>
+        ) : null}
+
+        <View style={styles.mapStatusBar}>
+          {projectsLoading ? (
+            <View style={styles.mapStatusPill}>
+              <ActivityIndicator size="small" color={appTheme.colors.primary} />
+              <Text color={appTheme.colors.textMuted} style={styles.mapStatusText}>
+                Ładuję projekty na mapie…
+              </Text>
+            </View>
+          ) : null}
+
+          {!projectsLoading && projectsError ? (
+            <Pressable onPress={() => void loadMapProjects()} style={styles.mapStatusPill}>
+              <Ionicons name="alert-circle-outline" size={16} color={appTheme.colors.danger} />
+              <Text color={appTheme.colors.danger} style={styles.mapStatusText}>
+                Nie udało się wczytać projektów. Dotknij, aby spróbować ponownie.
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {!projectsLoading && !projectsError && withCoordinates.length > 0 ? (
+            <View style={styles.mapStatusPill}>
+              <Ionicons name="location" size={16} color={appTheme.colors.primary} />
+              <Text color={appTheme.colors.textPrimary} style={styles.mapStatusText}>
+                {withCoordinates.length}{' '}
+                {withCoordinates.length === 1 ? 'projekt na mapie' : 'projektów na mapie'}
+              </Text>
+            </View>
+          ) : null}
+
+          {!projectsLoading && !projectsError && mapProjects.length > 0 && withCoordinates.length === 0 ? (
+            <View style={styles.mapStatusPill}>
+              <Ionicons name="information-circle-outline" size={16} color={appTheme.colors.warning} />
+              <Text color={appTheme.colors.textPrimary} style={styles.mapStatusText}>
+                Zgłoszone projekty nie mają przypisanej lokalizacji na mapie.
+              </Text>
+            </View>
+          ) : null}
+
+          {!projectsLoading && !projectsError && withoutCoordinates.length > 0 && withCoordinates.length > 0 ? (
+            <View style={styles.mapStatusPill}>
+              <Ionicons name="information-circle-outline" size={16} color={appTheme.colors.textMuted} />
+              <Text color={appTheme.colors.textMuted} style={styles.mapStatusText}>
+                {withoutCoordinates.length}{' '}
+                {withoutCoordinates.length === 1
+                  ? 'projekt ma tylko opis lokalizacji'
+                  : 'projektów ma tylko opis lokalizacji'}
+                .
+              </Text>
+            </View>
+          ) : null}
+        </View>
 
         <View style={styles.toolRow}>
           <View style={styles.zoomControls}>
@@ -461,5 +614,37 @@ const styles = StyleSheet.create({
   },
   fabMain: {
     ...appShadows.button,
+  },
+  mapStatusBar: {
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    gap: 8,
+    zIndex: 11,
+  },
+  mapStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderWidth: 1,
+    borderColor: appTheme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  mapStatusText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  calloutWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    alignItems: 'center',
   },
 });

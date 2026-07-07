@@ -12,7 +12,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import type { AppColorTokens } from '@/src/theme/app-theme';
+import { appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 export type AppSelectOption = {
   label: string;
@@ -28,6 +30,103 @@ type AppSelectProps = {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
+function createSelectStyles(colors: AppColorTokens) {
+  return StyleSheet.create({
+    container: {
+      gap: 6,
+      flex: 1,
+    },
+    label: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    trigger: {
+      minHeight: 52,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSoft,
+      paddingHorizontal: appTheme.spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    triggerPressed: {
+      backgroundColor: colors.surface,
+      borderColor: colors.primary,
+    },
+    triggerText: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    placeholderText: {
+      color: colors.textMuted,
+      fontWeight: '500',
+    },
+    webSelectWrap: {
+      position: 'relative',
+      justifyContent: 'center',
+    },
+    webChevron: {
+      position: 'absolute',
+      right: 14,
+      pointerEvents: 'none',
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      maxHeight: '70%',
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingBottom: appTheme.spacing.lg,
+      ...appShadows.card,
+    },
+    sheetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: appTheme.spacing.lg,
+      paddingVertical: appTheme.spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    sheetTitle: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    optionRow: {
+      minHeight: 52,
+      paddingHorizontal: appTheme.spacing.lg,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    optionRowSelected: {
+      backgroundColor: colors.primarySoft,
+    },
+    optionText: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    optionTextSelected: {
+      color: colors.primary,
+      fontWeight: '700',
+    },
+  });
+}
+
 export function AppSelect({
   label,
   value,
@@ -36,6 +135,8 @@ export function AppSelect({
   placeholder = 'Wybierz…',
   containerStyle,
 }: AppSelectProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createSelectStyles(colors), [colors]);
   const [open, setOpen] = useState(false);
 
   const selectedLabel = useMemo(
@@ -61,12 +162,12 @@ export function AppSelect({
               width: '100%',
               minHeight: 52,
               borderRadius: 16,
-              border: '1px solid rgba(23, 29, 43, 0.12)',
-              backgroundColor: appColors.surfaceSoft,
+              border: `1px solid ${colors.border}`,
+              backgroundColor: colors.surfaceSoft,
               paddingLeft: 16,
               paddingRight: 40,
               fontSize: 16,
-              color: appColors.textPrimary,
+              color: colors.textPrimary,
               outline: 'none',
             }}>
             {options.map((option) => (
@@ -75,7 +176,7 @@ export function AppSelect({
               </option>
             ))}
           </select>
-          <Ionicons name="chevron-down" size={18} color={appColors.textMuted} style={styles.webChevron} />
+          <Ionicons name="chevron-down" size={18} color={colors.textMuted} style={styles.webChevron} />
         </View>
       ) : (
         <>
@@ -86,7 +187,7 @@ export function AppSelect({
             <Text style={[styles.triggerText, !value ? styles.placeholderText : null]} numberOfLines={1}>
               {selectedLabel}
             </Text>
-            <Ionicons name="chevron-down" size={18} color={appColors.textMuted} />
+            <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
           </Pressable>
 
           <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -95,7 +196,7 @@ export function AppSelect({
                 <View style={styles.sheetHeader}>
                   <Text style={styles.sheetTitle}>{label}</Text>
                   <Pressable onPress={() => setOpen(false)} hitSlop={8}>
-                    <Ionicons name="close" size={22} color={appColors.textPrimary} />
+                    <Ionicons name="close" size={22} color={colors.textPrimary} />
                   </Pressable>
                 </View>
                 <FlatList
@@ -110,7 +211,7 @@ export function AppSelect({
                         <Text style={[styles.optionText, selected ? styles.optionTextSelected : null]}>
                           {item.label}
                         </Text>
-                        {selected ? <Ionicons name="checkmark" size={18} color={appColors.primary} /> : null}
+                        {selected ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
                       </Pressable>
                     );
                   }}
@@ -123,98 +224,3 @@ export function AppSelect({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: 6,
-    flex: 1,
-  },
-  label: {
-    color: appColors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  trigger: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(23, 29, 43, 0.12)',
-    backgroundColor: appColors.surfaceSoft,
-    paddingHorizontal: appTheme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  triggerPressed: {
-    backgroundColor: appColors.surface,
-    borderColor: appColors.primary,
-  },
-  triggerText: {
-    flex: 1,
-    color: appColors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  placeholderText: {
-    color: appColors.textMuted,
-    fontWeight: '500',
-  },
-  webSelectWrap: {
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  webChevron: {
-    position: 'absolute',
-    right: 14,
-    pointerEvents: 'none',
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.42)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    maxHeight: '70%',
-    backgroundColor: appColors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: appTheme.spacing.lg,
-    ...appShadows.card,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: appTheme.spacing.lg,
-    paddingVertical: appTheme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: appColors.border,
-  },
-  sheetTitle: {
-    color: appColors.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  optionRow: {
-    minHeight: 52,
-    paddingHorizontal: appTheme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  optionRowSelected: {
-    backgroundColor: appColors.primarySoft,
-  },
-  optionText: {
-    flex: 1,
-    color: appColors.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  optionTextSelected: {
-    color: appColors.primary,
-    fontWeight: '700',
-  },
-});

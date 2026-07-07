@@ -2,7 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import type { ProjectIconId } from '@/src/features/projects/project-icons';
-import { appColors, appShadows } from '@/src/theme/app-theme';
+
+const BUBBLE_SIZE = 44;
+const ICON_SIZE = 20;
+/** Padding around bubble so borders/shadows are not clipped by MapView.Marker snapshot. */
+export const MARKER_OUTER_PADDING = 32;
 
 type ProjectMapMarkerViewProps = {
   color: string;
@@ -17,57 +21,52 @@ export function ProjectMapMarkerView({
   selected = false,
   pendingReview = false,
 }: ProjectMapMarkerViewProps) {
+  const bubbleSize = selected ? BUBBLE_SIZE  : BUBBLE_SIZE;
+  const iconSize = selected ? ICON_SIZE  : ICON_SIZE;
+  const outerSize = bubbleSize + MARKER_OUTER_PADDING;
+
   return (
-    <View style={styles.wrap} pointerEvents="none">
+    <View
+      collapsable={false}
+      style={[
+        styles.markerOuter,
+        {
+          width: outerSize,
+          height: outerSize,
+          opacity: pendingReview ? 0.72 : 1,
+        },
+      ]}>
       <View
         style={[
           styles.bubble,
-          { backgroundColor: color },
-          selected ? styles.bubbleSelected : null,
+          {
+            width: bubbleSize-10,
+            height: bubbleSize-10,
+            borderRadius: bubbleSize / 2,
+            backgroundColor: color,
+            borderWidth: selected ? 4 : 2,
+          },
           pendingReview ? styles.bubblePending : null,
         ]}>
-        <Ionicons name={icon} size={18} color={appColors.textOnPrimary} />
+        <Ionicons name={icon} size={iconSize} color="#FFFFFF" />
       </View>
-      <View style={[styles.tail, { borderTopColor: color }, pendingReview ? styles.tailPending : null]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    width: 44,
-    height: 52,
+  markerOuter: {
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    overflow: 'visible',
   },
   bubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.92)',
-    ...appShadows.soft,
-  },
-  bubbleSelected: {
-    transform: [{ scale: 1.12 }],
+    overflow: 'visible',
     borderColor: '#FFFFFF',
   },
   bubblePending: {
     borderStyle: 'dashed',
-    borderColor: 'rgba(255,255,255,0.95)',
-  },
-  tail: {
-    width: 0,
-    height: 0,
-    marginTop: -2,
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderTopWidth: 10,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-  },
-  tailPending: {
-    opacity: 0.72,
   },
 });

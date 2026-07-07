@@ -12,7 +12,7 @@ import {
 } from '@/src/components/settings/settings-ui';
 import { envFlags } from '@/src/config/env';
 import { STORAGE_KEYS } from '@/src/constants/storage';
-import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import { secureStore } from '@/src/lib/secure-store';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useSettings, type FontScalePreference, type ThemePreference } from '@/src/store/settings-context';
@@ -32,10 +32,9 @@ const FONT_SCALE_LABELS: Record<FontScalePreference, string> = {
 
 export default function DrawerSettingsScreen() {
   const router = useRouter();
-  const { notify } = useAppFeedback();
-  const { activeResidentAccount, logout } = useAuthContext();
+  const canAccessPrivateFeatures = usePrivateRoute();
+  const { activeResidentAccount } = useAuthContext();
   const [isResetting, setIsResetting] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { settings, setFontScale, setHapticsEnabled, setTheme } = useSettings();
   const showDiagnostics = __DEV__ || envFlags.diagnosticsEnabled;
 
@@ -45,30 +44,19 @@ export default function DrawerSettingsScreen() {
     router.replace('/onboarding');
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-
-    try {
-      await logout();
-      await notify('Wylogowano', 'Wylogowano z konta mieszkanca.', 'success');
-      router.replace('/login-phone');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie wylogowac.';
-      await notify('Blad wylogowania', message, 'error');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
   const themes: ThemePreference[] = ['system', 'light', 'dark'];
   const fontScales: FontScalePreference[] = ['normal', 'large', 'xlarge'];
 
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   return (
-    <ScreenContainer title="Ustawienia" description="Wyglad, dostepnosc i konto.">
+    <ScreenContainer title="Ustawienia" description="Wygląd, dostępność i pomoc.">
       <View style={styles.sections}>
         <SettingsGroup
-          title="Wyglad"
-          footer="Motyw wplywa na kolorystyke interfejsu aplikacji.">
+          title="Wygląd"
+          footer="Motyw wpływa na kolorystykę interfejsu aplikacji.">
           <SettingsCard>
             {themes.map((theme) => (
               <SettingsCheckRow
@@ -89,8 +77,8 @@ export default function DrawerSettingsScreen() {
         </SettingsGroup>
 
         <SettingsGroup
-          title="Dostepnosc"
-          footer="Wiekszy tekst ulatwia czytanie tresci w calej aplikacji.">
+          title="Dostępność"
+          footer="Większy tekst ułatwia czytanie treści w całej aplikacji.">
           <SettingsCard>
             {fontScales.map((fontScale) => (
               <SettingsCheckRow
@@ -135,29 +123,14 @@ export default function DrawerSettingsScreen() {
           </SettingsGroup>
         ) : null}
 
-        <SettingsGroup
-          title="Konto"
-          footer={`Aktywny profil: ${activeResidentAccount?.label ?? 'brak wybranego'}`}>
+        <SettingsGroup title="Konto" footer="Zarządzanie profilem i sesją w sekcji Profil.">
           <SettingsCard>
             <SettingsRow
-              label="Profil mieszkanca"
+              label="Profil mieszkańca"
               icon="person-outline"
               value={activeResidentAccount?.label ?? 'Brak'}
-            />
-            <SettingsRow
-              label="Zmien profil"
-              icon="people-outline"
-              onPress={() => router.push('/select-resident-account')}
-              disabled={isLoggingOut}
+              onPress={() => router.push('/(drawer)/profile')}
               showChevron
-            />
-            <SettingsRow
-              label={isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
-              icon="log-out-outline"
-              onPress={() => void handleLogout()}
-              destructive
-              disabled={isLoggingOut}
-              loading={isLoggingOut}
             />
           </SettingsCard>
         </SettingsGroup>

@@ -1,25 +1,45 @@
 import { PropsWithChildren } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import type { Edge } from 'react-native-safe-area-context';
 
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { useSettings } from '@/src/store/settings-context';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type ScreenContainerProps = PropsWithChildren<{
   title: string;
   description?: string;
   softOverlay?: boolean;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 }>;
 
-export function ScreenContainer({ title, description, children, softOverlay = false }: ScreenContainerProps) {
+export function ScreenContainer({
+  title,
+  description,
+  children,
+  softOverlay = false,
+  contentContainerStyle,
+}: ScreenContainerProps) {
   const { fontScaleMultiplier } = useSettings();
+  const { colors } = useAppTheme();
+  const tabBarHeight = useBottomTabBarHeight();
+  const edges: Edge[] = tabBarHeight > 0 ? [] : ['bottom'];
 
   return (
-    <AppScreen cherryBackground softOverlay={softOverlay} scroll contentContainerStyle={styles.content}>
+    <AppScreen
+      cherryBackground
+      softOverlay={softOverlay}
+      scroll
+      edges={edges}
+      contentContainerStyle={[styles.content, contentContainerStyle]}>
       <View style={styles.headerPanel}>
-        <Text style={[styles.title, { fontSize: 28 * fontScaleMultiplier }]}>{title}</Text>
+        <Text style={[styles.title, { fontSize: 24 * fontScaleMultiplier, color: colors.textPrimary }]}>{title}</Text>
         {description ? (
-          <Text style={[styles.description, { fontSize: 15 * fontScaleMultiplier }]}>{description}</Text>
+          <Text style={[styles.description, { fontSize: 15 * fontScaleMultiplier, color: colors.textMuted }]}>
+            {description}
+          </Text>
         ) : null}
       </View>
       {children}
@@ -30,22 +50,21 @@ export function ScreenContainer({ title, description, children, softOverlay = fa
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
-    paddingHorizontal: appTheme.spacing.lg,
+    paddingHorizontal: appTheme.spacing.xl,
     paddingTop: appTheme.spacing.lg,
     paddingBottom: appTheme.spacing.xxl,
-    gap: appTheme.spacing.md,
+    gap: appTheme.spacing.lg,
   },
   headerPanel: {
-    gap: appTheme.spacing.sm,
+    gap: appTheme.spacing.xs,
     paddingBottom: appTheme.spacing.xs,
   },
   title: {
-    color: appColors.textPrimary,
     fontWeight: '900',
-    lineHeight: 34,
+    letterSpacing: -0.3,
+    lineHeight: 30,
   },
   description: {
-    color: appColors.textMuted,
     lineHeight: 22,
   },
 });

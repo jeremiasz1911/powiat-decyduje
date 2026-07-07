@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
-import { useEffect, useState, type ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, type ComponentProps } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
@@ -12,11 +12,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const TILE_GAP = 14;
+const TILE_WIDTH = 76;
+const TILE_GAP = 16;
 
 export type HomeTileConfig = {
   id: string;
@@ -28,11 +30,12 @@ export type HomeTileConfig = {
 };
 
 type HomeTileProps = HomeTileConfig & {
-  size: number;
+  floatDelay?: number;
 };
 
-export function HomeTile({ title, description, icon, route, size, floatDelay = 0 }: HomeTileProps) {
+export function HomeTile({ title, description, icon, route, floatDelay = 0 }: HomeTileProps) {
   const router = useRouter();
+  const { colors } = useAppTheme();
   const float = useSharedValue(0);
 
   useEffect(() => {
@@ -53,22 +56,15 @@ export function HomeTile({ title, description, icon, route, size, floatDelay = 0
   return (
     <AnimatedPressable
       onPress={() => router.push(route)}
-      style={({ pressed }) => [
-        styles.tile,
-        { width: size, height: size },
-        animatedStyle,
-        pressed ? styles.tilePressed : null,
-      ]}
+      style={({ pressed }) => [styles.tile, { opacity: pressed ? 0.7 : 1 }, animatedStyle]}
       accessibilityRole="button"
       accessibilityLabel={description ? `${title}. ${description}` : title}>
-      <View style={styles.content}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={40} color={appColors.primary} />
-        </View>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
+      <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={26} color={colors.primary} />
       </View>
+      <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+        {title}
+      </Text>
     </AnimatedPressable>
   );
 }
@@ -78,69 +74,46 @@ type HomeTileGridProps = {
 };
 
 export function HomeTileGrid({ tiles }: HomeTileGridProps) {
-  const [gridWidth, setGridWidth] = useState(0);
-  const tileSize = gridWidth > 0 ? Math.floor((gridWidth - TILE_GAP) / 2) : 0;
-
   return (
-    <View
-      style={styles.grid}
-      onLayout={(event) => {
-        const nextWidth = Math.floor(event.nativeEvent.layout.width);
-        if (nextWidth !== gridWidth) {
-          setGridWidth(nextWidth);
-        }
-      }}>
-      {tileSize > 0
-        ? tiles.map((tile, index) => (
-            <HomeTile key={tile.id} {...tile} size={tileSize} floatDelay={index * 180} />
-          ))
-        : null}
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.row}
+      style={styles.scroll}>
+      {tiles.map((tile, index) => (
+        <HomeTile key={tile.id} {...tile} floatDelay={index * 180} />
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: {
+  scroll: {
     width: '100%',
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'flex-start',
     gap: TILE_GAP,
-    paddingVertical: appTheme.spacing.sm,
+    paddingVertical: 4,
   },
   tile: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
-    overflow: 'hidden',
-    ...appShadows.card,
-  },
-  tilePressed: {
-    opacity: 0.9,
-    backgroundColor: appColors.surfaceSoft,
-  },
-  content: {
-    flex: 1,
+    width: TILE_WIDTH,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: appTheme.spacing.sm,
-    paddingVertical: appTheme.spacing.md,
-    gap: 12,
+    gap: 10,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
   },
   title: {
     width: '100%',
-    color: appColors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 16,
     textAlign: 'center',
   },
 });

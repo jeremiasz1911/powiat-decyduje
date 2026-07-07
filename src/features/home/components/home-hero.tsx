@@ -11,7 +11,8 @@ import Animated, {
 
 import { PowiatCountyLogoImage } from '@/src/components/brand/PowiatCountyLogoImage';
 import { PowiatLogoImage } from '@/src/components/brand/PowiatLogoImage';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 const LOGO_ASPECT = 1448 / 1086;
 
@@ -20,6 +21,7 @@ type HomeHeroProps = {
 };
 
 export function HomeHero({ residentLabel }: HomeHeroProps) {
+  const { colors, colorScheme } = useAppTheme();
   const { width: screenWidth } = useWindowDimensions();
   const logoWidth = Math.min(screenWidth * 0.34, 128);
   const logoHeight = Math.round(logoWidth * LOGO_ASPECT);
@@ -42,15 +44,25 @@ export function HomeHero({ residentLabel }: HomeHeroProps) {
   return (
     <View style={styles.hero}>
       <Animated.View style={[styles.logoWrap, logoStyle]}>
-        <PowiatLogoImage width={logoWidth} height={logoHeight} />
+        <PowiatLogoImage
+          width={logoWidth}
+          height={logoHeight}
+          variant={colorScheme === 'dark' ? 'dark' : 'light'}
+        />
       </Animated.View>
 
       <View style={styles.titleRow}>
-        <Text style={styles.appName}>Powiat Decyduje</Text>
+        <Text
+          style={[
+            styles.appName,
+            { color: colorScheme === 'dark' ? colors.textSecondary : colors.textPrimary },
+          ]}>
+          Powiat Decyduje
+        </Text>
         <PowiatCountyLogoImage height={40} maxWidth={40} style={styles.countyLogo} />
       </View>
-      <Text style={styles.greeting}>{greeting}</Text>
-      <Text style={styles.subline}>
+      <Text style={[styles.greeting, { color: colors.primary }]}>{greeting}</Text>
+      <Text style={[styles.subline, { color: colors.textMuted }]}>
         Twój głos ma znaczenie — współdecyduj o projektach realizowanych w powiecie mławskim.
       </Text>
     </View>
@@ -78,20 +90,17 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   appName: {
-    color: appColors.textPrimary,
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: -0.3,
     textAlign: 'center',
   },
   greeting: {
-    color: appColors.primary,
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
   },
   subline: {
-    color: appColors.textMuted,
     fontSize: 14,
     lineHeight: 21,
     textAlign: 'center',

@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PowiatCountyLogoImage } from '@/src/components/brand/PowiatCountyLogoImage';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type PowiatCountyPartnerSectionProps = {
   compact?: boolean;
@@ -14,12 +15,13 @@ export function PowiatCountyPartnerSection({
   showCaption = true,
   style,
 }: PowiatCountyPartnerSectionProps) {
+  const { colors } = useAppTheme();
   const logoHeight = compact ? 40 : 48;
 
   return (
     <View style={[styles.wrap, compact ? styles.wrapCompact : null, style]}>
       {showCaption ? (
-        <Text style={[styles.caption, compact ? styles.captionCompact : null]}>
+        <Text style={[styles.caption, compact ? styles.captionCompact : null, { color: colors.textMuted }]}>
           Projekt realizowany przy wsparciu Powiatu Mławskiego
         </Text>
       ) : null}
@@ -39,7 +41,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: appTheme.spacing.sm,
   },
   caption: {
-    color: appColors.textMuted,
     fontSize: 12,
     lineHeight: 17,
     textAlign: 'center',

@@ -9,14 +9,19 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isImageUpload() {
+    function isValidImageUpload() {
       return request.resource.size < 10 * 1024 * 1024 &&
-        request.resource.contentType.matches('image/.*');
+        (
+          !('contentType' in request.resource) ||
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType == 'application/octet-stream'
+        );
     }
 
     match /projects/{userId}/{fileName} {
       allow read: if true;
-      allow write: if isOwner(userId) && isImageUpload();
+      allow create, update: if isOwner(userId) && isValidImageUpload();
+      allow delete: if isOwner(userId);
     }
   }
 }

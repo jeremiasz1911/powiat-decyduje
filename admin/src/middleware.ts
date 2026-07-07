@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/auth';
 
-const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+const PUBLIC_PATHS = ['/', '/login', '/api/auth/login'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,8 +11,12 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
+    pathname.startsWith('/landing') ||
     pathname.endsWith('.ico') ||
-    pathname.endsWith('.svg')
+    pathname.endsWith('.svg') ||
+    pathname.endsWith('.png') ||
+    pathname.endsWith('.jpg') ||
+    pathname.endsWith('.webp')
   ) {
     return NextResponse.next();
   }
@@ -27,10 +31,6 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === '/' && isAuthenticated) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  if (pathname === '/' && !isAuthenticated) {
-    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (!isPublic && !isAuthenticated) {

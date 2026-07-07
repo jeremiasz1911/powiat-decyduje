@@ -1,19 +1,95 @@
+import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { appColors } from '@/src/theme/app-theme';
+import { useAppTheme, type ResolvedColorScheme } from '@/src/theme/theme-context';
+
+function decorOpacity(colorScheme: ResolvedColorScheme) {
+  if (colorScheme === 'light') {
+    return {
+      petalOne: 0.22,
+      petalTwo: 0.17,
+      petalThree: 0.14,
+      circleOne: 0.18,
+      circleTwo: 0.13,
+      lineOne: 0.24,
+      lineTwo: 0.18,
+      dot: 0.15,
+    };
+  }
+
+  return {
+    petalOne: 0.16,
+    petalTwo: 0.12,
+    petalThree: 0.1,
+    circleOne: 0.14,
+    circleTwo: 0.1,
+    lineOne: 0.18,
+    lineTwo: 0.14,
+    dot: 0.12,
+  };
+}
 
 export function CherryBackground() {
+  const { colors, colorScheme } = useAppTheme();
+  const opacity = useMemo(() => decorOpacity(colorScheme), [colorScheme]);
+
   return (
     <View style={styles.root} pointerEvents="none">
-      <View style={[styles.petal, styles.petalOne]} />
-      <View style={[styles.petal, styles.petalTwo]} />
-      <View style={[styles.petal, styles.petalThree]} />
-      <View style={[styles.circle, styles.circleOne]} />
-      <View style={[styles.circle, styles.circleTwo]} />
-      <View style={[styles.line, styles.lineOne]} />
-      <View style={[styles.line, styles.lineTwo]} />
-      <View style={[styles.dot, styles.dotOne]} />
-      <View style={[styles.dot, styles.dotTwo]} />
+      <View
+        style={[
+          styles.petal,
+          styles.petalOne,
+          { backgroundColor: colors.cherrySoft, opacity: opacity.petalOne },
+        ]}
+      />
+      <View
+        style={[
+          styles.petal,
+          styles.petalTwo,
+          { backgroundColor: colors.cherrySoft, opacity: opacity.petalTwo },
+        ]}
+      />
+      <View
+        style={[
+          styles.petal,
+          styles.petalThree,
+          { backgroundColor: colors.cherrySoft, opacity: opacity.petalThree },
+        ]}
+      />
+      <View
+        style={[
+          styles.circle,
+          styles.circleOne,
+          { borderColor: colors.cherryLine, opacity: opacity.circleOne },
+        ]}
+      />
+      <View
+        style={[
+          styles.circle,
+          styles.circleTwo,
+          { borderColor: colors.cherryLine, opacity: opacity.circleTwo },
+        ]}
+      />
+      <View
+        style={[
+          styles.line,
+          styles.lineOne,
+          { backgroundColor: colors.cherryLine, opacity: opacity.lineOne },
+        ]}
+      />
+      <View
+        style={[
+          styles.line,
+          styles.lineTwo,
+          { backgroundColor: colors.cherryLine, opacity: opacity.lineTwo },
+        ]}
+      />
+      <View
+        style={[styles.dot, styles.dotOne, { backgroundColor: colors.cherry, opacity: opacity.dot }]}
+      />
+      <View
+        style={[styles.dot, styles.dotTwo, { backgroundColor: colors.cherry, opacity: opacity.dot }]}
+      />
     </View>
   );
 }
@@ -26,14 +102,12 @@ const styles = StyleSheet.create({
   petal: {
     position: 'absolute',
     borderRadius: 999,
-    backgroundColor: appColors.cherrySoft,
   },
   petalOne: {
     width: 90,
     height: 32,
     top: '10%',
     right: -12,
-    opacity: 0.16,
     transform: [{ rotate: '-24deg' }],
   },
   petalTwo: {
@@ -41,7 +115,6 @@ const styles = StyleSheet.create({
     height: 26,
     top: '34%',
     left: -18,
-    opacity: 0.12,
     transform: [{ rotate: '18deg' }],
   },
   petalThree: {
@@ -49,14 +122,12 @@ const styles = StyleSheet.create({
     height: 22,
     bottom: '18%',
     right: '8%',
-    opacity: 0.1,
     transform: [{ rotate: '-12deg' }],
   },
   circle: {
     position: 'absolute',
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: appColors.cherryLine,
     backgroundColor: 'transparent',
   },
   circleOne: {
@@ -64,39 +135,32 @@ const styles = StyleSheet.create({
     height: 120,
     top: -30,
     left: -24,
-    opacity: 0.14,
   },
   circleTwo: {
     width: 88,
     height: 88,
     bottom: '12%',
     left: '10%',
-    opacity: 0.1,
   },
   line: {
     position: 'absolute',
     height: 1,
-    backgroundColor: appColors.cherryLine,
   },
   lineOne: {
     width: 110,
     top: '22%',
     left: -20,
-    opacity: 0.18,
     transform: [{ rotate: '-16deg' }],
   },
   lineTwo: {
     width: 96,
     bottom: '28%',
     right: -10,
-    opacity: 0.14,
     transform: [{ rotate: '14deg' }],
   },
   dot: {
     position: 'absolute',
     borderRadius: 999,
-    backgroundColor: appColors.cherry,
-    opacity: 0.12,
   },
   dotOne: {
     width: 6,

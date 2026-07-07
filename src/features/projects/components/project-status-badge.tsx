@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { getProjectStatusLabel, getProjectStatusTone } from '@/src/features/projects/utils';
-import { appColors } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 type ProjectStatusBadgeProps = {
   status?: string | null;
@@ -9,36 +9,37 @@ type ProjectStatusBadgeProps = {
 };
 
 export function ProjectStatusBadge({ status, style }: ProjectStatusBadgeProps) {
+  const { colors } = useAppTheme();
   const label = getProjectStatusLabel(status);
   const tone = getProjectStatusTone(status);
 
+  const toneStyles = {
+    positive: {
+      badge: { backgroundColor: colors.primarySoft },
+      text: { color: colors.primary },
+    },
+    done: {
+      badge: { backgroundColor: 'rgba(34, 197, 94, 0.12)' },
+      text: { color: colors.success },
+    },
+    negative: {
+      badge: { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
+      text: { color: colors.danger },
+    },
+    neutral: {
+      badge: { backgroundColor: colors.surfaceSoft },
+      text: { color: colors.textSecondary },
+    },
+  }[tone];
+
   return (
-    <View style={[styles.badge, TONE_STYLES[tone].badge, style]}>
-      <Text style={[styles.text, TONE_STYLES[tone].text]} numberOfLines={1}>
+    <View style={[styles.badge, toneStyles.badge, style]}>
+      <Text style={[styles.text, toneStyles.text]} numberOfLines={1}>
         {label}
       </Text>
     </View>
   );
 }
-
-const TONE_STYLES = {
-  positive: StyleSheet.create({
-    badge: { backgroundColor: appColors.primarySoft },
-    text: { color: appColors.primary },
-  }),
-  done: StyleSheet.create({
-    badge: { backgroundColor: 'rgba(34, 197, 94, 0.12)' },
-    text: { color: '#15803D' },
-  }),
-  negative: StyleSheet.create({
-    badge: { backgroundColor: 'rgba(239, 68, 68, 0.12)' },
-    text: { color: appColors.danger },
-  }),
-  neutral: StyleSheet.create({
-    badge: { backgroundColor: appColors.surfaceSoft },
-    text: { color: appColors.textSecondary },
-  }),
-};
 
 const styles = StyleSheet.create({
   badge: {

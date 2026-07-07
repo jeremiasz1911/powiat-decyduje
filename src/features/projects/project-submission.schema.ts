@@ -14,8 +14,10 @@ export const projectSubmissionSchema = z.object({
   village: z.string().min(2, 'Podaj miejscowosc'),
   cost: z
     .string()
-    .min(1, 'Podaj koszt')
-    .refine((value) => /^\d+(\.\d{1,2})?$/.test(value), 'Koszt musi byc poprawna liczba'),
+    .refine(
+      (value) => value.trim() === '' || /^\d+(\.\d{1,2})?$/.test(value.trim()),
+      'Koszt musi byc poprawna liczba'
+    ),
   location: z.object({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),

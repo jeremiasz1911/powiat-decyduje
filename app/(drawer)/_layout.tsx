@@ -1,4 +1,4 @@
-import { Divider, Text, VStack } from '@gluestack-ui/themed';
+import { Text, VStack } from '@gluestack-ui/themed';
 import { DrawerContentScrollView, DrawerItem, type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { useRouter, useSegments } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
@@ -6,12 +6,14 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { envFlags } from '@/src/config/env';
-import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { DecoratedScreenBackground } from '@/src/components/layout/decorated-screen-background';
 import { drawerNavIcons } from '@/src/navigation/nav-icons';
 import { useAuthContext } from '@/src/store/auth-context';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { LoginRequiredProvider } from '@/src/store/login-required-context';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
-type DrawerNavKey = 'start' | 'map' | 'my-votes' | 'settings' | 'profile' | 'my-projects' | 'diagnostics';
+type DrawerNavKey = 'start' | 'map' | 'projects' | 'about' | 'login' | 'my-votes' | 'settings' | 'profile' | 'my-projects' | 'diagnostics';
 
 function resolveActiveDrawerKey(segments: string[]): DrawerNavKey | null {
   const last = segments[segments.length - 1] ?? '';
@@ -22,6 +24,12 @@ function resolveActiveDrawerKey(segments: string[]): DrawerNavKey | null {
       return 'start';
     case 'map':
       return 'map';
+    case 'projects':
+      return 'projects';
+    case 'about':
+      return 'about';
+    case 'login-entry':
+      return 'login';
     case 'my-votes':
       return 'my-votes';
     case 'settings':
@@ -42,20 +50,9 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
   const segments = useSegments();
   const activeKey = resolveActiveDrawerKey(segments);
   const { navigation } = props;
-  const { notify } = useAppFeedback();
-  const { activeResidentAccount, logout } = useAuthContext();
+  const { activeResidentAccount, isGuest } = useAuthContext();
+  const { colors } = useAppTheme();
   const showDiagnostics = __DEV__ || envFlags.diagnosticsEnabled;
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      await notify('Wylogowano', 'Wylogowano z konta mieszkanca.', 'success');
-      router.replace('/login-phone');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie wylogowac.';
-      await notify('Blad wylogowania', message, 'error');
-    }
-  };
 
   const goTo = (key: DrawerNavKey) => {
     switch (key) {
@@ -64,6 +61,16 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
         break;
       case 'map':
         navigation.navigate('(tabs)', { screen: 'map' });
+        break;
+      case 'projects':
+        navigation.navigate('(tabs)', { screen: 'projects' });
+        break;
+      case 'about':
+        navigation.navigate('(tabs)', { screen: 'about' });
+        break;
+      case 'login':
+        navigation.closeDrawer();
+        router.push('/login-phone');
         break;
       case 'my-votes':
         navigation.navigate('(tabs)', { screen: 'my-votes' });
@@ -91,93 +98,86 @@ function AppDrawerContent(props: DrawerContentComponentProps) {
       focused={activeKey === key}
       onPress={() => goTo(key)}
       icon={({ color, size }) => icon(color, size)}
-      activeTintColor={appTheme.colors.primary}
-      inactiveTintColor={appTheme.colors.textMuted}
-      activeBackgroundColor="rgba(227, 6, 19, 0.1)"
-      labelStyle={styles.drawerLabel}
+      activeTintColor={colors.primary}
+      inactiveTintColor={colors.textMuted}
+      activeBackgroundColor={colors.primarySoft}
+      labelStyle={[styles.drawerLabel, { color: colors.textPrimary }]}
       style={styles.drawerItem}
     />
   );
 
   return (
-    <SafeAreaView style={styles.drawerSafeArea} edges={['top', 'bottom', 'left']}>
-      <DrawerContentScrollView
-        {...props}
-        contentContainerStyle={styles.drawerScrollContent}
-        scrollEnabled>
+    <View style={styles.drawerRoot}>
+      <DecoratedScreenBackground />
+      <SafeAreaView style={styles.drawerSafeArea} edges={['top', 'bottom', 'left']}>
+        <DrawerContentScrollView
+          {...props}
+          style={styles.drawerScroll}
+          contentContainerStyle={styles.drawerScrollContent}
+          scrollEnabled>
         <VStack space="md" px="$3">
-          <View style={styles.accountCard}>
+          <View style={styles.accountHeader}>
             <VStack space="xs">
-              <Text color={appTheme.colors.textPrimary} fontWeight="$bold">
-                Konto
+              <Text color={colors.textPrimary} fontWeight="$bold" fontSize={17}>
+                {isGuest ? 'Tryb gościa' : 'Powiat Decyduje'}
               </Text>
-              <Text color={appTheme.colors.textMuted}>
-                Profil: {activeResidentAccount?.label ?? 'Brak wybranego'}
-              </Text>
-              <Text color={appTheme.colors.textMuted}>
-                PESEL: {activeResidentAccount?.pesel ?? '-'}
-              </Text>
+              {isGuest ? (
+                <Text color={colors.textMuted} fontSize={14}>
+                  Przeglądasz aplikację bez logowania.
+                </Text>
+              ) : (
+                <>
+                  <Text color={colors.textMuted} fontSize={14}>
+                    {activeResidentAccount?.label ?? 'Brak wybranego profilu'}
+                  </Text>
+                </>
+              )}
             </VStack>
           </View>
 
-          {renderNavItem('start', 'Start', drawerNavIcons.home)}
+          {!isGuest ? renderNavItem('start', 'Start', drawerNavIcons.home) : null}
           {renderNavItem('map', 'Mapa', drawerNavIcons.map)}
-          {renderNavItem('my-votes', 'Głosy', drawerNavIcons.myVotes)}
-          {renderNavItem('settings', 'Ustawienia', drawerNavIcons.settings)}
-          {renderNavItem('profile', 'Profil', drawerNavIcons.profile)}
-          {renderNavItem('my-projects', 'Moje projekty', drawerNavIcons.myProjects)}
+          {renderNavItem('projects', 'Projekty', drawerNavIcons.projects)}
+          {isGuest ? renderNavItem('about', 'O aplikacji', drawerNavIcons.about) : null}
+          {isGuest ? renderNavItem('login', 'Zaloguj się', drawerNavIcons.login) : null}
+          {!isGuest ? renderNavItem('my-votes', 'Głosy', drawerNavIcons.myVotes) : null}
+          {!isGuest ? renderNavItem('my-projects', 'Moje projekty', drawerNavIcons.myProjects) : null}
+          {!isGuest ? renderNavItem('profile', 'Profil', drawerNavIcons.profile) : null}
+          {!isGuest ? renderNavItem('settings', 'Ustawienia', drawerNavIcons.settings) : null}
           {showDiagnostics ? renderNavItem('diagnostics', 'Diagnostyka', drawerNavIcons.diagnostics) : null}
-
-          <Divider bg={appTheme.colors.border} />
-
-          <DrawerItem
-            label="Zmien profil mieszkanca"
-            onPress={() => {
-              navigation.closeDrawer();
-              router.push('/select-resident-account');
-            }}
-            icon={({ color, size }) => drawerNavIcons.switchProfile(color, size)}
-            inactiveTintColor={appTheme.colors.textMuted}
-            labelStyle={styles.drawerLabel}
-            style={styles.drawerItem}
-          />
-          <DrawerItem
-            label="Wyloguj"
-            onPress={() => {
-              navigation.closeDrawer();
-              void handleLogout();
-            }}
-            icon={({ size }) => drawerNavIcons.logout(appTheme.colors.danger, size)}
-            inactiveTintColor={appTheme.colors.textMuted}
-            labelStyle={styles.drawerLabelDanger}
-            style={styles.drawerItem}
-          />
         </VStack>
       </DrawerContentScrollView>
     </SafeAreaView>
+    </View>
   );
 }
 
 export default function DrawerLayout() {
   const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
 
   return (
+    <LoginRequiredProvider>
     <Drawer
       drawerContent={(props) => <AppDrawerContent {...props} />}
       screenOptions={{
         headerShown: true,
         swipeEnabled: true,
+        sceneContainerStyle: {
+          backgroundColor: colors.background,
+        },
         headerStatusBarHeight: insets.top,
         headerStyle: {
-          backgroundColor: appTheme.colors.background,
+          backgroundColor: colors.background,
         },
-        headerTintColor: appTheme.colors.textPrimary,
+        headerTintColor: colors.textPrimary,
         headerShadowVisible: false,
         headerTitleStyle: {
           fontWeight: '700',
+          color: colors.textPrimary,
         },
         drawerStyle: {
-          backgroundColor: appTheme.colors.background,
+          backgroundColor: 'transparent',
           width: 292,
         },
         drawerItemStyle: { display: 'none' },
@@ -252,38 +252,37 @@ export default function DrawerLayout() {
         }}
       />
     </Drawer>
+    </LoginRequiredProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  drawerRoot: {
+    flex: 1,
+  },
   drawerSafeArea: {
     flex: 1,
-    backgroundColor: appTheme.colors.background,
+    backgroundColor: 'transparent',
+  },
+  drawerScroll: {
+    backgroundColor: 'transparent',
   },
   drawerScrollContent: {
     flexGrow: 1,
     paddingTop: appTheme.spacing.sm,
     paddingBottom: appTheme.spacing.lg,
   },
-  accountCard: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
-    borderRadius: 14,
-    padding: appTheme.spacing.md,
+  accountHeader: {
+    paddingHorizontal: appTheme.spacing.xs,
+    paddingBottom: appTheme.spacing.sm,
+    marginBottom: appTheme.spacing.xs,
   },
   drawerItem: {
     borderRadius: 10,
     marginHorizontal: 0,
   },
   drawerLabel: {
-    color: appTheme.colors.textPrimary,
     fontWeight: '600',
-    fontSize: 15,
-  },
-  drawerLabelDanger: {
-    color: appColors.danger,
-    fontWeight: '700',
     fontSize: 15,
   },
 });

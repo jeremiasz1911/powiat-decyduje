@@ -3,9 +3,17 @@ import * as ImagePicker from 'expo-image-picker';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
-import { useMemo, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Controller, useForm, type FieldErrors } from 'react-hook-form';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { ErrorState } from '@/src/components/feedback-state';
 import { AppScreen } from '@/src/components/layout/app-screen';
@@ -16,6 +24,7 @@ import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { DescriptionEditorModal } from '@/src/features/projects/components/description-editor-modal';
 import { MarkerColorPicker } from '@/src/features/projects/components/marker-color-picker';
 import { SubmitFormSection } from '@/src/features/projects/components/submit-form-section';
+import { createSubmitProjectStyles } from '@/src/features/projects/components/submit-project-themed-styles';
 import { PROJECT_CATEGORIES, PROJECT_COMMUNES } from '@/src/features/projects/constants';
 import {
   DEFAULT_PROJECT_ICON,
@@ -27,9 +36,11 @@ import {
   type ProjectSubmissionFormValues,
 } from '@/src/features/projects/project-submission.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { createProject, ensureAnonymousAuth } from '@/src/services';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
+import { createProject, requireSignedInUser } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 const MAX_PROJECT_IMAGES = 5;
 const MAX_DESCRIPTION_LENGTH = 5000;
@@ -37,9 +48,81 @@ const MAX_DESCRIPTION_LENGTH = 5000;
 const DESCRIPTION_PLACEHOLDER =
   'Opisz problem, który chcesz rozwiązać. Wyjaśnij, na czym polega projekt, kto z niego skorzysta i jakie przyniesie korzyści mieszkańcom.';
 
+type SubmitSectionKey =
+  | 'title'
+  | 'description'
+  | 'category'
+  | 'icon'
+  | 'markerColor'
+  | 'location'
+  | 'cost'
+  | 'images';
+
+const FORM_FIELD_SECTION: Record<keyof ProjectSubmissionFormValues, SubmitSectionKey> = {
+  title: 'title',
+  description: 'description',
+  category: 'category',
+  icon: 'icon',
+  markerColor: 'markerColor',
+  locationLabel: 'location',
+  commune: 'location',
+  village: 'location',
+  location: 'location',
+  cost: 'cost',
+  imageUris: 'images',
+};
+
+const FORM_FIELD_ORDER: (keyof ProjectSubmissionFormValues)[] = [
+  'title',
+  'description',
+  'category',
+  'icon',
+  'markerColor',
+  'locationLabel',
+  'commune',
+  'village',
+  'location',
+  'cost',
+  'imageUris',
+];
+
+function getFirstInvalidField(
+  formErrors: FieldErrors<ProjectSubmissionFormValues>
+): keyof ProjectSubmissionFormValues | null {
+  for (const field of FORM_FIELD_ORDER) {
+    if (formErrors[field]) {
+      return field;
+    }
+  }
+  return null;
+}
+
+function getFieldErrorMessage(
+  formErrors: FieldErrors<ProjectSubmissionFormValues>,
+  field: keyof ProjectSubmissionFormValues
+): string | undefined {
+  const error = formErrors[field];
+  if (!error) {
+    return undefined;
+  }
+  if (typeof error.message === 'string') {
+    return error.message;
+  }
+  if (field === 'location' && error && typeof error === 'object') {
+    const nested = Object.values(error).find(
+      (item) => item && typeof item === 'object' && 'message' in item && typeof item.message === 'string'
+    );
+    return nested && typeof nested.message === 'string' ? nested.message : undefined;
+  }
+  return undefined;
+}
+
 export default function SubmitProjectScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { colors } = useAppTheme();
+  const canAccessPrivateFeatures = usePrivateRoute();
+  const themed = useMemo(() => createSubmitProjectStyles(colors), [colors]);
   const { activeResidentAccount } = useAuthContext();
   const params = useLocalSearchParams<{ latitude?: string; longitude?: string }>();
 
@@ -51,6 +134,41 @@ export default function SubmitProjectScreen() {
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionFocused, setDescriptionFocused] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionsRef = useRef<View>(null);
+  const sectionRefs = useRef<Partial<Record<SubmitSectionKey, View | null>>>({});
+
+  const setSectionRef = (section: SubmitSectionKey) => (node: View | null) => {
+    sectionRefs.current[section] = node;
+  };
+
+  const scrollToFirstError = (formErrors: FieldErrors<ProjectSubmissionFormValues>) => {
+    const firstField = getFirstInvalidField(formErrors);
+    if (!firstField) {
+      return;
+    }
+
+    const section = FORM_FIELD_SECTION[firstField];
+    const sectionNode = sectionRefs.current[section];
+    const containerNode = sectionsRef.current;
+    const message = getFieldErrorMessage(formErrors, firstField);
+
+    if (sectionNode && containerNode) {
+      sectionNode.measureLayout(
+        containerNode,
+        (_x, y) => {
+          scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true });
+        },
+        () => {
+          scrollRef.current?.scrollTo({ y: 0, animated: true });
+        }
+      );
+    }
+
+    if (message) {
+      void notify('Uzupełnij formularz', message, 'error');
+    }
+  };
 
   const defaultValues = useMemo<ProjectSubmissionFormValues>(
     () => ({
@@ -172,16 +290,17 @@ export default function SubmitProjectScreen() {
   const onSubmit = async (values: ProjectSubmissionFormValues) => {
     setSubmitError(null);
     try {
+      const user = await requireSignedInUser();
+
       if (!activeResidentAccount) {
-        throw new Error('Wybierz aktywne konto mieszkańca, aby zgłosić projekt.');
+        throw new Error('Wybierz profil mieszkańca, aby zgłosić projekt.');
       }
 
-      const user = await ensureAnonymousAuth();
       await createProject({
         userId: user.uid,
         residentAccountId: activeResidentAccount.id,
         residentPesel: activeResidentAccount.pesel,
-        residentLabel: activeResidentAccount.label ?? activeResidentAccount.fullName,
+        residentLabel: activeResidentAccount.label ?? activeResidentAccount.fullName ?? 'Mieszkaniec',
         title: values.title,
         description: values.description,
         category: values.category,
@@ -190,7 +309,7 @@ export default function SubmitProjectScreen() {
         locationLabel: values.locationLabel,
         commune: values.commune,
         village: values.village,
-        cost: Number(values.cost),
+        cost: values.cost.trim() ? Number(values.cost) : 0,
         location: values.location,
         imageUris: values.imageUris,
       });
@@ -204,7 +323,9 @@ export default function SubmitProjectScreen() {
     } catch (error) {
       const message =
         error instanceof FirebaseError
-          ? `${error.message} [${error.code}]`
+          ? error.code === 'permission-denied'
+            ? 'Brak uprawnień do zapisu projektu lub zdjęć. Wdróż reguły: firebase deploy --only firestore:rules,storage'
+            : `${error.message} [${error.code}]`
           : error instanceof Error
             ? error.message
             : 'Nieznany błąd zapisu projektu.';
@@ -213,24 +334,34 @@ export default function SubmitProjectScreen() {
     }
   };
 
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   return (
-    <AppScreen cherryBackground scroll keyboardAvoiding contentContainerStyle={styles.content}>
-      <View style={styles.sections}>
+    <AppScreen
+      cherryBackground
+      scroll
+      keyboardAvoiding
+      scrollRef={scrollRef}
+      contentContainerStyle={styles.content}>
+      <View ref={sectionsRef} style={styles.sections}>
         <SettingsCard style={styles.heroCard}>
           <View style={styles.hero}>
-            <View style={styles.heroIconWrap}>
-              <Ionicons name="bulb-outline" size={28} color={appColors.primary} />
+            <View style={themed.heroIconWrap}>
+              <Ionicons name="bulb-outline" size={28} color={colors.primary} />
             </View>
             <View style={styles.heroBody}>
-              <Text style={styles.heroTitle}>Zgłoś projekt</Text>
-              <Text style={styles.heroText}>
-                Masz pomysł, który może poprawić życie mieszkańców? Wypełnij formularz i zgłoś swój
-                projekt do Budżetu Obywatelskiego.
+              <Text style={themed.heroTitle}>Zgłoś projekt</Text>
+              <Text style={themed.heroText}>
+                Masz pomysł, który może poprawić życie mieszkańców? Wypełnij formularz i zgłoś swój projekt do
+                Budżetu Obywatelskiego.
               </Text>
             </View>
           </View>
         </SettingsCard>
 
+        <View ref={setSectionRef('title')}>
         <SettingsGroup title="Podstawowe informacje">
           <SubmitFormSection
             icon="document-text-outline"
@@ -251,7 +382,9 @@ export default function SubmitProjectScreen() {
             />
           </SubmitFormSection>
         </SettingsGroup>
+        </View>
 
+        <View ref={setSectionRef('description')}>
         <SettingsGroup title="Opis projektu">
           <SubmitFormSection
             icon="create-outline"
@@ -265,9 +398,9 @@ export default function SubmitProjectScreen() {
                 <>
                   <View
                     style={[
-                      styles.descriptionWrap,
-                      descriptionFocused ? styles.descriptionWrapFocused : null,
-                      errors.description ? styles.descriptionWrapError : null,
+                      themed.descriptionWrap,
+                      descriptionFocused ? themed.descriptionWrapFocused : null,
+                      errors.description ? themed.descriptionWrapError : null,
                     ]}>
                     <TextInput
                       value={value}
@@ -278,26 +411,26 @@ export default function SubmitProjectScreen() {
                       }}
                       onFocus={() => setDescriptionFocused(true)}
                       placeholder={DESCRIPTION_PLACEHOLDER}
-                      placeholderTextColor={appColors.placeholder}
+                      placeholderTextColor={colors.placeholder}
                       multiline
                       maxLength={MAX_DESCRIPTION_LENGTH}
                       textAlignVertical="top"
-                      style={styles.descriptionInput}
+                      style={themed.descriptionInput}
                     />
                   </View>
                   <View style={styles.descriptionMeta}>
-                    <Text style={styles.charCount}>
+                    <Text style={themed.charCount}>
                       {descriptionValue.length} / {MAX_DESCRIPTION_LENGTH}
                     </Text>
                     <Pressable
                       onPress={() => setIsDescriptionModalOpen(true)}
                       style={({ pressed }) => [styles.advancedEditorLink, pressed ? styles.pressed : null]}
                       hitSlop={6}>
-                      <Ionicons name="expand-outline" size={14} color={appColors.primary} />
-                      <Text style={styles.advancedEditorText}>Edytor zaawansowany</Text>
+                      <Ionicons name="expand-outline" size={14} color={colors.primary} />
+                      <Text style={themed.advancedEditorText}>Edytor zaawansowany</Text>
                     </Pressable>
                   </View>
-                  <Text style={styles.fieldHint}>
+                  <Text style={themed.fieldHint}>
                     W edytorze zaawansowanym możesz używać pogrubienia, list i nagłówków.
                   </Text>
                   <DescriptionEditorModal
@@ -315,9 +448,11 @@ export default function SubmitProjectScreen() {
             />
           </SubmitFormSection>
         </SettingsGroup>
+        </View>
 
         <SettingsGroup title="Kategoria i ikona">
           <View style={styles.groupSections}>
+          <View ref={setSectionRef('category')}>
           <SubmitFormSection
             icon="pricetag-outline"
             title="Kategoria"
@@ -330,11 +465,11 @@ export default function SubmitProjectScreen() {
                     key={category}
                     onPress={() => setValue('category', category, { shouldValidate: true })}
                     style={({ pressed }) => [
-                      styles.chip,
-                      selected ? styles.chipSelected : null,
+                      themed.chip,
+                      selected ? themed.chipSelected : null,
                       pressed ? styles.pressed : null,
                     ]}>
-                    <Text style={[styles.chipText, selected ? styles.chipTextSelected : null]}>
+                    <Text style={[themed.chipText, selected ? themed.chipTextSelected : null]}>
                       {category}
                     </Text>
                   </Pressable>
@@ -342,21 +477,23 @@ export default function SubmitProjectScreen() {
               })}
             </View>
           </SubmitFormSection>
+          </View>
 
+          <View ref={setSectionRef('icon')}>
           <SubmitFormSection icon="apps-outline" title="Ikona projektu" error={errors.icon?.message}>
             <Pressable
               onPress={() => setIsIconPickerOpen((prev) => !prev)}
-              style={({ pressed }) => [styles.iconTrigger, pressed ? styles.pressed : null]}>
+              style={({ pressed }) => [themed.iconTrigger, pressed ? styles.pressed : null]}>
               <View style={styles.iconTriggerLeft}>
-                <View style={styles.iconTriggerBadge}>
-                  <Ionicons name={selectedIcon} size={20} color={appColors.primary} />
+                <View style={themed.iconTriggerBadge}>
+                  <Ionicons name={selectedIcon} size={20} color={colors.primary} />
                 </View>
-                <Text style={styles.iconTriggerText}>Wybierz ikonę projektu</Text>
+                <Text style={themed.iconTriggerText}>Wybierz ikonę projektu</Text>
               </View>
               <Ionicons
                 name={isIconPickerOpen ? 'chevron-up' : 'chevron-down'}
                 size={18}
-                color={appColors.textMuted}
+                color={colors.textMuted}
               />
             </Pressable>
             {isIconPickerOpen ? (
@@ -371,15 +508,15 @@ export default function SubmitProjectScreen() {
                         setIsIconPickerOpen(false);
                       }}
                       style={({ pressed }) => [
-                        styles.iconOption,
-                        selected ? styles.iconOptionSelected : null,
+                        themed.iconOption,
+                        selected ? themed.iconOptionSelected : null,
                         pressed ? styles.pressed : null,
                       ]}
                       accessibilityLabel={option.label}>
                       <Ionicons
                         name={option.id}
                         size={20}
-                        color={selected ? appColors.primary : appColors.textSecondary}
+                        color={selected ? colors.primary : colors.textSecondary}
                       />
                     </Pressable>
                   );
@@ -387,7 +524,9 @@ export default function SubmitProjectScreen() {
               </View>
             ) : null}
           </SubmitFormSection>
+          </View>
 
+          <View ref={setSectionRef('markerColor')}>
           <SubmitFormSection
             icon="color-palette-outline"
             title="Kolor pinezki na mapie"
@@ -402,8 +541,10 @@ export default function SubmitProjectScreen() {
             />
           </SubmitFormSection>
           </View>
+          </View>
         </SettingsGroup>
 
+        <View ref={setSectionRef('location')}>
         <SettingsGroup title="Lokalizacja">
           <SubmitFormSection
             icon="location-outline"
@@ -435,7 +576,7 @@ export default function SubmitProjectScreen() {
                     placeholder="Wybierz gminę"
                   />
                   {errors.commune?.message ? (
-                    <Text style={styles.inlineError}>{errors.commune.message}</Text>
+                    <Text style={themed.inlineError}>{errors.commune.message}</Text>
                   ) : null}
                 </>
               )}
@@ -453,21 +594,23 @@ export default function SubmitProjectScreen() {
                 />
               )}
             />
-            <View style={styles.coordsBox}>
-              <Ionicons name="navigate-outline" size={16} color={appColors.textMuted} />
-              <Text style={styles.coordsText}>
+            <View style={themed.coordsBox}>
+              <Ionicons name="navigate-outline" size={16} color={colors.textMuted} />
+              <Text style={themed.coordsText}>
                 Współrzędne z mapy: {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
               </Text>
             </View>
-            {errors.location ? <Text style={styles.inlineError}>Nieprawidłowa lokalizacja</Text> : null}
+            {errors.location ? <Text style={themed.inlineError}>Nieprawidłowa lokalizacja</Text> : null}
           </SubmitFormSection>
         </SettingsGroup>
+        </View>
 
+        <View ref={setSectionRef('cost')}>
         <SettingsGroup title="Budżet">
           <SubmitFormSection
             icon="cash-outline"
-            title="Szacowany koszt"
-            description="Podaj orientacyjną wartość projektu w PLN."
+            title="Szacowany koszt (opcjonalnie)"
+            description="Podaj orientacyjną wartość projektu w PLN, jeśli ją znasz."
             error={errors.cost?.message}>
             <Controller
               control={control}
@@ -477,48 +620,50 @@ export default function SubmitProjectScreen() {
                   value={value}
                   onBlur={onBlur}
                   onChangeText={onChange}
-                  placeholder="Np. 120000"
+                  placeholder="Np. 120000 (opcjonalnie)"
                   keyboardType="decimal-pad"
                 />
               )}
             />
           </SubmitFormSection>
         </SettingsGroup>
+        </View>
 
+        <View ref={setSectionRef('images')}>
         <SettingsGroup title="Zdjęcia">
           <SubmitFormSection
             icon="camera-outline"
             title="Zdjęcia projektu"
             description={`Dodaj od 1 do ${MAX_PROJECT_IMAGES} zdjęć ilustrujących projekt.`}
             error={errors.imageUris?.message}>
-            <View style={styles.uploadBox}>
-              <View style={styles.uploadIconWrap}>
-                <Ionicons name="camera-outline" size={24} color={appColors.primary} />
+            <View style={themed.uploadBox}>
+              <View style={themed.uploadIconWrap}>
+                <Ionicons name="camera-outline" size={24} color={colors.primary} />
               </View>
-              <Text style={styles.uploadTitle}>Dodaj zdjęcia</Text>
-              <Text style={styles.uploadHint}>Zrób zdjęcie aparatem lub wybierz z galerii.</Text>
+              <Text style={themed.uploadTitle}>Dodaj zdjęcia</Text>
+              <Text style={themed.uploadHint}>Zrób zdjęcie aparatem lub wybierz z galerii.</Text>
               <View style={styles.uploadActions}>
                 <Pressable
                   onPress={() => void handleTakePhoto()}
                   disabled={imagePreviews.length >= MAX_PROJECT_IMAGES}
                   style={({ pressed }) => [
-                    styles.uploadAction,
+                    themed.uploadAction,
                     pressed ? styles.pressed : null,
                     imagePreviews.length >= MAX_PROJECT_IMAGES ? styles.uploadActionDisabled : null,
                   ]}>
-                  <Ionicons name="camera" size={16} color={appColors.primary} />
-                  <Text style={styles.uploadActionText}>Aparat</Text>
+                  <Ionicons name="camera" size={16} color={colors.primary} />
+                  <Text style={themed.uploadActionText}>Aparat</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => void handlePickImagesFromLibrary()}
                   disabled={imagePreviews.length >= MAX_PROJECT_IMAGES}
                   style={({ pressed }) => [
-                    styles.uploadAction,
+                    themed.uploadAction,
                     pressed ? styles.pressed : null,
                     imagePreviews.length >= MAX_PROJECT_IMAGES ? styles.uploadActionDisabled : null,
                   ]}>
-                  <Ionicons name="images-outline" size={16} color={appColors.primary} />
-                  <Text style={styles.uploadActionText}>Galeria</Text>
+                  <Ionicons name="images-outline" size={16} color={colors.primary} />
+                  <Text style={themed.uploadActionText}>Galeria</Text>
                 </Pressable>
               </View>
             </View>
@@ -527,23 +672,24 @@ export default function SubmitProjectScreen() {
               <View style={styles.previewGrid}>
                 {imagePreviews.map((uri) => (
                   <View key={uri} style={styles.previewItemWrap}>
-                    <Image source={{ uri }} style={styles.previewItem} resizeMode="cover" />
+                    <Image source={{ uri }} style={themed.previewItem} resizeMode="cover" />
                     <Pressable
                       onPress={() => handleRemoveImage(uri)}
                       style={({ pressed }) => [styles.removeButton, pressed ? styles.pressed : null]}
                       accessibilityLabel="Usuń zdjęcie"
                       hitSlop={6}>
-                      <Ionicons name="close" size={14} color={appColors.textOnPrimary} />
+                      <Ionicons name="close" size={14} color={colors.textOnPrimary} />
                     </Pressable>
                   </View>
                 ))}
               </View>
             ) : null}
-            <Text style={styles.fieldHint}>
+            <Text style={themed.fieldHint}>
               {imagePreviews.length}/{MAX_PROJECT_IMAGES} zdjęć dodanych
             </Text>
           </SubmitFormSection>
         </SettingsGroup>
+        </View>
 
         {submitError ? <ErrorState title="Nie udało się wysłać projektu" message={submitError} /> : null}
 
@@ -553,8 +699,8 @@ export default function SubmitProjectScreen() {
             loadingTitle="Wysyłanie..."
             loading={isSubmitting}
             disabled={isSubmitting}
-            onPress={handleSubmit(onSubmit)}
-            style={styles.submitButton}
+            onPress={handleSubmit(onSubmit, scrollToFirstError)}
+            style={themed.submitButton}
           />
         </View>
       </View>
@@ -584,62 +730,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: appTheme.spacing.md,
   },
-  heroIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
-  },
   heroBody: {
     flex: 1,
     gap: 6,
-  },
-  heroTitle: {
-    color: appColors.textPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 28,
-  },
-  heroText: {
-    color: appColors.textMuted,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  descriptionWrap: {
-    minHeight: 180,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surfaceSoft,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.md,
-  },
-  descriptionWrapFocused: {
-    borderColor: appColors.primary,
-    backgroundColor: appColors.surface,
-  },
-  descriptionWrapError: {
-    borderColor: appColors.danger,
-  },
-  descriptionInput: {
-    minHeight: 148,
-    color: appColors.textPrimary,
-    fontSize: 16,
-    lineHeight: 24,
-    padding: 0,
   },
   descriptionMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: appTheme.spacing.sm,
-  },
-  charCount: {
-    color: appColors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
   },
   advancedEditorLink: {
     flexDirection: 'row',
@@ -649,164 +748,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 8,
   },
-  advancedEditorText: {
-    color: appColors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  fieldHint: {
-    color: appColors.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
-  },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: appTheme.spacing.sm,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surfaceSoft,
-  },
-  chipSelected: {
-    borderColor: appColors.primary,
-    backgroundColor: appColors.primarySoft,
-  },
-  chipText: {
-    color: appColors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  chipTextSelected: {
-    color: appColors.primary,
-  },
-  iconTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: appColors.border,
-    borderRadius: 14,
-    backgroundColor: appColors.surfaceSoft,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: 12,
   },
   iconTriggerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: appTheme.spacing.sm,
   },
-  iconTriggerBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appColors.surface,
-    borderWidth: 1,
-    borderColor: appColors.border,
-  },
-  iconTriggerText: {
-    color: appColors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: appTheme.spacing.sm,
-  },
-  iconOption: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconOptionSelected: {
-    borderColor: appColors.primary,
-    backgroundColor: appColors.primarySoft,
-  },
-  coordsBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-    borderRadius: 12,
-    backgroundColor: appColors.surfaceSoft,
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.sm,
-  },
-  coordsText: {
-    flex: 1,
-    color: appColors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  inlineError: {
-    color: appColors.danger,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  uploadBox: {
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: appColors.border,
-    borderRadius: 16,
-    backgroundColor: appColors.surfaceSoft,
-    paddingHorizontal: appTheme.spacing.lg,
-    paddingVertical: appTheme.spacing.lg,
-  },
-  uploadIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
-  },
-  uploadTitle: {
-    color: appColors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  uploadHint: {
-    color: appColors.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
   },
   uploadActions: {
     flexDirection: 'row',
     gap: appTheme.spacing.sm,
     marginTop: appTheme.spacing.xs,
   },
-  uploadAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
-  },
   uploadActionDisabled: {
     opacity: 0.5,
-  },
-  uploadActionText: {
-    color: appColors.primary,
-    fontSize: 14,
-    fontWeight: '700',
   },
   previewGrid: {
     flexDirection: 'row',
@@ -815,12 +778,6 @@ const styles = StyleSheet.create({
   },
   previewItemWrap: {
     position: 'relative',
-  },
-  previewItem: {
-    width: 96,
-    height: 96,
-    borderRadius: 12,
-    backgroundColor: appColors.surfaceSoft,
   },
   removeButton: {
     position: 'absolute',
@@ -835,9 +792,6 @@ const styles = StyleSheet.create({
   },
   submitWrap: {
     paddingTop: appTheme.spacing.sm,
-  },
-  submitButton: {
-    ...appShadows.button,
   },
   pressed: {
     opacity: 0.86,

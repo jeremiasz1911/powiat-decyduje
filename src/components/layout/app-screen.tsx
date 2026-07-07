@@ -1,11 +1,19 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { PropsWithChildren } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { PropsWithChildren, type RefObject } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ScrollView as ScrollViewType,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
-import { CherryBackground } from '@/src/components/layout/CherryBackground';
+import { DecoratedScreenBackground } from '@/src/components/layout/decorated-screen-background';
 import { AuthScreenOverlay } from '@/src/components/layout/auth-screen-overlay';
-import { appGradients, appTheme } from '@/src/theme/app-theme';
 
 type AppScreenProps = PropsWithChildren<{
   scroll?: boolean;
@@ -16,6 +24,8 @@ type AppScreenProps = PropsWithChildren<{
   backgroundless?: boolean;
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  scrollRef?: RefObject<ScrollViewType | null>;
+  keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
   edges?: Edge[];
 }>;
 
@@ -23,18 +33,26 @@ export function AppScreen({
   children,
   scroll = false,
   keyboardAvoiding = true,
-  gradientColors = appGradients.screen,
+  gradientColors,
   cherryBackground = false,
   softOverlay = false,
   backgroundless = false,
   style,
   contentContainerStyle,
+  scrollRef,
+  keyboardDismissMode,
   edges = ['top', 'bottom'],
 }: AppScreenProps) {
+  const resolvedKeyboardDismissMode =
+    keyboardDismissMode ?? (scroll ? (Platform.OS === 'ios' ? 'interactive' : 'none') : 'none');
+
   const content = scroll ? (
     <ScrollView
+      ref={scrollRef}
       contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={resolvedKeyboardDismissMode}
+      onScrollBeginDrag={Keyboard.dismiss}
       showsVerticalScrollIndicator={false}>
       {children}
     </ScrollView>
@@ -42,12 +60,8 @@ export function AppScreen({
     <View style={[styles.container, contentContainerStyle]}>{children}</View>
   );
 
-  const background = backgroundless ? (
-    <View style={styles.flex}>{content}</View>
-  ) : (
+  const inner = (
     <View style={styles.flex}>
-      <LinearGradient colors={gradientColors} style={StyleSheet.absoluteFill} />
-      {cherryBackground ? <CherryBackground /> : null}
       {softOverlay ? <AuthScreenOverlay /> : null}
       {content}
     </View>
@@ -57,27 +71,29 @@ export function AppScreen({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.flex}>
-      {background}
+      {inner}
     </KeyboardAvoidingView>
   ) : (
-    background
+    inner
   );
 
   return (
-    <SafeAreaView
-      style={[styles.safeArea, backgroundless ? styles.safeAreaTransparent : null, style]}
-      edges={edges}>
-      {body}
-    </SafeAreaView>
+    <View style={[styles.root, style]}>
+      {!backgroundless ? <DecoratedScreenBackground showCherry={cherryBackground} /> : null}
+      <SafeAreaView style={styles.safeArea} edges={edges}>
+        {body}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: appTheme.colors.background,
-  },
-  safeAreaTransparent: {
     backgroundColor: 'transparent',
   },
   flex: {

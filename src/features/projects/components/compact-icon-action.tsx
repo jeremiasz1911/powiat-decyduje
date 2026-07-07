@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
-import { appColors } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -27,8 +27,42 @@ export function CompactIconAction({
   loading = false,
   style,
 }: CompactIconActionProps) {
+  const { colors } = useAppTheme();
   const isDisabled = disabled || loading;
-  const variantStyle = VARIANT_STYLES[variant];
+
+  const variantStyle = {
+    default: {
+      button: {
+        backgroundColor: colors.surfaceSoft,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      iconColor: colors.textSecondary,
+    },
+    primary: {
+      button: {
+        backgroundColor: colors.primarySoft,
+        borderWidth: 1,
+        borderColor: colors.borderStrong,
+      },
+      iconColor: colors.primary,
+    },
+    danger: {
+      button: {
+        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.2)',
+      },
+      iconColor: colors.danger,
+    },
+    ghost: {
+      button: {
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+      },
+      iconColor: colors.textMuted,
+    },
+  }[variant];
 
   return (
     <Pressable
@@ -54,40 +88,6 @@ export function CompactIconAction({
     </Pressable>
   );
 }
-
-const VARIANT_STYLES = {
-  default: {
-    button: {
-      backgroundColor: appColors.surfaceSoft,
-      borderWidth: 1,
-      borderColor: appColors.border,
-    },
-    iconColor: appColors.textSecondary,
-  },
-  primary: {
-    button: {
-      backgroundColor: appColors.primarySoft,
-      borderWidth: 1,
-      borderColor: 'rgba(227, 6, 19, 0.18)',
-    },
-    iconColor: appColors.primary,
-  },
-  danger: {
-    button: {
-      backgroundColor: 'rgba(239, 68, 68, 0.08)',
-      borderWidth: 1,
-      borderColor: 'rgba(239, 68, 68, 0.2)',
-    },
-    iconColor: appColors.danger,
-  },
-  ghost: {
-    button: {
-      backgroundColor: 'transparent',
-      borderWidth: 0,
-    },
-    iconColor: appColors.textMuted,
-  },
-};
 
 const styles = StyleSheet.create({
   base: {

@@ -9,6 +9,7 @@ import { ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { ScreenContainer } from '@/src/components/screen-container';
 import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
+import { AppButton } from '@/src/components/ui/AppButton';
 import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import {
   ProfileDetailRow,
@@ -20,16 +21,18 @@ import {
   type ResidentProfileEditValues,
 } from '@/src/features/profile/resident-profile.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import {
-  ensureAnonymousAuth,
   getResidentAccountProfile,
+  requireSignedInUser,
   upsertResidentAccountProfile,
   type ResidentAccount,
   type ResidentProfile,
 } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useSettings, type FontScalePreference, type ThemePreference } from '@/src/store/settings-context';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 const THEME_LABELS: Record<ThemePreference, string> = {
   system: 'Systemowy',
@@ -98,6 +101,8 @@ function resolveAccountStatus(account: ResidentAccount | null, profile: Resident
 export default function DrawerProfileScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { colors } = useAppTheme();
+  const canAccessPrivateFeatures = usePrivateRoute();
   const { settings } = useSettings();
   const { activeResidentAccount, refreshResidentAccounts, logout } = useAuthContext();
   const [loading, setLoading] = useState(true);
@@ -129,7 +134,7 @@ export default function DrawerProfileScreen() {
     setError(null);
 
     try {
-      const user = await ensureAnonymousAuth();
+      const user = await requireSignedInUser();
       setUid(user.uid);
 
       if (!activeResidentAccount) {
@@ -140,7 +145,16 @@ export default function DrawerProfileScreen() {
       setProfile(loadedProfile);
       reset(buildProfileValues(activeResidentAccount, loadedProfile));
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac profilu.';
+      const rawMessage = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac profilu.';
+      const isPermissionError =
+        rawMessage.includes('Missing or insufficient permissions') ||
+        rawMessage.includes('permission-denied');
+
+      const message = isPermissionError
+        ? 'Brak uprawnien do odczytu profilu. Sprobuj ponownie za chwile lub skontaktuj sie z administratorem.'
+        : rawMessage;
+
+      setProfile(null);
       setError(message);
     } finally {
       setLoading(false);
@@ -227,6 +241,10 @@ export default function DrawerProfileScreen() {
     router.push('/(drawer)/(tabs)/settings');
   };
 
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   if (loading) {
     return (
       <AppScreen cherryBackground contentContainerStyle={styles.centeredState}>
@@ -266,24 +284,22 @@ export default function DrawerProfileScreen() {
     : undefined;
 
   return (
-    <ScreenContainer title="Profil" description="Zarzadzaj danymi konta, preferencjami i sesja.">
+    <ScreenContainer title="Profil mieszkańca" description="Dane konta, preferencje i sesja.">
       <View style={styles.sections}>
-        <SettingsCard style={styles.heroCard}>
-          <ProfileHero
-            name={displayName}
-            subtitle={`Mieszkaniec · ${communeLabel}`}
-            statusLabel={accountStatus}
-            verified={Boolean(activeResidentAccount?.phoneVerified)}
-          />
-        </SettingsCard>
+        <ProfileHero
+          name={displayName}
+          subtitle={`Mieszkaniec · ${communeLabel}`}
+          statusLabel={accountStatus}
+          verified={Boolean(activeResidentAccount?.phoneVerified)}
+        />
 
         {hasMissingContact && !isEditing ? (
-          <View style={styles.notice}>
-            <View style={styles.noticeIconWrap}>
-              <Ionicons name="information-circle-outline" size={18} color={appColors.primary} />
+          <View style={[styles.notice, { borderColor: colors.border }]}>
+            <View style={[styles.noticeIconWrap, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
             </View>
-            <Text style={styles.noticeText}>
-              Niektore dane kontaktowe sa niekompletne. Uzupelnij je w sekcji akcji.
+            <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
+              Niektóre dane kontaktowe są niekompletne. Uzupełnij je w sekcji edycji.
             </Text>
           </View>
         ) : null}
@@ -333,7 +349,7 @@ export default function DrawerProfileScreen() {
               </SettingsCard>
             </SettingsGroup>
 
-            <SettingsGroup title="Preferencje" footer="Pelna konfiguracja dostepna w ustawieniach aplikacji.">
+            <SettingsGroup title="Preferencje" footer="Pełna konfiguracja dostępna w ustawieniach aplikacji.">
               <SettingsCard>
                 <SettingsRow
                   icon="color-palette-outline"
@@ -350,48 +366,34 @@ export default function DrawerProfileScreen() {
                 <SettingsRow
                   icon="phone-portrait-outline"
                   label="Wibracje"
-                  value={settings.hapticsEnabled ? 'Wlaczone' : 'Wylaczone'}
+                  value={settings.hapticsEnabled ? 'Włączone' : 'Wyłączone'}
                   onPress={openSettings}
                 />
               </SettingsCard>
             </SettingsGroup>
 
-            <SettingsGroup title="Akcje">
-              <SettingsCard>
-                <SettingsRow
-                  icon="create-outline"
-                  label="Edytuj profil"
-                  onPress={() => setIsEditing(true)}
-                />
-                <SettingsRow
-                  icon="swap-horizontal-outline"
-                  label="Zmien profil mieszkanca"
-                  onPress={() => router.push('/select-resident-account')}
-                />
-                <SettingsRow
-                  icon="settings-outline"
-                  label="Otworz ustawienia"
-                  onPress={openSettings}
-                />
-                <SettingsRow
-                  icon="log-out-outline"
-                  label="Wyloguj"
-                  destructive
-                  loading={isLoggingOut}
-                  onPress={() => {
-                    void handleLogout();
-                  }}
-                />
-              </SettingsCard>
-            </SettingsGroup>
+            <View style={styles.actions}>
+              <AppButton title="Edytuj profil" onPress={() => setIsEditing(true)} />
+              <AppButton
+                title="Zmień profil mieszkańca"
+                variant="secondary"
+                onPress={() => router.push('/select-resident-account')}
+              />
+              <AppButton
+                title={isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
+                variant="danger"
+                loading={isLoggingOut}
+                disabled={isLoggingOut}
+                onPress={() => void handleLogout()}
+              />
+            </View>
           </>
         ) : (
           <>
             <SettingsGroup
               title="Edycja profilu"
-              footer="Oswiadczenie mieszkanca nie wymaga ponownego potwierdzenia.">
-              <SettingsCard style={styles.editCard}>
-                <View style={styles.form}>
+              footer="Oświadczenie mieszkańca nie wymaga ponownego potwierdzenia.">
+              <View style={styles.form}>
                   <Controller
                     control={control}
                     name="fullName"
@@ -470,28 +472,22 @@ export default function DrawerProfileScreen() {
                     )}
                   />
                 </View>
-              </SettingsCard>
             </SettingsGroup>
 
-            <SettingsGroup title="Akcje">
-              <SettingsCard>
-                <SettingsRow
-                  icon="checkmark-circle-outline"
-                  label={isSaving ? 'Zapisywanie...' : 'Zapisz zmiany'}
-                  onPress={handleSubmit(onSubmit)}
-                  loading={isSaving}
-                  disabled={isSaving}
-                  showChevron={false}
-                />
-                <SettingsRow
-                  icon="close-circle-outline"
-                  label="Anuluj edycje"
-                  onPress={handleCancelEdit}
-                  disabled={isSaving}
-                  showChevron={false}
-                />
-              </SettingsCard>
-            </SettingsGroup>
+            <View style={styles.actions}>
+              <AppButton
+                title={isSaving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                loading={isSaving}
+                disabled={isSaving}
+                onPress={handleSubmit(onSubmit)}
+              />
+              <AppButton
+                title="Anuluj edycję"
+                variant="secondary"
+                disabled={isSaving}
+                onPress={handleCancelEdit}
+              />
+            </View>
           </>
         )}
       </View>
@@ -503,12 +499,9 @@ const styles = StyleSheet.create({
   sections: {
     gap: appTheme.spacing.lg,
   },
-  heroCard: {
-    overflow: 'visible',
-  },
   centeredState: {
     flexGrow: 1,
-    paddingHorizontal: appTheme.spacing.lg,
+    paddingHorizontal: appTheme.spacing.xl,
     paddingVertical: appTheme.spacing.xxl,
     justifyContent: 'center',
   },
@@ -516,11 +509,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: appTheme.spacing.sm,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    borderRadius: 14,
-    backgroundColor: appColors.surface,
-    paddingHorizontal: appTheme.spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingVertical: appTheme.spacing.md,
   },
   noticeIconWrap: {
@@ -529,19 +519,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
   },
   noticeText: {
     flex: 1,
-    color: appColors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  editCard: {
-    paddingHorizontal: appTheme.spacing.md,
-    paddingVertical: appTheme.spacing.md,
+    fontSize: 14,
+    lineHeight: 20,
   },
   form: {
     gap: appTheme.spacing.md,
+  },
+  actions: {
+    gap: appTheme.spacing.sm,
+    paddingTop: appTheme.spacing.sm,
   },
 });

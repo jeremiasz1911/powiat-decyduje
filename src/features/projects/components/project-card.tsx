@@ -14,7 +14,8 @@ import {
   truncateText,
 } from '@/src/features/projects/utils';
 import { type ProjectItem } from '@/src/services';
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type ProjectCardVoteAction = {
   label: string;
@@ -27,9 +28,12 @@ type ProjectCardProps = {
   project: ProjectItem;
   onOpenDetails: (projectId: string) => void;
   voteAction?: ProjectCardVoteAction;
+  variant?: 'default' | 'flat';
 };
 
-function ProjectCardComponent({ project, onOpenDetails, voteAction }: ProjectCardProps) {
+function ProjectCardComponent({ project, onOpenDetails, voteAction, variant = 'default' }: ProjectCardProps) {
+  const { colors, shadows } = useAppTheme();
+  const isFlat = variant === 'flat';
   const images = getProjectImageUrls(project);
   const coverImage = images[0];
   const categoryLabel = getProjectCategoryLabel(project.category);
@@ -41,58 +45,67 @@ function ProjectCardComponent({ project, onOpenDetails, voteAction }: ProjectCar
   return (
     <Pressable
       onPress={() => onOpenDetails(project.id)}
-      style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
+      style={({ pressed }) => [
+        styles.card,
+        isFlat ? styles.cardFlat : null,
+        {
+          borderColor: colors.border,
+          backgroundColor: isFlat ? 'transparent' : colors.surface,
+        },
+        isFlat ? null : shadows.soft,
+        pressed ? styles.cardPressed : null,
+      ]}
       accessibilityRole="button"
       accessibilityLabel={`Otwórz szczegóły projektu ${project.title}`}>
       <View style={styles.imageArea}>
         {coverImage ? (
           <ProjectRemoteImage
             uri={coverImage}
-            style={styles.cardImage}
+            style={[styles.cardImage, { backgroundColor: colors.backgroundSoft }]}
             resizeMode="cover"
             fallbackIcon={project.icon}
           />
         ) : (
-          <View style={styles.imagePlaceholder}>
-            <Ionicons name={resolveProjectIcon(project.icon)} size={28} color={appColors.primary} />
+          <View style={[styles.imagePlaceholder, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name={resolveProjectIcon(project.icon)} size={28} color={colors.primary} />
           </View>
         )}
         {images.length > 1 ? (
           <View style={styles.imageCountBadge}>
-            <Ionicons name="images-outline" size={12} color={appColors.textOnPrimary} />
-            <Text style={styles.imageCountText}>{images.length}</Text>
+            <Ionicons name="images-outline" size={12} color={colors.textOnPrimary} />
+            <Text style={[styles.imageCountText, { color: colors.textOnPrimary }]}>{images.length}</Text>
           </View>
         ) : null}
       </View>
 
       <View style={styles.content}>
         <View style={styles.badgesRow}>
-          <View style={styles.categoryBadge}>
-            <Ionicons name="pricetag-outline" size={11} color={appColors.primary} />
-            <Text style={styles.categoryBadgeText}>{categoryLabel}</Text>
+          <View style={[styles.categoryBadge, { backgroundColor: colors.primarySoft }]}>
+            <Ionicons name="pricetag-outline" size={11} color={colors.primary} />
+            <Text style={[styles.categoryBadgeText, { color: colors.primary }]}>{categoryLabel}</Text>
           </View>
           <ProjectStatusBadge status={project.status} />
         </View>
 
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={2}>
           {project.title}
         </Text>
 
-        <Text style={styles.description} numberOfLines={2}>
+        <Text style={[styles.description, { color: colors.textMuted }]} numberOfLines={2}>
           {description}
         </Text>
 
         <View style={styles.infoRow}>
           <View style={styles.infoChip}>
-            <Ionicons name="business-outline" size={13} color={appColors.textMuted} />
-            <Text style={styles.infoChipText} numberOfLines={1}>
+            <Ionicons name="business-outline" size={13} color={colors.textMuted} />
+            <Text style={[styles.infoChipText, { color: colors.textSecondary }]} numberOfLines={1}>
               {communeLabel}
             </Text>
           </View>
           {locationLine ? (
             <View style={styles.infoChip}>
-              <Ionicons name="location-outline" size={13} color={appColors.textMuted} />
-              <Text style={styles.infoChipText} numberOfLines={1}>
+              <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+              <Text style={[styles.infoChipText, { color: colors.textSecondary }]} numberOfLines={1}>
                 {locationLine}
               </Text>
             </View>
@@ -123,11 +136,12 @@ export const ProjectCard = memo(ProjectCardComponent);
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
     borderRadius: 16,
     overflow: 'hidden',
-    ...appShadows.soft,
+  },
+  cardFlat: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   cardPressed: {
     opacity: 0.94,
@@ -138,14 +152,12 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: 148,
-    backgroundColor: appColors.backgroundSoft,
   },
   imagePlaceholder: {
     width: '100%',
     height: 148,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
   },
   imageCountBadge: {
     position: 'absolute',
@@ -160,7 +172,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(23, 29, 43, 0.72)',
   },
   imageCountText: {
-    color: appColors.textOnPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -179,25 +190,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderRadius: appTheme.radius.pill,
-    backgroundColor: appColors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   categoryBadgeText: {
-    color: appColors.primary,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.2,
   },
   title: {
-    color: appColors.textPrimary,
     fontSize: 17,
     fontWeight: '800',
     lineHeight: 23,
   },
   description: {
-    color: appColors.textMuted,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -215,7 +222,6 @@ const styles = StyleSheet.create({
     maxWidth: '46%',
   },
   infoChipText: {
-    color: appColors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
     flexShrink: 1,

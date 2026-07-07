@@ -4,6 +4,7 @@ import { Platform, StyleSheet } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/screen-container';
 import { envFlags } from '@/src/config/env';
+import { getMapDiagnostics } from '@/src/features/map/map-diagnostics';
 import { auth, getFirebaseDiagnostics } from '@/src/lib/firebase';
 import { appTheme } from '@/src/theme/app-theme';
 
@@ -14,6 +15,7 @@ export default function DiagnosticsScreen() {
   const user = auth?.currentUser ?? null;
   const providers = user?.providerData?.map((provider) => provider.providerId).filter(Boolean) ?? [];
   const expoConfig = Constants.expoConfig;
+  const map = getMapDiagnostics();
 
   return (
     <ScreenContainer title="Diagnostyka" description="Podglad konfiguracji (bez sekretow).">
@@ -48,6 +50,20 @@ export default function DiagnosticsScreen() {
           <Text color={appTheme.colors.textMuted}>Database URL: {formatBool(envFlags.firebaseDatabaseUrl)}</Text>
           <Text color={appTheme.colors.textMuted}>Measurement ID: {formatBool(envFlags.firebaseMeasurementId)}</Text>
           <Text color={appTheme.colors.textMuted}>Maps API key: {formatBool(envFlags.googleMapsApiKey)}</Text>
+        </Box>
+
+        <Box style={styles.panel}>
+          <Heading size="sm" color={appTheme.colors.textPrimary}>Google Maps</Heading>
+          <Text color={appTheme.colors.textMuted}>Env key (.env.local): {formatBool(map.envKeyPresent)}</Text>
+          <Text color={appTheme.colors.textMuted}>Klucz w buildzie natywnym: {formatBool(map.nativeKeyEmbedded)}</Text>
+          <Text color={appTheme.colors.textMuted}>
+            Sufiks klucza (weryfikacja): {map.nativeKeySuffix ? `…${map.nativeKeySuffix}` : '-'}
+          </Text>
+          <Text color={appTheme.colors.textMuted}>Package Android: {map.packageName ?? '-'}</Text>
+          <Text color={appTheme.colors.textMuted}>{map.mapReadyHint}</Text>
+          <Text color={appTheme.colors.textMuted}>
+            Debug SHA-1: uruchom na Macu npm run android:sha1 i dodaj w Google Cloud.
+          </Text>
         </Box>
 
         <Box style={styles.panel}>

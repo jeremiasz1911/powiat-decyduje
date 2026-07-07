@@ -4,7 +4,8 @@ import {
   PROJECT_MARKER_COLORS,
   resolveProjectMarkerColor,
 } from '@/src/features/projects/project-marker-colors';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type MarkerColorPickerProps = {
   value: string;
@@ -12,6 +13,7 @@ type MarkerColorPickerProps = {
 };
 
 export function MarkerColorPicker({ value, onChange }: MarkerColorPickerProps) {
+  const { colors } = useAppTheme();
   const selected = resolveProjectMarkerColor(value);
 
   return (
@@ -26,17 +28,17 @@ export function MarkerColorPicker({ value, onChange }: MarkerColorPickerProps) {
               style={({ pressed }) => [
                 styles.swatch,
                 { backgroundColor: option.id },
-                isSelected ? styles.swatchSelected : null,
+                isSelected ? [styles.swatchSelected, { borderColor: colors.textPrimary }] : null,
                 pressed ? styles.pressed : null,
               ]}
               accessibilityRole="button"
               accessibilityLabel={`Kolor pinezki: ${option.label}`}
-              accessibilityState={{ selected: isSelected }}
-            />
+              accessibilityState={{ selected: isSelected }}>
+            </Pressable>
           );
         })}
       </View>
-      <Text style={styles.hint}>Kolor pinezki na mapie powiatu.</Text>
+      <Text style={[styles.hint, { color: colors.textMuted }]}>Kolor pinezki na mapie powiatu.</Text>
     </View>
   );
 }
@@ -58,11 +60,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
   },
   swatchSelected: {
-    borderColor: appColors.textPrimary,
     transform: [{ scale: 1.06 }],
   },
   hint: {
-    color: appColors.textMuted,
     fontSize: 12,
     lineHeight: 17,
   },

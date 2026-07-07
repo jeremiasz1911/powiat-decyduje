@@ -1,22 +1,27 @@
 import { useAuthContext } from '@/src/store/auth-context';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
 
+import { BootstrapLoadingScreen } from '@/src/components/bootstrap-loading-screen';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
-import { appTheme } from '@/src/theme/app-theme';
+import { useBootstrapTheme } from '@/src/theme/use-bootstrap-theme';
 
 const FORCE_SHOW_INTRO_IN_DEV = true;
 const RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV = false;
 let forcedIntroShownInCurrentSession = false;
 
 export default function AppEntryScreen() {
-  const { user } = useAuthContext();
-  const [loading, setLoading] = useState(true);
+  const { isAuthenticated, isGuest, loading: authLoading } = useAuthContext();
+  const { settingsReady } = useBootstrapTheme();
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
 
   useEffect(() => {
+    if (!settingsReady) {
+      return;
+    }
+
     const checkOnboarding = async () => {
       if (__DEV__ && RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV) {
         await secureStore.remove(STORAGE_KEYS.onboardingCompleted);
@@ -38,27 +43,27 @@ export default function AppEntryScreen() {
       }
 
       setShouldShowOnboarding(nextShouldShowOnboarding);
-      setLoading(false);
+      setOnboardingChecked(true);
     };
 
     void checkOnboarding();
-  }, []);
+  }, [settingsReady]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: appTheme.colors.background }}>
-        <ActivityIndicator size="large" color={appTheme.colors.primary} />
-      </View>
-    );
+  if (!settingsReady || !onboardingChecked || authLoading) {
+    return <BootstrapLoadingScreen label="Uruchamianie aplikacji" />;
   }
 
   if (shouldShowOnboarding) {
     return <Redirect href="/onboarding" />;
   }
 
-  if (!user || user.isAnonymous) {
-    return <Redirect href="/login-phone" />;
+  if (isAuthenticated) {
+    return <Redirect href="/(drawer)/(tabs)" />;
   }
 
-  return <Redirect href="/(drawer)/(tabs)" />;
+  if (isGuest) {
+    return <Redirect href="/(drawer)/(tabs)/map" />;
+  }
+
+  return <Redirect href="/login-phone" />;
 }

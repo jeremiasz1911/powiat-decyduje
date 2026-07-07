@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -15,19 +16,27 @@ type SubmitFormSectionProps = {
 };
 
 export function SubmitFormSection({ icon, title, description, error, children }: SubmitFormSectionProps) {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={styles.section}>
+    <View
+      style={[
+        styles.section,
+        { borderColor: colors.border, backgroundColor: colors.surface },
+      ]}>
       <View style={styles.header}>
-        <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={18} color={appColors.primary} />
+        <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name={icon} size={18} color={colors.primary} />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>{title}</Text>
-          {description ? <Text style={styles.description}>{description}</Text> : null}
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+          {description ? (
+            <Text style={[styles.description, { color: colors.textMuted }]}>{description}</Text>
+          ) : null}
         </View>
       </View>
       <View style={styles.body}>{children}</View>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 }
@@ -36,8 +45,6 @@ const styles = StyleSheet.create({
   section: {
     gap: appTheme.spacing.md,
     borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
     borderRadius: 16,
     padding: appTheme.spacing.lg,
   },
@@ -52,7 +59,6 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
     marginTop: 1,
   },
   headerText: {
@@ -60,13 +66,11 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    color: appColors.textPrimary,
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 22,
   },
   description: {
-    color: appColors.textMuted,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -74,7 +78,6 @@ const styles = StyleSheet.create({
     gap: appTheme.spacing.md,
   },
   error: {
-    color: appColors.danger,
     fontSize: 13,
     lineHeight: 18,
   },

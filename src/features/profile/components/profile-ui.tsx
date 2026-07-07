@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -14,16 +15,18 @@ type ProfileDetailRowProps = {
 };
 
 export function ProfileDetailRow({ icon, label, value, badge }: ProfileDetailRowProps) {
+  const { colors } = useAppTheme();
+
   return (
     <View style={styles.row}>
-      <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={18} color={appColors.primary} />
+      <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+        <Ionicons name={icon} size={18} color={colors.primary} />
       </View>
 
       <View style={styles.body}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
         <View style={styles.valueRow}>
-          <Text style={styles.value} numberOfLines={3}>
+          <Text style={[styles.value, { color: colors.textPrimary }]} numberOfLines={3}>
             {value}
           </Text>
           {badge}
@@ -41,6 +44,7 @@ type ProfileHeroProps = {
 };
 
 export function ProfileHero({ name, subtitle, statusLabel, verified }: ProfileHeroProps) {
+  const { colors } = useAppTheme();
   const initials = name
     .trim()
     .split(/\s+/)
@@ -51,31 +55,57 @@ export function ProfileHero({ name, subtitle, statusLabel, verified }: ProfileHe
 
   return (
     <View style={styles.hero}>
-      <View style={[styles.avatarRing, verified ? styles.avatarRingVerified : null]}>
-        <View style={styles.avatar}>
-          <Text style={styles.initials}>{initials || '?'}</Text>
+      <View
+        style={[
+          styles.avatarRing,
+          { backgroundColor: verified ? colors.primarySoft : colors.surfaceSoft },
+        ]}>
+        <View
+          style={[
+            styles.avatar,
+            {
+              backgroundColor: colors.surfaceSoft,
+              borderColor: colors.border,
+            },
+          ]}>
+          <Text style={[styles.initials, { color: colors.primary }]}>{initials || '?'}</Text>
         </View>
         {verified ? (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark" size={12} color={appColors.textOnPrimary} />
+          <View
+            style={[
+              styles.verifiedBadge,
+              { backgroundColor: colors.primary, borderColor: colors.surface },
+            ]}>
+            <Ionicons name="checkmark" size={12} color={colors.textOnPrimary} />
           </View>
         ) : null}
       </View>
 
       <View style={styles.heroBody}>
-        <Text style={styles.heroName} numberOfLines={2}>
+        <Text style={[styles.heroName, { color: colors.textPrimary }]} numberOfLines={2}>
           {name}
         </Text>
-        <Text style={styles.heroSubtitle} numberOfLines={1}>
+        <Text style={[styles.heroSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
           {subtitle}
         </Text>
-        <View style={[styles.statusBadge, verified ? styles.statusBadgeVerified : null]}>
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor: verified ? colors.primarySoft : colors.surfaceSoft,
+              borderColor: verified ? colors.borderStrong : colors.border,
+            },
+          ]}>
           <Ionicons
             name={verified ? 'shield-checkmark-outline' : 'time-outline'}
             size={14}
-            color={verified ? appColors.primary : appColors.textMuted}
+            color={verified ? colors.primary : colors.textMuted}
           />
-          <Text style={[styles.statusBadgeText, verified ? styles.statusBadgeTextVerified : null]}>
+          <Text
+            style={[
+              styles.statusBadgeText,
+              { color: verified ? colors.primary : colors.textSecondary },
+            ]}>
             {statusLabel}
           </Text>
         </View>
@@ -85,9 +115,21 @@ export function ProfileHero({ name, subtitle, statusLabel, verified }: ProfileHe
 }
 
 export function ProfileVerificationBadge({ verified }: { verified: boolean }) {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={[styles.verificationTag, verified ? styles.verificationTagOk : styles.verificationTagPending]}>
-      <Text style={[styles.verificationTagText, verified ? styles.verificationTagTextOk : null]}>
+    <View
+      style={[
+        styles.verificationTag,
+        verified
+          ? { backgroundColor: colors.primarySoft }
+          : { backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border },
+      ]}>
+      <Text
+        style={[
+          styles.verificationTagText,
+          { color: verified ? colors.primary : colors.textMuted },
+        ]}>
         {verified ? 'Zweryfikowany' : 'Niezweryfikowany'}
       </Text>
     </View>
@@ -96,8 +138,7 @@ export function ProfileVerificationBadge({ verified }: { verified: boolean }) {
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 58,
-    paddingHorizontal: appTheme.spacing.md,
+    minHeight: 52,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -109,7 +150,6 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
     marginTop: 2,
   },
   body: {
@@ -117,7 +157,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   label: {
-    color: appColors.textMuted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -131,7 +170,6 @@ const styles = StyleSheet.create({
   },
   value: {
     flexShrink: 1,
-    color: appColors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 21,
@@ -140,28 +178,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: appTheme.spacing.lg,
-    paddingHorizontal: appTheme.spacing.lg,
-    paddingVertical: appTheme.spacing.lg,
+    paddingVertical: appTheme.spacing.sm,
   },
   avatarRing: {
     position: 'relative',
     padding: 3,
     borderRadius: 24,
-    backgroundColor: appColors.surfaceSoft,
-  },
-  avatarRingVerified: {
-    backgroundColor: appColors.primarySoft,
   },
   avatar: {
     width: 72,
     height: 72,
-    borderRadius: 20,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.surface,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    ...appShadows.soft,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   verifiedBadge: {
     position: 'absolute',
@@ -172,12 +202,9 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primary,
     borderWidth: 2,
-    borderColor: appColors.surface,
   },
   initials: {
-    color: appColors.primary,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -187,13 +214,11 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   heroName: {
-    color: appColors.textPrimary,
     fontSize: 22,
     fontWeight: '800',
     lineHeight: 28,
   },
   heroSubtitle: {
-    color: appColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -206,41 +231,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: appColors.surfaceSoft,
     borderWidth: 1,
-    borderColor: appColors.border,
-  },
-  statusBadgeVerified: {
-    backgroundColor: appColors.primarySoft,
-    borderColor: 'rgba(227, 6, 19, 0.18)',
   },
   statusBadgeText: {
-    color: appColors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
-  },
-  statusBadgeTextVerified: {
-    color: appColors.primary,
   },
   verificationTag: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
   },
-  verificationTagOk: {
-    backgroundColor: appColors.primarySoft,
-  },
-  verificationTagPending: {
-    backgroundColor: appColors.surfaceSoft,
-    borderWidth: 1,
-    borderColor: appColors.border,
-  },
   verificationTagText: {
-    color: appColors.textMuted,
     fontSize: 11,
     fontWeight: '700',
-  },
-  verificationTagTextOk: {
-    color: appColors.primary,
   },
 });

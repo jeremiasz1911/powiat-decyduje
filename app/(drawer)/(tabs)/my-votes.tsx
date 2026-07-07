@@ -10,12 +10,13 @@ import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { VoteProjectRow } from '@/src/features/votes/components/vote-project-row';
 import { VoteAnonymousToggle } from '@/src/features/projects/components/vote-anonymous-toggle';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import {
-  ensureAnonymousAuth,
   getInstallationId,
   getVotesSummary,
   listProjects,
   listProjectsVotedByUser,
+  requireSignedInUser,
   type ProjectItem,
   voteForProject,
 } from '@/src/services';
@@ -24,6 +25,7 @@ import { appTheme } from '@/src/theme/app-theme';
 export default function MyVotesScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const canAccessPrivateFeatures = usePrivateRoute();
 
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -82,9 +84,13 @@ export default function MyVotesScreen() {
   );
 
   useEffect(() => {
+    if (!canAccessPrivateFeatures) {
+      return;
+    }
+
     const bootstrap = async () => {
       try {
-        const user = await ensureAnonymousAuth();
+        const user = await requireSignedInUser();
         setUserId(user.uid);
         await refreshVotesMeta(user.uid);
       } catch (bootstrapError) {
@@ -97,7 +103,7 @@ export default function MyVotesScreen() {
     };
 
     void bootstrap();
-  }, [refreshVotesMeta]);
+  }, [canAccessPrivateFeatures, refreshVotesMeta]);
 
   useEffect(() => {
     if (!userId) {
@@ -164,11 +170,15 @@ export default function MyVotesScreen() {
   };
 
   const openProject = (projectId: string) => {
-    router.push(`/(drawer)/project/${projectId}`);
+    router.push(`/(drawer)/(tabs)/project/${projectId}`);
   };
 
   const hasMore = Boolean(cursor);
   const voteDisabled = votesRemaining === 0;
+
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
 
   const renderProjectRows = (projects: ProjectItem[]) =>
     projects.map((project) => {
@@ -189,41 +199,34 @@ export default function MyVotesScreen() {
     });
 
   return (
-    <ScreenContainer title="Glosy" description="Oddawaj glosy na projekty obywatelskie.">
+    <ScreenContainer title="Głosy" description="Oddawaj głosy na projekty obywatelskie.">
       <View style={styles.sections}>
         <SettingsGroup
           title="Podsumowanie"
-          footer="Mozesz oddac maksymalnie 5 glosow na rozne projekty.">
+          footer="Możesz oddać maksymalnie 5 głosów na różne projekty.">
           <SettingsCard>
             <SettingsRow
-              label="Pozostale glosy"
+              label="Pozostałe głosy"
               icon="heart-outline"
               value={votesRemaining != null ? String(votesRemaining) : '—'}
             />
           </SettingsCard>
         </SettingsGroup>
 
-        <SettingsGroup title="Anonimowosc">
-          <SettingsCard style={styles.anonymousCard}>
-            <VoteAnonymousToggle value={voteAnonymously} onValueChange={setVoteAnonymously} />
-          </SettingsCard>
+        <SettingsGroup title="Anonimowość">
+          <VoteAnonymousToggle value={voteAnonymously} onValueChange={setVoteAnonymously} />
         </SettingsGroup>
 
         <SettingsGroup title="Szukaj">
-          <SettingsCard style={styles.searchCard}>
-            <View style={styles.searchWrap}>
-              <AppTextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Tytul lub opis projektu…"
-                containerStyle={styles.searchInput}
-                inputStyle={styles.searchField}
-              />
-            </View>
-          </SettingsCard>
+          <AppTextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Tytuł lub opis projektu…"
+            variant="minimal"
+          />
         </SettingsGroup>
 
-        {loading ? <LoadingState label="Laduje projekty do glosowania..." /> : null}
+        {loading ? <LoadingState label="Ładuję projekty do głosowania..." /> : null}
 
         {error ? (
           <ErrorState
@@ -243,32 +246,28 @@ export default function MyVotesScreen() {
         ) : null}
 
         {!loading && votedProjects.length > 0 ? (
-          <SettingsGroup title="Oddane glosy" footer={`${votedProjects.length} projektow z Twoim glosem.`}>
+          <SettingsGroup title="Oddane głosy" footer={`${votedProjects.length} projektów z Twoim głosem.`}>
             <SettingsCard>{renderProjectRows(votedProjects)}</SettingsCard>
           </SettingsGroup>
         ) : null}
 
         {!loading && availableProjects.length > 0 ? (
           <SettingsGroup
-            title="Dostepne projekty"
-            footer={voteDisabled ? 'Wykorzystales limit glosow.' : 'Wybierz projekt i oddaj glos.'}>
+            title="Dostępne projekty"
+            footer={voteDisabled ? 'Wykorzystałeś limit głosów.' : 'Wybierz projekt i oddaj głos.'}>
             <SettingsCard>{renderProjectRows(availableProjects)}</SettingsCard>
           </SettingsGroup>
         ) : null}
 
         {hasMore ? (
-          <SettingsGroup>
-            <SettingsCard>
-              <SettingsRow
-                label={loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}
-                icon="add-circle-outline"
-                onPress={() => void fetchProjects(false, cursor, items)}
-                disabled={loadingMore}
-                loading={loadingMore}
-                showChevron={!loadingMore}
-              />
-            </SettingsCard>
-          </SettingsGroup>
+          <SettingsRow
+            label={loadingMore ? 'Ładowanie...' : 'Pokaż więcej'}
+            icon="add-circle-outline"
+            onPress={() => void fetchProjects(false, cursor, items)}
+            disabled={loadingMore}
+            loading={loadingMore}
+            showChevron={!loadingMore}
+          />
         ) : null}
       </View>
     </ScreenContainer>
@@ -278,24 +277,5 @@ export default function MyVotesScreen() {
 const styles = StyleSheet.create({
   sections: {
     gap: appTheme.spacing.lg,
-  },
-  anonymousCard: {
-    paddingHorizontal: appTheme.spacing.sm,
-    paddingVertical: appTheme.spacing.sm,
-  },
-  searchCard: {
-    paddingVertical: appTheme.spacing.sm,
-  },
-  searchWrap: {
-    paddingHorizontal: appTheme.spacing.md,
-  },
-  searchInput: {
-    gap: 0,
-  },
-  searchField: {
-    minHeight: 40,
-    borderRadius: 10,
-    fontSize: 15,
-    paddingHorizontal: appTheme.spacing.md,
   },
 });

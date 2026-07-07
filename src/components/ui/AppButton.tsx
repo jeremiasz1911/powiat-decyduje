@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -30,6 +31,7 @@ export function AppButton({
   textStyle,
   fullWidth = true,
 }: AppButtonProps) {
+  const { colors, shadows } = useAppTheme();
   const pressScale = useSharedValue(1);
   const isDisabled = disabled || loading;
 
@@ -49,7 +51,39 @@ export function AppButton({
     );
   };
 
-  const variantStyles = VARIANT_STYLES[variant];
+  const variantStyles = {
+    primary: {
+      button: {
+        backgroundColor: colors.primary,
+        borderRadius: appTheme.radius.pill,
+        ...shadows.button,
+      },
+      text: { color: colors.textOnPrimary },
+    },
+    secondary: {
+      button: {
+        backgroundColor: colors.surface,
+        borderRadius: appTheme.radius.pill,
+        borderWidth: 1,
+        borderColor: colors.primary,
+      },
+      text: { color: colors.primary },
+    },
+    ghost: {
+      button: {
+        backgroundColor: 'transparent',
+        borderRadius: appTheme.radius.md,
+      },
+      text: { color: colors.primary, fontWeight: '700' as const },
+    },
+    danger: {
+      button: {
+        backgroundColor: colors.danger,
+        borderRadius: appTheme.radius.pill,
+      },
+      text: { color: colors.textOnPrimary },
+    },
+  }[variant];
 
   return (
     <AnimatedPressable
@@ -75,49 +109,6 @@ export function AppButton({
     </AnimatedPressable>
   );
 }
-
-const VARIANT_STYLES = {
-  primary: StyleSheet.create({
-    button: {
-      backgroundColor: appColors.primary,
-      borderRadius: appTheme.radius.pill,
-      ...appShadows.button,
-    },
-    text: {
-      color: appColors.textOnPrimary,
-    },
-  }),
-  secondary: StyleSheet.create({
-    button: {
-      backgroundColor: appColors.surface,
-      borderRadius: appTheme.radius.pill,
-      borderWidth: 1,
-      borderColor: appColors.primary,
-    },
-    text: {
-      color: appColors.primary,
-    },
-  }),
-  ghost: StyleSheet.create({
-    button: {
-      backgroundColor: 'transparent',
-      borderRadius: appTheme.radius.md,
-    },
-    text: {
-      color: appColors.primary,
-      fontWeight: '700',
-    },
-  }),
-  danger: StyleSheet.create({
-    button: {
-      backgroundColor: appColors.danger,
-      borderRadius: appTheme.radius.pill,
-    },
-    text: {
-      color: appColors.textOnPrimary,
-    },
-  }),
-};
 
 const styles = StyleSheet.create({
   base: {

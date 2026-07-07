@@ -1,20 +1,21 @@
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { ScreenContainer } from '@/src/components/screen-container';
-import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
 import { ProjectCard } from '@/src/features/projects/components/project-card';
 import { ProjectFiltersPanel } from '@/src/features/projects/components/project-filters-panel';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
+import { useAppTheme } from '@/src/theme/theme-context';
 import { appTheme } from '@/src/theme/app-theme';
 
 export default function ProjectsScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { colors } = useAppTheme();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedCommune, setSelectedCommune] = useState('');
@@ -82,22 +83,18 @@ export default function ProjectsScreen() {
 
   const handleOpenDetails = useCallback(
     (projectId: string) => {
-      router.push(`/(drawer)/project/${projectId}`);
+      router.push(`/(drawer)/(tabs)/project/${projectId}`);
     },
     [router]
   );
 
-  const listFooter =
-    filteredBySearch.length === 0
-      ? undefined
-      : `Wyswietlam ${filteredBySearch.length} ${filteredBySearch.length === 1 ? 'projekt' : 'projektow'}.`;
-
   return (
     <ScreenContainer
       title="Projekty"
-      description="Przegladaj i wspieraj inicjatywy obywatelskie powiatu mlawskiego.">
+      description="Przegladaj inicjatywy obywatelskie powiatu mlawskiego.">
       <View style={styles.sections}>
         <ProjectFiltersPanel
+          variant="minimal"
           search={search}
           selectedCategory={selectedCategory}
           selectedCommune={selectedCommune}
@@ -121,35 +118,44 @@ export default function ProjectsScreen() {
         {!loading && filteredBySearch.length === 0 && !error ? (
           <EmptyState
             title="Brak zaakceptowanych projektów"
-            description="Na liście publicznej widać tylko projekty zaakceptowane przez administratora. Twoje zgłoszenia oczekujące na weryfikację znajdziesz w Moje projekty."
+            description="Na liście publicznej widać tylko projekty zaakceptowane przez administratora."
             actionLabel="Wyczysc filtry"
             onActionPress={handleClearFilters}
           />
         ) : null}
 
         {!loading && filteredBySearch.length > 0 ? (
-          <SettingsGroup title="Lista projektow" footer={listFooter}>
+          <View style={styles.listSection}>
+            <Text style={[styles.listTitle, { color: colors.textPrimary }]}>Lista projektów</Text>
+            <Text style={[styles.listMeta, { color: colors.textMuted }]}>
+              Wyświetlam {filteredBySearch.length}{' '}
+              {filteredBySearch.length === 1 ? 'projekt' : 'projektów'}
+            </Text>
             <View style={styles.projectList}>
               {filteredBySearch.map((project) => (
-                <ProjectCard key={project.id} project={project} onOpenDetails={handleOpenDetails} />
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  variant="flat"
+                  onOpenDetails={handleOpenDetails}
+                />
               ))}
             </View>
-          </SettingsGroup>
+          </View>
         ) : null}
 
         {hasMore ? (
-          <SettingsGroup>
-            <SettingsCard>
-              <SettingsRow
-                label={loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}
-                icon="chevron-down-circle-outline"
-                onPress={() => void fetchProjects(false, cursor)}
-                disabled={loadingMore}
-                loading={loadingMore}
-                showChevron={!loadingMore}
-              />
-            </SettingsCard>
-          </SettingsGroup>
+          <Pressable
+            onPress={() => void fetchProjects(false, cursor)}
+            disabled={loadingMore}
+            style={({ pressed }) => [
+              styles.loadMore,
+              { borderColor: colors.border, opacity: pressed || loadingMore ? 0.7 : 1 },
+            ]}>
+            <Text style={[styles.loadMoreText, { color: colors.primary }]}>
+              {loadingMore ? 'Ładowanie…' : 'Pokaż więcej'}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     </ScreenContainer>
@@ -158,9 +164,31 @@ export default function ProjectsScreen() {
 
 const styles = StyleSheet.create({
   sections: {
-    gap: appTheme.spacing.lg,
+    gap: appTheme.spacing.xl,
+  },
+  listSection: {
+    gap: appTheme.spacing.md,
+  },
+  listTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  listMeta: {
+    fontSize: 13,
+    marginTop: -appTheme.spacing.xs,
   },
   projectList: {
-    gap: appTheme.spacing.md,
+    gap: appTheme.spacing.lg,
+  },
+  loadMore: {
+    alignSelf: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: appTheme.spacing.lg,
+    paddingVertical: appTheme.spacing.sm,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

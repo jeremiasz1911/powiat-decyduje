@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const appColors = {
+export const lightAppColors = {
   background: '#FFFFFF',
   backgroundSoft: '#FFF7F7',
   backgroundCherry: '#FFF1F3',
@@ -23,6 +23,37 @@ export const appColors = {
   warning: '#F59E0B',
   placeholder: '#9CA3AF',
 } as const;
+
+export const darkAppColors = {
+  background: '#0F1115',
+  backgroundSoft: '#171B24',
+  backgroundCherry: '#1C1418',
+  surface: '#171B24',
+  surfaceSoft: '#1F2430',
+  primary: '#FF4D57',
+  primaryStrong: '#E30613',
+  primarySoft: 'rgba(255, 77, 87, 0.14)',
+  cherry: '#8F4D62',
+  cherrySoft: 'rgba(143, 77, 98, 0.24)',
+  cherryLine: 'rgba(255, 77, 87, 0.18)',
+  textPrimary: '#F3F4F6',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
+  textOnPrimary: '#FFFFFF',
+  border: 'rgba(255, 255, 255, 0.10)',
+  borderStrong: 'rgba(255, 77, 87, 0.28)',
+  success: '#4ADE80',
+  danger: '#F87171',
+  warning: '#FBBF24',
+  placeholder: '#6B7280',
+} as const;
+
+export type AppColorTokens = {
+  [K in keyof typeof lightAppColors]: string;
+};
+
+/** @deprecated Prefer useAppTheme().colors in components that should react to theme changes. */
+export const appColors = lightAppColors;
 
 export const appTheme = {
   colors: {
@@ -59,7 +90,8 @@ export const appTheme = {
 } as const;
 
 export const appGradients = {
-  screen: ['#FFFFFF', '#FFF7F7', '#FFFFFF'] as const,
+  /** Jasny motyw: biały z delikatnym ciepłym „cherry” w środku (jak ciemny gradient, ale jasny). */
+  screen: ['#FFFFFF', '#FFF0F3', '#FFF8F9'] as const,
 };
 
 export const appShadows = StyleSheet.create({

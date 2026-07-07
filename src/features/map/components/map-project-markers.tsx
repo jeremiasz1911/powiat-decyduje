@@ -37,9 +37,7 @@ export function MapProjectMarkers({
     [projects]
   );
 
-  return (
-    <>
-      {mappableProjects.map(({ project, coordinates }) => {
+  return mappableProjects.map(({ project, coordinates }) => {
         const selected = selectedProjectId === project.id;
         const markerColor = resolveProjectMarkerColor(project.markerColor);
         const markerIcon = resolveMapProjectIcon(project);
@@ -52,10 +50,8 @@ export function MapProjectMarkers({
           <Marker
             key={`project-${project.id}`}
             coordinate={coordinates}
-            anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={selected}
-            zIndex={selected ? 2 : 1}
-            opacity={isOwnPending ? 0.72 : 1}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={true}
             onPress={(event) => {
               event.stopPropagation?.();
               onSelectProject(selected ? null : project);
@@ -68,9 +64,7 @@ export function MapProjectMarkers({
             />
           </Marker>
         );
-      })}
-    </>
-  );
+  });
 }
 
 export function partitionMapProjects(projects: ProjectItem[]) {

@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { useAuth } from '@/src/hooks/use-auth';
+import { clearRememberMePreference, isSessionOnlyLogin, shouldRestorePersistedSession } from '@/src/lib/remember-me';
 import { secureStore } from '@/src/lib/secure-store';
 import {
   getSignedInUserResidentProfile,
@@ -11,15 +12,23 @@ import {
   type ResidentAccount,
 } from '@/src/services';
 
+export type ViewerMode = 'guest' | 'authenticated';
+
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  guestModeReady: boolean;
+  viewerMode: ViewerMode;
+  isGuest: boolean;
   isAuthenticated: boolean;
+  canAccessPrivateFeatures: boolean;
   residentAccounts: ResidentAccount[];
   activeResidentAccount: ResidentAccount | null;
   activeResidentAccountId: string | null;
   setActiveResidentAccountId: (accountId: string, knownAccounts?: ResidentAccount[]) => Promise<void>;
   refreshResidentAccounts: (preferredActiveAccountId?: string) => Promise<ResidentAccount[]>;
+  enterGuestMode: () => Promise<void>;
+  exitGuestMode: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -30,6 +39,36 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [residentAccounts, setResidentAccounts] = useState<ResidentAccount[]>([]);
   const [activeResidentAccountId, setActiveResidentAccountIdState] = useState<string | null>(null);
   const [accountsLoading, setAccountsLoading] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestModeReady, setGuestModeReady] = useState(false);
+  const [rememberMeReady, setRememberMeReady] = useState(false);
+
+  const isAuthenticated = Boolean(user && !user.isAnonymous);
+  const isGuest = guestMode && !isAuthenticated;
+  const viewerMode: ViewerMode = isAuthenticated ? 'authenticated' : 'guest';
+  const canAccessPrivateFeatures = isAuthenticated;
+
+  useEffect(() => {
+    void secureStore.get(STORAGE_KEYS.guestMode).then((value) => {
+      setGuestMode(value === 'true');
+      setGuestModeReady(true);
+    });
+  }, []);
+
+  const exitGuestMode = useCallback(async () => {
+    setGuestMode(false);
+    await secureStore.remove(STORAGE_KEYS.guestMode);
+  }, []);
+
+  const enterGuestMode = useCallback(async () => {
+    await logoutResidentSession();
+    setResidentAccounts([]);
+    setActiveResidentAccountIdState(null);
+    await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+    await clearRememberMePreference();
+    setGuestMode(true);
+    await secureStore.set(STORAGE_KEYS.guestMode, 'true');
+  }, []);
 
   const setActiveResidentAccountId = useCallback(
     async (accountId: string, knownAccounts?: ResidentAccount[]) => {
@@ -89,48 +128,99 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+    await secureStore.remove(STORAGE_KEYS.guestMode);
+    await clearRememberMePreference();
     setActiveResidentAccountIdState(null);
     setResidentAccounts([]);
+    setGuestMode(false);
     await logoutResidentSession();
   }, []);
+
+  useEffect(() => {
+    if (loading || !guestModeReady) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const enforceRememberMe = async () => {
+      if (user && !user.isAnonymous) {
+        const shouldRestore = await shouldRestorePersistedSession();
+
+        if (!shouldRestore && !isSessionOnlyLogin()) {
+          setResidentAccounts([]);
+          setActiveResidentAccountIdState(null);
+          await secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+          await secureStore.remove(STORAGE_KEYS.guestMode);
+          setGuestMode(false);
+          await logoutResidentSession();
+        }
+      }
+
+      if (!cancelled) {
+        setRememberMeReady(true);
+      }
+    };
+
+    void enforceRememberMe();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [guestModeReady, loading, user]);
 
   useEffect(() => {
     if (loading) {
       return;
     }
 
-    if (!user || user.isAnonymous) {
-      setResidentAccounts([]);
-      setActiveResidentAccountIdState(null);
-      void secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+    if (isAuthenticated) {
+      void exitGuestMode();
+      void refreshResidentAccounts();
       return;
     }
 
-    void refreshResidentAccounts();
-  }, [loading, refreshResidentAccounts, user]);
+    setResidentAccounts([]);
+    setActiveResidentAccountIdState(null);
+    void secureStore.remove(STORAGE_KEYS.activeResidentAccountId);
+  }, [exitGuestMode, isAuthenticated, loading, refreshResidentAccounts]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      loading: loading || accountsLoading,
-      isAuthenticated: Boolean(user && !user.isAnonymous),
+      loading: loading || accountsLoading || !guestModeReady || !rememberMeReady,
+      guestModeReady,
+      viewerMode,
+      isGuest,
+      isAuthenticated,
+      canAccessPrivateFeatures,
       residentAccounts,
       activeResidentAccountId,
       activeResidentAccount:
         residentAccounts.find((account) => account.id === activeResidentAccountId) ?? null,
       setActiveResidentAccountId,
       refreshResidentAccounts,
+      enterGuestMode,
+      exitGuestMode,
       logout,
     }),
     [
       activeResidentAccountId,
       accountsLoading,
+      canAccessPrivateFeatures,
+      enterGuestMode,
+      exitGuestMode,
+      guestModeReady,
+      isAuthenticated,
+      isGuest,
       loading,
+      rememberMeReady,
       refreshResidentAccounts,
       residentAccounts,
       setActiveResidentAccountId,
       logout,
       user,
+      viewerMode,
     ]
   );
 

@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ButtonText, Text } from '@gluestack-ui/themed';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+
+import { useAppTheme } from '@/src/theme/theme-context';
+import type { AppColorTokens } from '@/src/theme/app-theme';
 import { appShadows, appTheme } from '@/src/theme/app-theme';
+
 import { RichDescriptionPreview } from './rich-description-preview';
 
 const DESCRIPTION_ACTIONS = [
@@ -114,6 +118,117 @@ const formatInsertedChunk = (
     .join('\n');
 };
 
+function createEditorStyles(colors: AppColorTokens) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      padding: 12,
+    },
+    panelScroll: {
+      flex: 1,
+    },
+    panelScrollContent: {
+      flexGrow: 1,
+      paddingVertical: 16,
+    },
+    panel: {
+      borderRadius: 18,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      padding: 14,
+      gap: 12,
+      ...appShadows.soft,
+    },
+    navSection: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceSoft,
+      padding: 8,
+    },
+    topNav: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: 8,
+    },
+    title: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+    },
+    modeLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    closeIconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      borderWidth: 1,
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    toolbar: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingRight: 10,
+    },
+    toolbarButton: {
+      minWidth: 48,
+    },
+    toolbarButtonInactive: {
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    toolbarButtonActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primaryStrong,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.38,
+      shadowRadius: 10,
+      elevation: 9,
+    },
+    editorWrap: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      backgroundColor: colors.surfaceSoft,
+      minHeight: 320,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    editorInput: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 24,
+      backgroundColor: 'transparent',
+      minHeight: 300,
+    },
+    previewLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    previewWrap: {
+      borderColor: colors.border,
+      borderWidth: 1,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      minHeight: 140,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+  });
+}
+
 type DescriptionEditorModalProps = {
   visible: boolean;
   value: string;
@@ -129,6 +244,8 @@ export function DescriptionEditorModal({
   onClose,
   title = 'Edytor opisu projektu',
 }: DescriptionEditorModalProps) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createEditorStyles(colors), [colors]);
   const [modes, setModes] = useState<EditorModes>(DEFAULT_MODES);
   const [editorHeight, setEditorHeight] = useState(300);
   const previousValueRef = useRef(value);
@@ -233,180 +350,70 @@ export function DescriptionEditorModal({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.panel}>
-          <View style={styles.navSection}>
-            <View style={styles.topNav}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
-                {DESCRIPTION_ACTIONS.map((action) => {
-                  const active = activeActionMap[action.key];
-                  return (
-                    <Button
-                      key={action.key}
-                      size="xs"
-                      variant={active ? 'solid' : 'outline'}
-                      action={active ? 'primary' : 'secondary'}
-                      style={[
-                        styles.toolbarButton,
-                        active ? styles.toolbarButtonActive : styles.toolbarButtonInactive,
-                      ]}
-                      onPress={() => handleToggleAction(action.key)}>
-                      <ButtonText
-                        color={active ? appTheme.colors.textDark : appTheme.colors.textPrimary}>
-                        {action.label}
-                      </ButtonText>
-                    </Button>
-                  );
-                })}
-              </ScrollView>
-              <Pressable onPress={onClose} style={styles.closeIconButton}>
-                <Ionicons name="close" size={20} color={appTheme.colors.textPrimary} />
-              </Pressable>
+            <View style={styles.navSection}>
+              <View style={styles.topNav}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.toolbar}>
+                  {DESCRIPTION_ACTIONS.map((action) => {
+                    const active = activeActionMap[action.key];
+                    return (
+                      <Button
+                        key={action.key}
+                        size="xs"
+                        variant={active ? 'solid' : 'outline'}
+                        action={active ? 'primary' : 'secondary'}
+                        style={[
+                          styles.toolbarButton,
+                          active ? styles.toolbarButtonActive : styles.toolbarButtonInactive,
+                        ]}
+                        onPress={() => handleToggleAction(action.key)}>
+                        <ButtonText color={active ? colors.textOnPrimary : colors.textPrimary}>
+                          {action.label}
+                        </ButtonText>
+                      </Button>
+                    );
+                  })}
+                </ScrollView>
+                <Pressable onPress={onClose} style={styles.closeIconButton}>
+                  <Ionicons name="close" size={20} color={colors.textPrimary} />
+                </Pressable>
+              </View>
+            </View>
+
+            <Text color={colors.textPrimary} style={styles.title}>
+              {title}
+            </Text>
+            <Text color={colors.primary} style={styles.modeLabel}>
+              {activeModeLabel}
+            </Text>
+
+            <View style={styles.editorWrap}>
+              <TextInput
+                value={value}
+                onChangeText={handleChangeText}
+                multiline
+                autoFocus
+                numberOfLines={18}
+                textAlignVertical="top"
+                scrollEnabled={false}
+                selectionColor={colors.primary}
+                placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
+                placeholderTextColor={colors.placeholder}
+                style={[styles.editorInput, { height: Math.max(300, editorHeight) }]}
+                onContentSizeChange={(event) => {
+                  setEditorHeight(event.nativeEvent.contentSize.height + 10);
+                }}
+              />
+            </View>
+
+            <Text color={colors.textMuted} style={styles.previewLabel}>
+              Podglad formatowania
+            </Text>
+            <View style={styles.previewWrap}>
+              <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
             </View>
           </View>
-
-          <Text color={appTheme.colors.textPrimary} style={styles.title}>
-            {title}
-          </Text>
-          <Text color={appTheme.colors.primary} style={styles.modeLabel}>
-            {activeModeLabel}
-          </Text>
-
-          <View style={styles.editorWrap}>
-            <TextInput
-              value={value}
-              onChangeText={handleChangeText}
-              multiline
-              autoFocus
-              numberOfLines={18}
-              textAlignVertical="top"
-              scrollEnabled={false}
-              selectionColor={appTheme.colors.primary}
-              placeholder="Napisz cel projektu, uzasadnienie, zakres i etapy realizacji."
-              placeholderTextColor={appTheme.colors.textMuted}
-              style={[styles.editorInput, { height: Math.max(300, editorHeight) }]}
-              onContentSizeChange={(event) => {
-                setEditorHeight(event.nativeEvent.contentSize.height + 10);
-              }}
-            />
-          </View>
-
-          <Text color={appTheme.colors.textMuted} style={styles.previewLabel}>
-            Podglad formatowania
-          </Text>
-          <View style={styles.previewWrap}>
-            <RichDescriptionPreview content={value} emptyPlaceholder="Zacznij pisac opis projektu..." />
-          </View>
-        </View>
         </ScrollView>
       </View>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.34)',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  panelScroll: {
-    flex: 1,
-  },
-  panelScrollContent: {
-    flexGrow: 1,
-    paddingVertical: 16,
-  },
-  panel: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
-    padding: 14,
-    gap: 12,
-    ...appShadows.soft,
-  },
-  navSection: {
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    borderRadius: 12,
-    backgroundColor: appTheme.colors.surfaceSoft,
-    padding: 8,
-  },
-  topNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 8,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  modeLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  closeIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: appTheme.colors.primary,
-    backgroundColor: appTheme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingRight: 10,
-  },
-  toolbarButton: {
-    minWidth: 48,
-  },
-  toolbarButtonInactive: {
-    borderColor: appTheme.colors.border,
-    backgroundColor: appTheme.colors.surface,
-  },
-  toolbarButtonActive: {
-    borderColor: appTheme.colors.primary,
-    backgroundColor: appTheme.colors.primaryStrong,
-    shadowColor: appTheme.colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.38,
-    shadowRadius: 10,
-    elevation: 9,
-  },
-  editorWrap: {
-    borderColor: appTheme.colors.border,
-    borderWidth: 1,
-    borderRadius: 14,
-    backgroundColor: appTheme.colors.surfaceSoft,
-    minHeight: 320,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  editorInput: {
-    color: appTheme.colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 24,
-    backgroundColor: 'transparent',
-    minHeight: 300,
-  },
-  previewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  previewWrap: {
-    borderColor: appTheme.colors.border,
-    borderWidth: 1,
-    borderRadius: 14,
-    backgroundColor: appTheme.colors.surface,
-    minHeight: 140,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-});

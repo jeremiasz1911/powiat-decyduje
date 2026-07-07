@@ -21,8 +21,17 @@ if (!googleMapsApiKey) {
   );
 }
 
+const buildProfile = process.env.EXPO_PUBLIC_BUILD_PROFILE ?? expo.extra?.buildProfile;
+const isDevelopmentBuild = buildProfile === 'development';
+
 const plugins = Array.isArray(expo.plugins)
-  ? expo.plugins.filter((plugin: string | [string, Record<string, unknown>]) => plugin !== '@react-native-firebase/app')
+  ? expo.plugins.filter((plugin: string | [string, Record<string, unknown>]) => {
+      const name = typeof plugin === 'string' ? plugin : plugin[0];
+      if (name === '@react-native-firebase/app') return false;
+      // Dev client tylko w profilu development — store buildy (preview/production) bez niego.
+      if (name === 'expo-dev-client' && !isDevelopmentBuild) return false;
+      return true;
+    })
   : [];
 
 export default {

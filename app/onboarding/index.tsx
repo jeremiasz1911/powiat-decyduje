@@ -5,11 +5,13 @@ import { StyleSheet, View } from 'react-native';
 import { PowiatStartAnimation } from '@/src/components/brand/PowiatStartAnimation';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
+import { useBootstrapTheme } from '@/src/theme/use-bootstrap-theme';
 
 const LEAVE_TRANSITION_MS = 380;
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { colors } = useBootstrapTheme();
   const [introFinished, setIntroFinished] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,7 +47,7 @@ export default function OnboardingScreen() {
   }, [isLeaving, router]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <PowiatStartAnimation
         onFinish={handleIntroFinish}
         introFinished={introFinished}

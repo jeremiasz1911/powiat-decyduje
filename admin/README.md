@@ -51,12 +51,58 @@ npm run admin:dev
 
 Hasło i klucze Firebase **nie trafiają do przeglądarki** — logowanie i dostęp do danych odbywają się przez API routes chronione middleware.
 
-## Wdrożenie na Vercel
+## Wdrożenie na Vercel (produkcja)
 
-1. Utwórz nowy projekt Vercel i wskaż katalog **`admin`** jako root (lub ustaw Root Directory na `admin` w ustawieniach projektu).
-2. Dodaj wszystkie zmienne z `admin/.env.example` w **Settings → Environment Variables**.
-3. Dla `FIREBASE_ADMIN_PRIVATE_KEY` wklej klucz w jednej linii z `\n` zamiast rzeczywistych podziałów wiersza.
-4. Wdróż — Vercel zbuduje aplikację komendą `npm run build`.
+**Status:** projekt `powiat-decyduje` jest podpięty pod Vercel.
+
+| Adres | Rola |
+|-------|------|
+| https://powiat-decyduje.vercel.app | produkcja (działa teraz) |
+| https://powiatdecyduje.pl | domena docelowa — wymaga DNS |
+| https://www.powiatdecyduje.pl | alias www — wymaga DNS |
+
+### 1. Zmienne środowiskowe (wymagane!)
+
+W [Vercel → powiat-decyduje → Settings → Environment Variables](https://vercel.com/jeremiasz1911s-projects/powiat-decyduje/settings/environment-variables) dodaj **wszystkie** zmienne z `admin/.env.example` (środowisko **Production**):
+
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `FIREBASE_ADMIN_PROJECT_ID`
+- `FIREBASE_ADMIN_CLIENT_EMAIL`
+- `FIREBASE_ADMIN_PRIVATE_KEY` — w jednej linii, z `\n` zamiast enterów
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (opcjonalnie, mapa w panelu)
+
+Skopiuj wartości z lokalnego `admin/.env.local`. **Bez tych zmiennych landing działa, ale logowanie do panelu i API nie.**
+
+Po dodaniu zmiennych: **Deployments → Redeploy** (ostatni deployment).
+
+### 2. Domena powiatdecyduje.pl
+
+U rejestratora domeny (home.pl, OVH, nazwa.pl itd.) ustaw **jedną** z opcji:
+
+**Opcja A — rekord A (zalecane):**
+
+| Typ | Nazwa | Wartość |
+|-----|-------|---------|
+| `A` | `@` | `76.76.21.21` |
+| `CNAME` | `www` | `cname.vercel-dns.com` |
+
+**Opcja B — nameservery Vercel:**
+
+- `ns1.vercel-dns.com`
+- `ns2.vercel-dns.com`
+
+Weryfikacja: `vercel domains inspect powiatdecyduje.pl` (z katalogu `admin/`).
+
+### 3. Kolejne wdrożenia
+
+```bash
+cd admin
+vercel --prod
+```
+
+Lub podłącz repozytorium GitHub w Vercel — każdy push na `main` zbuduje panel automatycznie (Root Directory: `admin`).
 
 Plik `vercel.json` w tym katalogu jest już skonfigurowany pod Next.js.
 

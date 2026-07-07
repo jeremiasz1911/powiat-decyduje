@@ -2,11 +2,13 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { AppScreen } from '@/src/components/layout/app-screen';
 import { PowiatCountyPartnerSection } from '@/src/components/brand/PowiatCountyPartnerSection';
-import { SettingsCard, SettingsGroup } from '@/src/components/settings/settings-ui';
+import { SettingsDivider, SettingsGroup } from '@/src/components/settings/settings-ui';
 import { HomeHero } from '@/src/features/home/components/home-hero';
 import { HomeTileGrid, type HomeTileConfig } from '@/src/features/home/components/home-tile';
 import { useAuthContext } from '@/src/store/auth-context';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
+import { useMemo } from 'react';
 
 const HOME_TILES: HomeTileConfig[] = [
   {
@@ -40,41 +42,39 @@ const HOME_TILES: HomeTileConfig[] = [
 ];
 
 export default function HomeScreen() {
-  const { activeResidentAccount } = useAuthContext();
+  const { activeResidentAccount, isGuest } = useAuthContext();
+  const { colors } = useAppTheme();
   const firstName = activeResidentAccount?.label?.split(' ')[0] ?? null;
+  const tiles = useMemo(
+    () => (isGuest ? HOME_TILES.filter((tile) => tile.id === 'map' || tile.id === 'projects') : HOME_TILES),
+    [isGuest]
+  );
 
   return (
-    <AppScreen cherryBackground scroll contentContainerStyle={styles.content}>
-      <View style={styles.sections}>
-        <SettingsCard style={styles.heroCard}>
-          <HomeHero residentLabel={firstName} />
-        </SettingsCard>
+    <AppScreen cherryBackground scroll edges={[]} contentContainerStyle={styles.content}>
+      <HomeHero residentLabel={isGuest ? null : firstName} />
 
-        <SettingsGroup title="Szybki dostep">
-          <View style={styles.tilesSection}>
-            <HomeTileGrid tiles={HOME_TILES} />
-          </View>
-        </SettingsGroup>
+      <SettingsGroup title="Szybki dostęp">
+        <HomeTileGrid tiles={tiles} />
+      </SettingsGroup>
 
-        <SettingsGroup title="O projekcie">
-          <SettingsCard style={styles.aboutCard}>
-            <View style={styles.aboutBody}>
-              <Text style={styles.aboutText}>
-                <Text style={styles.aboutStrong}>Powiat Decyduje</Text> to projekt stworzony z inicjatywy
-                Młodzieżowej Rady Powiatu, którego celem jest zwiększenie zaangażowania mieszkańców w życie
-                lokalnej społeczności. Aplikacja umożliwia wygodne przeglądanie projektów, oddawanie głosów
-                oraz śledzenie inicjatyw realizowanych na terenie powiatu.
-              </Text>
-              <Text style={styles.aboutText}>
-                Projekt powstał z inicjatywy radnej{' '}
-                <Text style={styles.aboutStrong}>Aleksandry Rutkowskiej</Text> we współpracy z Młodzieżową Radą
-                Powiatu, aby wykorzystać nowoczesne technologie do wspierania dialogu między mieszkańcami a
-                samorządem.
-              </Text>
-              <PowiatCountyPartnerSection style={styles.aboutPartner} />
-            </View>
-          </SettingsCard>
-        </SettingsGroup>
+      <SettingsDivider />
+
+      <View style={styles.aboutSection}>
+        <Text style={[styles.aboutTitle, { color: colors.textPrimary }]}>O projekcie</Text>
+        <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
+          <Text style={[styles.aboutStrong, { color: colors.textPrimary }]}>Powiat Decyduje</Text> to projekt stworzony z inicjatywy
+          Młodzieżowej Rady Powiatu, którego celem jest zwiększenie zaangażowania mieszkańców w życie
+          lokalnej społeczności. Aplikacja umożliwia wygodne przeglądanie projektów, oddawanie głosów
+          oraz śledzenie inicjatyw realizowanych na terenie powiatu.
+        </Text>
+        <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
+          Projekt powstał z inicjatywy radnej{' '}
+          <Text style={[styles.aboutStrong, { color: colors.textPrimary }]}>Aleksandry Rutkowskiej</Text> we współpracy z Młodzieżową Radą
+          Powiatu, aby wykorzystać nowoczesne technologie do wspierania dialogu między mieszkańcami a
+          samorządem.
+        </Text>
+        <PowiatCountyPartnerSection style={[styles.aboutPartner, { borderTopColor: colors.border }]} />
       </View>
     </AppScreen>
   );
@@ -83,41 +83,28 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
-    paddingHorizontal: appTheme.spacing.lg,
+    paddingHorizontal: appTheme.spacing.xl,
     paddingTop: appTheme.spacing.lg,
     paddingBottom: appTheme.spacing.xxl,
-  },
-  sections: {
     gap: appTheme.spacing.lg,
   },
-  heroCard: {
-    paddingVertical: appTheme.spacing.lg,
-    paddingHorizontal: appTheme.spacing.md,
-  },
-  aboutCard: {
-    padding: appTheme.spacing.lg,
-  },
-  aboutBody: {
+  aboutSection: {
     gap: appTheme.spacing.md,
   },
+  aboutTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
   aboutText: {
-    color: appColors.textSecondary,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 23,
   },
   aboutStrong: {
-    color: appColors.textPrimary,
     fontWeight: '700',
   },
   aboutPartner: {
     marginTop: appTheme.spacing.sm,
     paddingTop: appTheme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: appColors.border,
-  },
-  tilesSection: {
-    width: '100%',
-    marginTop: appTheme.spacing.xs,
-    marginBottom: appTheme.spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

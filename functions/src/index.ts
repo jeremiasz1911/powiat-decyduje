@@ -399,6 +399,42 @@ function assertSmsCodeShape(code: string): void {
   }
 }
 
+export const checkResidentRegistrationAvailability = onCall(callableOptions, async (request) => {
+  const phoneNumber = typeof request.data?.phoneNumber === 'string' ? request.data.phoneNumber : '';
+  const pesel = typeof request.data?.pesel === 'string' ? request.data.pesel.trim() : '';
+
+  if (!phoneNumber || !pesel) {
+    throw new HttpsError('invalid-argument', 'Brak numeru telefonu lub PESEL.');
+  }
+
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  assertValidPesel(pesel);
+
+  const [phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
+    db.collection('auth_index_phone').doc(normalizedPhoneNumber).get(),
+    db.collection('auth_index_pesel').doc(pesel).get(),
+  ]);
+
+  const phoneIndexData = phoneIndexSnapshot.data() as
+    | { accountCount?: number; residentAccountIds?: string[] }
+    | undefined;
+  const phoneAccountsCount =
+    typeof phoneIndexData?.accountCount === 'number'
+      ? phoneIndexData.accountCount
+      : Array.isArray(phoneIndexData?.residentAccountIds)
+        ? phoneIndexData.residentAccountIds.length
+        : phoneIndexSnapshot.exists
+          ? 1
+          : 0;
+
+  return {
+    phoneRegistered: phoneIndexSnapshot.exists,
+    peselTaken: peselIndexSnapshot.exists,
+    phoneAccountsCount,
+    phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
+  };
+});
+
 export const sendRegistrationSmsCode = onCall(smsSendCallableOptions, async (request) => {
   let normalizedPhoneNumber = '';
 

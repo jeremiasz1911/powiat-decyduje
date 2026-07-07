@@ -15,6 +15,7 @@ import Animated, {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PowiatLogoImage } from './PowiatLogoImage';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 export const INTRO_DURATION_MS = 2400;
 
@@ -145,6 +146,7 @@ export function PowiatStartAnimation({
 }: PowiatStartAnimationProps) {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { colors, colorScheme } = useAppTheme();
 
   const logoWidth = Math.min(screenWidth * 0.78, 360);
   const logoHeight = Math.min(logoWidth * LOGO_ASPECT, 460);
@@ -323,12 +325,16 @@ export function PowiatStartAnimation({
 
   return (
     <Animated.View
-      style={[styles.root, screenStyle]}
+      style={[styles.root, { backgroundColor: colors.background }, screenStyle]}
       accessibilityRole="image"
       accessibilityLabel="Animacja startowa aplikacji Powiat Decyduje">
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]}>
         <LinearGradient
-          colors={[brandColors.white, brandColors.offWhite, brandColors.white]}
+          colors={
+            colorScheme === 'dark'
+              ? ([colors.background, colors.backgroundSoft, colors.backgroundCherry, colors.background] as const)
+              : ([brandColors.white, brandColors.offWhite, brandColors.white] as const)
+          }
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -337,7 +343,13 @@ export function PowiatStartAnimation({
         {BG_DECOR.map((item, index) => (
           <DecorItem key={`decor-${index}`} item={item} progress={decorProgress} linesProgress={linesProgress} />
         ))}
-        <Animated.View style={[styles.shine, shineStyle]} />
+        <Animated.View
+          style={[
+            styles.shine,
+            colorScheme === 'dark' ? styles.shineDark : null,
+            shineStyle,
+          ]}
+        />
       </View>
 
       <SafeAreaView style={styles.safeArea}>
@@ -346,7 +358,12 @@ export function PowiatStartAnimation({
             <Animated.View
               style={[
                 styles.logoGlow,
-                { width: logoWidth * 0.9, height: logoWidth * 0.9, borderRadius: logoWidth * 0.45 },
+                {
+                  width: logoWidth * 0.9,
+                  height: logoWidth * 0.9,
+                  borderRadius: logoWidth * 0.45,
+                  backgroundColor: colors.primarySoft,
+                },
                 glowStyle,
               ]}
             />
@@ -365,7 +382,11 @@ export function PowiatStartAnimation({
               ]}
             />
             <Animated.View style={logoStyle}>
-              <PowiatLogoImage width={logoWidth} height={logoHeight} />
+              <PowiatLogoImage
+                width={logoWidth}
+                height={logoHeight}
+                variant={colorScheme === 'dark' ? 'dark' : 'light'}
+              />
             </Animated.View>
           </View>
         </View>
@@ -389,7 +410,6 @@ export function PowiatStartAnimation({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: brandColors.white,
   },
   safeArea: {
     flex: 1,
@@ -402,7 +422,7 @@ const styles = StyleSheet.create({
   },
   bgDecor: {
     ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   decorLine: {
     position: 'absolute',
@@ -432,13 +452,16 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: 'rgba(227, 6, 19, 0.12)',
   },
+  shineDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 77, 87, 0.18)',
+  },
   logoStage: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoGlow: {
     position: 'absolute',
-    backgroundColor: brandColors.redMedium,
   },
   ripple: {
     position: 'absolute',

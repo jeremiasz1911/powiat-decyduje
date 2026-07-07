@@ -28,7 +28,8 @@ import {
 } from '@/src/features/projects/project-submission.schema';
 import { getProjectImageUrls } from '@/src/features/projects/utils';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { ensureAnonymousAuth, getProjectById, updateProject } from '@/src/services';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
+import { getProjectById, requireSignedInUser, updateProject } from '@/src/services';
 import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
 
 const MAX_DESCRIPTION_LENGTH = 5000;
@@ -38,6 +39,7 @@ const DESCRIPTION_PLACEHOLDER =
 
 export default function EditProjectScreen() {
   const router = useRouter();
+  const canAccessPrivateFeatures = usePrivateRoute();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { notify } = useAppFeedback();
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function EditProjectScreen() {
       }
 
       try {
-        const user = await ensureAnonymousAuth();
+        const user = await requireSignedInUser();
         const project = await getProjectById(id, { userId: user.uid });
         setValue('title', project.title);
         setValue('description', project.description);
@@ -129,7 +131,7 @@ export default function EditProjectScreen() {
     }
 
     try {
-      const user = await ensureAnonymousAuth();
+      const user = await requireSignedInUser();
       await updateProject(id, user.uid, {
         title: values.title,
         description: values.description,
@@ -149,6 +151,10 @@ export default function EditProjectScreen() {
       await notify('Błąd edycji', message, 'error');
     }
   };
+
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
 
   if (loading) {
     return <LoadingState label="Ładowanie projektu do edycji..." />;

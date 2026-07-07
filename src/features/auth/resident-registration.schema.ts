@@ -21,7 +21,7 @@ export function normalizePeselInput(value: string): string {
   return value.trim();
 }
 
-function isValidPeselChecksum(pesel: string): boolean {
+export function isValidPeselChecksum(pesel: string): boolean {
   if (!/^\d{11}$/.test(pesel)) {
     return false;
   }

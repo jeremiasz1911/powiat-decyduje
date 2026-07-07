@@ -280,10 +280,12 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     throw new Error('Firebase Firestore is not configured.');
   }
 
-  const imageUrls = await uploadProjectImages(payload.userId, payload.imageUris);
-  const primaryImageUrl = imageUrls[0];
+  const imageUrls =
+    payload.imageUris.length > 0
+      ? await uploadProjectImages(payload.userId, payload.imageUris)
+      : [];
 
-  const docRef = await addDoc(collection(db, 'projects'), {
+  const docData = {
     authorId: payload.userId,
     createdBy: payload.userId,
     createdByResidentAccountId: payload.residentAccountId,
@@ -297,17 +299,27 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     village: payload.village,
     cost: payload.cost,
     location: payload.location,
-    imageUrl: primaryImageUrl,
     imageUrls,
     icon: payload.icon,
     markerColor: resolveProjectMarkerColor(payload.markerColor),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    status: 'submitted',
+    status: 'submitted' as const,
     votesCount: 0,
-  });
+    ...(imageUrls[0] ? { imageUrl: imageUrls[0] } : {}),
+  };
 
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, 'projects'), docData);
+    return docRef.id;
+  } catch (error) {
+    if (error instanceof FirebaseError && error.code === 'permission-denied') {
+      throw new Error(
+        'Brak uprawnień do zapisu projektu. Wdróż reguły Firestore: firebase deploy --only firestore:rules'
+      );
+    }
+    throw error;
+  }
 }
 
 export async function listProjects(filters: ListProjectsFilters = {}): Promise<ListProjectsResult> {

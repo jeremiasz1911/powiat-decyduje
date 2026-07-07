@@ -18,15 +18,10 @@ import {
   type User,
 } from 'firebase/auth';
 import {
-  collection,
   doc,
   getDoc,
-  getDocs,
-  limit,
-  query,
   serverTimestamp,
   setDoc,
-  where,
   type DocumentData,
   type Firestore,
 } from 'firebase/firestore';
@@ -51,15 +46,22 @@ const firebaseErrorMessages: Record<string, string> = {
   'functions/already-exists': 'Nie można zarejestrować konta.',
   'functions/permission-denied': 'Brak uprawnień do wykonania operacji.',
   'functions/internal': 'Błąd serwera. Spróbuj ponownie później.',
+  'permission-denied': 'Brak uprawnień do wykonania operacji. Zaloguj się ponownie lub spróbuj za chwilę.',
 };
 
 function toFriendlyFirebaseError(error: unknown): Error | null {
-  if (!(error instanceof FirebaseError)) {
-    return null;
+  if (error instanceof FirebaseError) {
+    const message = firebaseErrorMessages[error.code];
+    if (message) {
+      return new Error(message);
+    }
   }
 
-  const message = firebaseErrorMessages[error.code];
-  return message ? new Error(message) : null;
+  if (error instanceof Error && /insufficient permissions/i.test(error.message)) {
+    return new Error(firebaseErrorMessages['permission-denied']);
+  }
+
+  return null;
 }
 
 type ResidentConsents = {
@@ -251,6 +253,39 @@ function peselIndexRef(dbInstance: Firestore, normalizedPesel: string) {
   return doc(dbInstance, 'auth_index_pesel', normalizedPesel);
 }
 
+function getPhoneAccountCountFromIndex(phoneIndexData: Record<string, unknown> | undefined): number {
+  if (!phoneIndexData) {
+    return 0;
+  }
+
+  if (typeof phoneIndexData.accountCount === 'number' && Number.isFinite(phoneIndexData.accountCount)) {
+    return Math.max(0, Math.floor(phoneIndexData.accountCount));
+  }
+
+  if (Array.isArray(phoneIndexData.residentAccountIds)) {
+    return phoneIndexData.residentAccountIds.length;
+  }
+
+  if (typeof phoneIndexData.uid === 'string') {
+    return 1;
+  }
+
+  if (Array.isArray(phoneIndexData.uids) && phoneIndexData.uids.length > 0) {
+    return phoneIndexData.uids.length;
+  }
+
+  return 0;
+}
+
+function getSignedInNonAnonymousUid(): string | null {
+  const user = auth?.currentUser;
+  if (!user || user.isAnonymous) {
+    return null;
+  }
+
+  return user.uid;
+}
+
 function formatResidentLabel(account: Pick<ResidentAccountData, 'fullName' | 'pesel'>): string {
   const fullName = account.fullName.trim();
   if (fullName.length > 0) {
@@ -364,91 +399,118 @@ async function getUserSnapshotByUid(dbInstance: Firestore, uid: string): Promise
 async function resolveHouseholdByPhone(
   dbInstance: Firestore,
   normalizedPhoneNumber: string
-): Promise<{ uid: string; data: ResidentHouseholdData | null; residentAccounts: ResidentAccount[] }> {
+): Promise<{
+  uid: string;
+  data: ResidentHouseholdData | null;
+  residentAccounts: ResidentAccount[];
+  accountCount: number;
+}> {
   const phoneIndexSnapshot = await getDoc(phoneIndexRef(dbInstance, normalizedPhoneNumber));
-  const phoneIndexData = phoneIndexSnapshot.data() as Record<string, unknown> | undefined;
+  if (!phoneIndexSnapshot.exists()) {
+    return { uid: '', data: null, residentAccounts: [], accountCount: 0 };
+  }
+
+  const phoneIndexData = phoneIndexSnapshot.data() as Record<string, unknown>;
+  const accountCount = getPhoneAccountCountFromIndex(phoneIndexData);
   const indexedUid =
-    typeof phoneIndexData?.uid === 'string'
+    typeof phoneIndexData.uid === 'string'
       ? phoneIndexData.uid
-      : Array.isArray(phoneIndexData?.uids)
-        ? (phoneIndexData?.uids as unknown[]).find((value) => typeof value === 'string') ?? null
+      : Array.isArray(phoneIndexData.uids)
+        ? (phoneIndexData.uids as unknown[]).find((value) => typeof value === 'string') ?? null
         : null;
 
-  if (typeof indexedUid === 'string') {
+  const authUid = getSignedInNonAnonymousUid();
+  if (indexedUid && authUid && indexedUid === authUid) {
     const data = await getUserSnapshotByUid(dbInstance, indexedUid);
+    const residentAccounts = mapResidentAccountsFromUserDoc(data);
+
     return {
       uid: indexedUid,
       data,
-      residentAccounts: mapResidentAccountsFromUserDoc(data),
+      residentAccounts,
+      accountCount: Math.max(accountCount, residentAccounts.length),
     };
   }
 
-  const usersSnapshot = await getDocs(
-    query(collection(dbInstance, 'users'), where('phoneNumber', '==', normalizedPhoneNumber), limit(1))
-  );
-  const docSnapshot = usersSnapshot.docs[0];
-
-  if (!docSnapshot) {
-    return { uid: '', data: null, residentAccounts: [] };
-  }
-
-  const data = docSnapshot.data() as ResidentHouseholdData;
   return {
-    uid: docSnapshot.id,
-    data,
-    residentAccounts: mapResidentAccountsFromUserDoc(data),
+    uid: indexedUid ?? '',
+    data: null,
+    residentAccounts: [],
+    accountCount,
   };
 }
 
 async function resolveHouseholdByPesel(
   dbInstance: Firestore,
   normalizedPesel: string
-): Promise<{ uid: string; data: ResidentHouseholdData | null; residentAccounts: ResidentAccount[]; account: ResidentAccount | null }> {
+): Promise<{
+  uid: string;
+  data: ResidentHouseholdData | null;
+  residentAccounts: ResidentAccount[];
+  account: ResidentAccount | null;
+}> {
   const peselIndexSnapshot = await getDoc(peselIndexRef(dbInstance, normalizedPesel));
-  const peselIndexData = peselIndexSnapshot.data() as Record<string, unknown> | undefined;
-  const indexedUid = typeof peselIndexData?.uid === 'string' ? peselIndexData.uid : null;
+  if (!peselIndexSnapshot.exists()) {
+    return { uid: '', data: null, residentAccounts: [], account: null };
+  }
 
-  if (indexedUid) {
+  const peselIndexData = peselIndexSnapshot.data() as Record<string, unknown>;
+  const indexedUid = typeof peselIndexData.uid === 'string' ? peselIndexData.uid : null;
+  const authUid = getSignedInNonAnonymousUid();
+
+  if (indexedUid && authUid && indexedUid === authUid) {
     const data = await getUserSnapshotByUid(dbInstance, indexedUid);
     const residentAccounts = mapResidentAccountsFromUserDoc(data);
     const account =
       residentAccounts.find((item) => item.pesel === normalizedPesel) ??
-      (typeof peselIndexData?.residentAccountId === 'string'
+      (typeof peselIndexData.residentAccountId === 'string'
         ? residentAccounts.find((item) => item.id === peselIndexData.residentAccountId) ?? null
         : null);
 
     return { uid: indexedUid, data, residentAccounts, account };
   }
 
-  const usersSnapshot = await getDocs(query(collection(dbInstance, 'users'), where('pesel', '==', normalizedPesel), limit(1)));
-  const docSnapshot = usersSnapshot.docs[0];
-
-  if (!docSnapshot) {
-    return { uid: '', data: null, residentAccounts: [], account: null };
-  }
-
-  const data = docSnapshot.data() as ResidentHouseholdData;
-  const residentAccounts = mapResidentAccountsFromUserDoc(data);
   return {
-    uid: docSnapshot.id,
-    data,
-    residentAccounts,
-    account: residentAccounts.find((item) => item.pesel === normalizedPesel) ?? residentAccounts[0] ?? null,
+    uid: indexedUid ?? '',
+    data: null,
+    residentAccounts: [],
+    account: {
+      id:
+        typeof peselIndexData.residentAccountId === 'string'
+          ? peselIndexData.residentAccountId
+          : normalizedPesel,
+      pesel: normalizedPesel,
+      firstName: '',
+      lastName: '',
+      fullName: '',
+      email: '',
+      phoneNumber: '',
+      phoneVerified: true,
+      emailVerified: false,
+      address: {
+        street: '',
+        houseNumber: '',
+        apartmentNumber: null,
+        postalCode: '',
+        city: '',
+        commune: COMMUNE_NAME,
+      },
+      commune: COMMUNE_NAME,
+      county: COUNTY_NAME,
+      residentStatus: 'verified_resident',
+      consents: {
+        residentDeclaration: false,
+        termsAccepted: false,
+        privacyPolicyAccepted: false,
+        personalDataProcessingAccepted: false,
+      },
+      createdAt: null,
+      updatedAt: null,
+      label: `Konto ${normalizedPesel.slice(-4)}`,
+    },
   };
 }
 
-function getAccountCount(data: ResidentHouseholdData | null, phoneCountFallback = 0): number {
-  if (!data) {
-    return phoneCountFallback;
-  }
-
-  const residentAccounts = mapResidentAccountsFromUserDoc(data);
-  if (residentAccounts.length > 0) {
-    return residentAccounts.length;
-  }
-
-  return phoneCountFallback > 0 ? phoneCountFallback : 1;
-}
 
 export async function ensureAnonymousAuth(): Promise<User> {
   const authInstance = requireAuth();
@@ -473,6 +535,19 @@ export async function ensureAnonymousAuth(): Promise<User> {
 
     throw error;
   }
+}
+
+/** Wymaga zalogowanego konta mieszkańca (nie anonimowego). */
+export async function requireSignedInUser(): Promise<User> {
+  const authInstance = requireAuth();
+  const user = authInstance.currentUser;
+
+  if (!user || user.isAnonymous) {
+    throw new Error('Zaloguj się kontem mieszkańca, aby wykonać tę operację.');
+  }
+
+  await user.getIdToken(true);
+  return user;
 }
 
 export async function logoutResidentSession(): Promise<void> {
@@ -543,24 +618,43 @@ export async function loginWithEmailPassword(payload: EmailPasswordLoginPayload)
 export async function checkResidentRegistrationAvailability(
   payload: ResidentRegistrationAvailabilityPayload
 ): Promise<ResidentRegistrationAvailabilityResult> {
+  const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
+  const normalizedPesel = normalizePesel(payload.pesel);
+
   try {
-    await ensureAnonymousAuth();
-    const dbInstance = requireDb();
-    const normalizedPhoneNumber = normalizePhoneNumber(payload.phoneNumber);
-    const normalizedPesel = normalizePesel(payload.pesel);
-    const [phoneResolution, peselResolution] = await Promise.all([
-      resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber),
-      resolveHouseholdByPesel(dbInstance, normalizedPesel),
-    ]);
-    const phoneAccountsCount = getAccountCount(phoneResolution.data, phoneResolution.residentAccounts.length);
+    const checkAvailability = createCallable<
+      { phoneNumber: string; pesel: string },
+      ResidentRegistrationAvailabilityResult
+    >('checkResidentRegistrationAvailability');
+
+    const { data } = await checkAvailability({
+      phoneNumber: normalizedPhoneNumber,
+      pesel: normalizedPesel,
+    });
 
     return {
-      phoneRegistered: Boolean(phoneResolution.data),
-      peselTaken: Boolean(peselResolution.account),
-      phoneAccountsCount,
-      phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
+      phoneRegistered: Boolean(data.phoneRegistered),
+      peselTaken: Boolean(data.peselTaken),
+      phoneAccountsCount: data.phoneAccountsCount ?? 0,
+      phoneLimitReached: Boolean(data.phoneLimitReached),
     };
   } catch (error) {
+    if (error instanceof FirebaseError && error.code === 'functions/not-found') {
+      await ensureAnonymousAuth();
+      const dbInstance = requireDb();
+      const [phoneResolution, peselResolution] = await Promise.all([
+        resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber),
+        resolveHouseholdByPesel(dbInstance, normalizedPesel),
+      ]);
+
+      return {
+        phoneRegistered: phoneResolution.accountCount > 0 || Boolean(phoneResolution.uid),
+        peselTaken: Boolean(peselResolution.account),
+        phoneAccountsCount: phoneResolution.accountCount,
+        phoneLimitReached: phoneResolution.accountCount >= MAX_PHONE_ACCOUNTS,
+      };
+    }
+
     const friendly = toFriendlyFirebaseError(error);
     if (friendly) {
       throw friendly;
@@ -578,7 +672,7 @@ export async function checkPhoneRegistrationLimit(phoneNumber: string): Promise<
   const dbInstance = requireDb();
   const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
   const resolution = await resolveHouseholdByPhone(dbInstance, normalizedPhoneNumber);
-  const phoneAccountCount = getAccountCount(resolution.data, resolution.residentAccounts.length);
+  const phoneAccountCount = resolution.accountCount;
 
   return {
     accountCount: phoneAccountCount,

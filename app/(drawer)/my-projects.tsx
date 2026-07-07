@@ -1,19 +1,20 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
 import { ScreenContainer } from '@/src/components/screen-container';
 import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
+import { AppButton } from '@/src/components/ui/AppButton';
 import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { MyProjectRow } from '@/src/features/projects/components/my-project-row';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import { listMyProjects, type ProjectItem } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { appTheme } from '@/src/theme/app-theme';
 
 const DEFAULT_MAP_COORDS = {
   latitude: '53.1126',
@@ -23,6 +24,7 @@ const DEFAULT_MAP_COORDS = {
 export default function DrawerMyProjectsScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const canAccessPrivateFeatures = usePrivateRoute();
   const { user } = useAuthContext();
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -62,9 +64,9 @@ export default function DrawerMyProjectsScreen() {
         setCursor(result.nextCursor);
         setItems((prev) => (reset ? result.items : [...prev, ...result.items]));
       } catch (loadError) {
-        const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac Twoich projektow.';
+        const message = loadError instanceof Error ? loadError.message : 'Nie udało się pobrać Twoich projektów.';
         setError(message);
-        await notify('Blad', message, 'error');
+        await notify('Błąd', message, 'error');
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -108,7 +110,7 @@ export default function DrawerMyProjectsScreen() {
   }, [items, search]);
 
   const openProject = (projectId: string) => {
-    router.push(`/(drawer)/project/${projectId}`);
+    router.push(`/(drawer)/(tabs)/project/${projectId}`);
   };
 
   const editProject = (projectId: string) => {
@@ -118,81 +120,58 @@ export default function DrawerMyProjectsScreen() {
   const showEmptySearch = !loading && !error && items.length > 0 && filteredItems.length === 0;
   const showEmptyList = !loading && !error && items.length === 0;
 
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   return (
     <ScreenContainer
       title="Moje projekty"
-      description="Tutaj widzisz swoje projekty — również te, które oczekują na akceptację.">
+      description="Twoje inicjatywy — również te oczekujące na akceptację.">
       <View style={styles.sections}>
-        <SettingsGroup title="Nowy projekt">
-          <SettingsCard>
-            <SettingsRow
-              label="Zloz nowy projekt"
-              icon="add-circle-outline"
-              onPress={openSubmitProject}
-            />
-          </SettingsCard>
-        </SettingsGroup>
+        <AppButton title="Zgłoś nowy projekt" onPress={openSubmitProject} />
 
         <SettingsGroup title="Szukaj">
-          <SettingsCard style={styles.searchCard}>
-            <View style={styles.searchWrap}>
-              <AppTextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Tytul, opis, miejscowosc…"
-                containerStyle={styles.searchInput}
-                inputStyle={styles.searchField}
-              />
-            </View>
-          </SettingsCard>
+          <AppTextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Tytuł, opis, miejscowość…"
+            variant="minimal"
+          />
         </SettingsGroup>
 
-        {loading ? <LoadingState label="Laduje Twoje projekty..." /> : null}
+        {loading ? <LoadingState label="Ładuję Twoje projekty..." /> : null}
 
         {error ? (
           <ErrorState
             message={error}
-            actionLabel="Sprobuj ponownie"
+            actionLabel="Spróbuj ponownie"
             onActionPress={() => void fetchProjects(true, null)}
           />
         ) : null}
 
         {showEmptyList ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="folder-open-outline" size={28} color={appColors.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>Brak Twoich projektow</Text>
-            <Text style={styles.emptyDescription}>
-              Zgłoś pierwszy projekt obywatelski, aby śledzić jego status w tym miejscu.
-            </Text>
-            <Pressable
-              onPress={openSubmitProject}
-              style={({ pressed }) => [styles.emptyAction, pressed ? styles.emptyActionPressed : null]}
-              accessibilityRole="button">
-              <Ionicons name="add" size={16} color={appColors.primary} />
-              <Text style={styles.emptyActionText}>Dodaj projekt</Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            title="Brak Twoich projektów"
+            description="Zgłoś pierwszą inicjatywę obywatelską, aby śledzić jej status w tym miejscu."
+            actionLabel="Zgłoś projekt"
+            onActionPress={openSubmitProject}
+          />
         ) : null}
 
         {showEmptySearch ? (
-          <View style={styles.emptyStateCompact}>
-            <Text style={styles.emptyDescription}>Brak wyników dla podanej frazy.</Text>
-            <Pressable
-              onPress={() => setSearch('')}
-              style={({ pressed }) => [styles.emptyActionGhost, pressed ? styles.emptyActionPressed : null]}
-              accessibilityRole="button">
-              <Ionicons name="close-circle-outline" size={15} color={appColors.textMuted} />
-              <Text style={styles.emptyActionGhostText}>Wyczyść wyszukiwanie</Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            title="Brak wyników"
+            description="Nie znaleziono projektów pasujących do podanej frazy."
+            actionLabel="Wyczyść wyszukiwanie"
+            onActionPress={() => setSearch('')}
+          />
         ) : null}
 
         {!loading && !error && filteredItems.length > 0 ? (
           <SettingsGroup
             title="Twoje projekty"
-            footer={`${filteredItems.length} ${filteredItems.length === 1 ? 'projekt' : 'projektow'} na liscie.`}>
+            footer={`${filteredItems.length} ${filteredItems.length === 1 ? 'projekt' : 'projektów'} na liście.`}>
             <SettingsCard>
               {filteredItems.map((project) => (
                 <MyProjectRow
@@ -207,18 +186,14 @@ export default function DrawerMyProjectsScreen() {
         ) : null}
 
         {hasMore ? (
-          <SettingsGroup>
-            <SettingsCard>
-              <SettingsRow
-                label={loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}
-                icon="chevron-down-circle-outline"
-                onPress={() => void fetchProjects(false, cursor)}
-                disabled={loadingMore}
-                loading={loadingMore}
-                showChevron={!loadingMore}
-              />
-            </SettingsCard>
-          </SettingsGroup>
+          <SettingsRow
+            label={loadingMore ? 'Ładowanie...' : 'Pokaż więcej'}
+            icon="chevron-down-circle-outline"
+            onPress={() => void fetchProjects(false, cursor)}
+            disabled={loadingMore}
+            loading={loadingMore}
+            showChevron={!loadingMore}
+          />
         ) : null}
       </View>
     </ScreenContainer>
@@ -228,89 +203,5 @@ export default function DrawerMyProjectsScreen() {
 const styles = StyleSheet.create({
   sections: {
     gap: appTheme.spacing.lg,
-  },
-  searchCard: {
-    paddingVertical: appTheme.spacing.sm,
-  },
-  searchWrap: {
-    paddingHorizontal: appTheme.spacing.md,
-  },
-  searchInput: {
-    gap: 0,
-  },
-  searchField: {
-    minHeight: 40,
-    borderRadius: 10,
-    fontSize: 15,
-    paddingHorizontal: appTheme.spacing.md,
-  },
-  emptyState: {
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
-    borderRadius: 18,
-    paddingHorizontal: appTheme.spacing.lg,
-    paddingVertical: appTheme.spacing.xl,
-  },
-  emptyStateCompact: {
-    alignItems: 'center',
-    gap: appTheme.spacing.sm,
-    paddingVertical: appTheme.spacing.md,
-  },
-  emptyIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
-    marginBottom: appTheme.spacing.xs,
-  },
-  emptyTitle: {
-    color: appColors.textPrimary,
-    fontSize: 17,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  emptyDescription: {
-    color: appColors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginBottom: appTheme.spacing.xs,
-  },
-  emptyAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: appColors.borderStrong,
-    backgroundColor: appColors.surface,
-  },
-  emptyActionGhost: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  emptyActionPressed: {
-    opacity: 0.8,
-  },
-  emptyActionText: {
-    color: appColors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  emptyActionGhostText: {
-    color: appColors.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

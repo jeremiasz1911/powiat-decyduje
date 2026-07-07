@@ -188,6 +188,28 @@ service cloud.firestore {
         request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
+
+      match /resident_profiles/{profileId} {
+        allow read: if isOwner(uid);
+
+        allow create, update: if isOwner(uid) &&
+          request.resource.data.keys().hasOnly([
+            'fullName',
+            'email',
+            'phone',
+            'village',
+            'street',
+            'commune',
+            'residentStatus',
+            'createdAt',
+            'updatedAt'
+          ]) &&
+          request.resource.data.commune == 'Mlawa' &&
+          request.resource.data.residentStatus == 'verified_resident' &&
+          request.resource.data.updatedAt == request.time;
+
+        allow delete: if false;
+      }
     }
 
     match /auth_index_phone/{phoneNumber} {

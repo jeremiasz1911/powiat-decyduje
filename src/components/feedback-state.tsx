@@ -1,6 +1,8 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { appColors, appShadows, appTheme } from '@/src/theme/app-theme';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type LoadingStateProps = {
   label?: string;
@@ -20,42 +22,48 @@ type ErrorStateProps = {
   onActionPress?: () => void;
 };
 
-export function LoadingState({ label = 'Ladowanie...' }: LoadingStateProps) {
+export function LoadingState({ label = 'Ładowanie...' }: LoadingStateProps) {
+  const { colors } = useAppTheme();
+
   return (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color={appColors.primary} />
-      <Text style={styles.loadingLabel}>{label}</Text>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[styles.loadingLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
 
 export function EmptyState({ title, description, actionLabel, onActionPress }: EmptyStateProps) {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
+    <View style={styles.state}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {description ? <Text style={[styles.description, { color: colors.textMuted }]}>{description}</Text> : null}
       {actionLabel && onActionPress ? (
-        <Pressable onPress={onActionPress} style={({ pressed }) => [styles.action, pressed ? styles.actionPressed : null]}>
-          <Text style={styles.actionText}>{actionLabel}</Text>
-        </Pressable>
+        <AppButton title={actionLabel} onPress={onActionPress} variant="secondary" fullWidth={false} style={styles.actionButton} />
       ) : null}
     </View>
   );
 }
 
 export function ErrorState({
-  title = 'Wystapil blad',
+  title = 'Wystąpił błąd',
   message,
   actionLabel,
   onActionPress,
 }: ErrorStateProps) {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.errorTitle}>{title}</Text>
-      <Text style={styles.description}>{message}</Text>
+    <View style={styles.state}>
+      <Text style={[styles.errorTitle, { color: colors.danger }]}>{title}</Text>
+      <Text style={[styles.description, { color: colors.textMuted }]}>{message}</Text>
       {actionLabel && onActionPress ? (
-        <Pressable onPress={onActionPress} style={({ pressed }) => [styles.action, pressed ? styles.actionPressed : null]}>
-          <Text style={styles.actionText}>{actionLabel}</Text>
+        <Pressable
+          onPress={onActionPress}
+          style={({ pressed }) => [styles.textAction, pressed ? { opacity: 0.7 } : null]}>
+          <Text style={[styles.textActionLabel, { color: colors.primary }]}>{actionLabel}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -66,52 +74,44 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
     gap: 10,
   },
   loadingLabel: {
-    color: appColors.textMuted,
     fontSize: 14,
   },
-  card: {
+  state: {
     alignItems: 'center',
     gap: appTheme.spacing.sm,
-    borderWidth: 1,
-    borderColor: appColors.border,
-    backgroundColor: appColors.surface,
-    borderRadius: 16,
-    padding: appTheme.spacing.lg,
-    ...appShadows.soft,
+    paddingVertical: appTheme.spacing.xl,
+    paddingHorizontal: appTheme.spacing.md,
   },
   title: {
     fontWeight: '800',
-    color: appColors.textPrimary,
-    fontSize: 16,
+    fontSize: 17,
     textAlign: 'center',
   },
   errorTitle: {
     fontWeight: '800',
-    color: appColors.danger,
-    fontSize: 16,
+    fontSize: 17,
     textAlign: 'center',
   },
   description: {
-    color: appColors.textMuted,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 21,
     textAlign: 'center',
+    maxWidth: 320,
   },
-  action: {
+  actionButton: {
+    marginTop: appTheme.spacing.sm,
+    paddingHorizontal: appTheme.spacing.xl,
+  },
+  textAction: {
     marginTop: appTheme.spacing.xs,
-    paddingHorizontal: appTheme.spacing.md,
     paddingVertical: appTheme.spacing.sm,
-    borderRadius: 10,
+    paddingHorizontal: appTheme.spacing.md,
   },
-  actionPressed: {
-    backgroundColor: appColors.primarySoft,
-  },
-  actionText: {
-    color: appColors.primary,
+  textActionLabel: {
     fontSize: 14,
     fontWeight: '700',
   },

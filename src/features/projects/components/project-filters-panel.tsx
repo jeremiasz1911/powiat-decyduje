@@ -11,7 +11,8 @@ import {
   PROJECT_CATEGORIES,
   PROJECT_COMMUNES,
 } from '@/src/features/projects/constants';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 type ProjectFiltersPanelProps = {
   search: string;
@@ -22,6 +23,7 @@ type ProjectFiltersPanelProps = {
   onCommuneChange: (value: string) => void;
   onClearFilters: () => void;
   resultsCount: number;
+  variant?: 'default' | 'minimal';
 };
 
 const DESKTOP_BREAKPOINT = 768;
@@ -35,8 +37,10 @@ export function ProjectFiltersPanel({
   onCommuneChange,
   onClearFilters,
   resultsCount,
+  variant = 'default',
 }: ProjectFiltersPanelProps) {
   const { width } = useWindowDimensions();
+  const { colors } = useAppTheme();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const [expanded, setExpanded] = useState(isDesktop);
 
@@ -62,59 +66,78 @@ export function ProjectFiltersPanel({
     ? `Aktywne filtry · ${resultsCount} wynikow`
     : `Przeszukaj projekty obywatelskie · ${resultsCount} wynikow`;
 
-  return (
-    <SettingsGroup title="Filtry i wyszukiwanie" footer={sectionFooter}>
-      <SettingsCard style={styles.card}>
-        {!isDesktop ? (
-          <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.toggleRow}>
-            <Text style={styles.toggleText}>{expanded ? 'Ukryj filtry' : 'Pokaz filtry'}</Text>
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={appColors.textMuted}
+  const filtersBody = (
+    <>
+      {!isDesktop ? (
+        <Pressable onPress={() => setExpanded((prev) => !prev)} style={styles.toggleRow}>
+          <Text style={[styles.toggleText, { color: colors.textPrimary }]}>
+            {expanded ? 'Ukryj filtry' : 'Pokaz filtry'}
+          </Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.textMuted} />
+        </Pressable>
+      ) : null}
+
+      {expanded || isDesktop ? (
+        <View style={[styles.filtersBody, variant === 'minimal' ? styles.filtersBodyMinimal : null]}>
+          <AppTextInput
+            variant={variant === 'minimal' ? 'minimal' : 'default'}
+            label="Szukaj"
+            value={search}
+            onChangeText={onSearchChange}
+            placeholder="Nazwa lub opis projektu…"
+            containerStyle={styles.field}
+            inputStyle={variant === 'minimal' ? undefined : styles.compactInput}
+          />
+
+          <View style={[styles.selectRow, isDesktop ? styles.selectRowDesktop : null]}>
+            <AppSelect
+              label="Kategoria"
+              value={selectedCategory}
+              options={categoryOptions}
+              onChange={onCategoryChange}
+              placeholder={ALL_CATEGORIES_LABEL}
             />
-          </Pressable>
-        ) : null}
-
-        {expanded || isDesktop ? (
-          <View style={styles.filtersBody}>
-            <AppTextInput
-              label="Szukaj"
-              value={search}
-              onChangeText={onSearchChange}
-              placeholder="Nazwa lub opis projektu…"
-              containerStyle={styles.field}
-              inputStyle={styles.compactInput}
+            <AppSelect
+              label="Gmina"
+              value={selectedCommune}
+              options={communeOptions}
+              onChange={onCommuneChange}
+              placeholder={ALL_COMMUNES_LABEL}
             />
+          </View>
 
-            <View style={[styles.selectRow, isDesktop ? styles.selectRowDesktop : null]}>
-              <AppSelect
-                label="Kategoria"
-                value={selectedCategory}
-                options={categoryOptions}
-                onChange={onCategoryChange}
-                placeholder={ALL_CATEGORIES_LABEL}
-              />
-              <AppSelect
-                label="Gmina"
-                value={selectedCommune}
-                options={communeOptions}
-                onChange={onCommuneChange}
-                placeholder={ALL_COMMUNES_LABEL}
-              />
-            </View>
-
-            {hasActiveFilters ? (
+          {hasActiveFilters ? (
+            variant === 'minimal' ? (
+              <Pressable onPress={onClearFilters} style={styles.clearLink}>
+                <Text style={[styles.clearLinkText, { color: colors.primary }]}>Wyczyść filtry</Text>
+              </Pressable>
+            ) : (
               <SettingsRow
                 label="Wyczysc filtry"
                 icon="close-circle-outline"
                 onPress={onClearFilters}
                 showChevron={false}
               />
-            ) : null}
-          </View>
-        ) : null}
-      </SettingsCard>
+            )
+          ) : null}
+        </View>
+      ) : null}
+    </>
+  );
+
+  if (variant === 'minimal') {
+    return (
+      <View style={styles.minimalWrap}>
+        <Text style={[styles.minimalTitle, { color: colors.textPrimary }]}>Filtry i wyszukiwanie</Text>
+        <Text style={[styles.minimalFooter, { color: colors.textMuted }]}>{sectionFooter}</Text>
+        {filtersBody}
+      </View>
+    );
+  }
+
+  return (
+    <SettingsGroup title="Filtry i wyszukiwanie" footer={sectionFooter}>
+      <SettingsCard style={styles.card}>{filtersBody}</SettingsCard>
     </SettingsGroup>
   );
 }
@@ -131,7 +154,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   toggleText: {
-    color: appColors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -154,5 +176,29 @@ const styles = StyleSheet.create({
   selectRowDesktop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  minimalWrap: {
+    gap: appTheme.spacing.md,
+  },
+  minimalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  minimalFooter: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -appTheme.spacing.xs,
+  },
+  filtersBodyMinimal: {
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  clearLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+  },
+  clearLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

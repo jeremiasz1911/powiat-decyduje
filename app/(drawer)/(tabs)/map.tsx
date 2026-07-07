@@ -5,26 +5,26 @@ import {
   MLAWA_BOUNDS,
   MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
-import { MapConfigNotice } from '@/src/features/map/components/map-config-notice';
 import { MapProjectCalloutCard } from '@/src/features/map/components/map-project-callout-card';
+import { logMapDiagnostics } from '@/src/features/map/map-diagnostics';
 import {
   MapProjectMarkers,
-  partitionMapProjects,
 } from '@/src/features/map/components/map-project-markers';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjectsForMap, type ProjectItem } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { appShadows, appTheme } from '@/src/theme/app-theme';
+import { useRequireAuth } from '@/src/store/login-required-context';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, ButtonText, Text } from '@gluestack-ui/themed';
+import { Text } from '@gluestack-ui/themed';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import MapView, { Marker, Polygon, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 
 const INITIAL_REGION: Region = {
   latitude: MLAWA_CENTER.latitude,
@@ -85,9 +85,11 @@ const MAP_LOAD_TIMEOUT_MS = 12000;
 export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
-  const { user } = useAuthContext();
-  const userId = user?.uid ?? null;
-  const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const { user, canAccessPrivateFeatures } = useAuthContext();
+  const { requireAuth } = useRequireAuth();
+  const userId = canAccessPrivateFeatures ? user?.uid ?? null : null;
+  const fabBottom = 16;
   const mapRef = useRef<MapView>(null);
   const lastPanAtRef = useRef(0);
   const isProgrammaticMoveRef = useRef(false);
@@ -98,33 +100,24 @@ export default function MapScreen() {
   const [showTapHint, setShowTapHint] = useState(true);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [mapLoadTimedOut, setMapLoadTimedOut] = useState(false);
   const [mapProjects, setMapProjects] = useState<ProjectItem[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(true);
   const [projectsError, setProjectsError] = useState<string | null>(null);
   const [selectedMapProject, setSelectedMapProject] = useState<ProjectItem | null>(null);
 
   const boundaryRings = useMemo(() => MLAWA_BOUNDARY_RINGS, []);
 
-  const { withCoordinates, withoutCoordinates } = useMemo(
-    () => partitionMapProjects(mapProjects),
-    [mapProjects]
-  );
-
   const loadMapProjects = useCallback(async () => {
-    setProjectsLoading(true);
     setProjectsError(null);
 
     try {
       const items = await listProjectsForMap(userId);
       setMapProjects(items);
+      console.log(`[Map] Projekty na mapie: ${items.length}`);
     } catch (loadError) {
       const message =
         loadError instanceof Error ? loadError.message : 'Nie udało się pobrać projektów na mapę.';
       setProjectsError(message);
       setMapProjects([]);
-    } finally {
-      setProjectsLoading(false);
     }
   }, [userId]);
 
@@ -143,14 +136,22 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
+    if (__DEV__) {
+      logMapDiagnostics('map-screen-mount');
+    }
+  }, []);
+
+  useEffect(() => {
     if (isMapReady) {
-      setMapLoadTimedOut(false);
       return;
     }
 
     const timer = setTimeout(() => {
-      if (!isMapReady) {
-        setMapLoadTimedOut(true);
+      if (!isMapReady && __DEV__) {
+        logMapDiagnostics('map-load-timeout');
+        console.warn(
+          '[Map] Timeout 12s — onMapReady nie wywołane. Sprawdź logcat: adb logcat | rg -i "Google Maps|Authorization|API_KEY"'
+        );
       }
     }, MAP_LOAD_TIMEOUT_MS);
 
@@ -221,8 +222,11 @@ export default function MapScreen() {
 
       const { latitude, longitude } = position.coords;
       const inside = isPointInPolygon({ latitude, longitude }, boundaryRings);
-      setSelectedCenter({ latitude, longitude });
-      setMarkerOutsideBoundary(!inside);
+
+      if (canAccessPrivateFeatures) {
+        setSelectedCenter({ latitude, longitude });
+        setMarkerOutsideBoundary(!inside);
+      }
 
       const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude));
       moveCamera(targetRegion);
@@ -238,6 +242,10 @@ export default function MapScreen() {
   const handleMapPress = (latitude: number, longitude: number) => {
     dismissTapHint();
     setSelectedMapProject(null);
+
+    if (!canAccessPrivateFeatures) {
+      return;
+    }
 
     if (Date.now() - lastPanAtRef.current < 250) {
       return;
@@ -299,12 +307,14 @@ export default function MapScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/(drawer)/submit-project',
-      params: {
-        latitude: String(selectedCenter.latitude),
-        longitude: String(selectedCenter.longitude),
-      },
+    requireAuth(() => {
+      router.push({
+        pathname: '/(drawer)/submit-project',
+        params: {
+          latitude: String(selectedCenter.latitude),
+          longitude: String(selectedCenter.longitude),
+        },
+      });
     });
   };
 
@@ -315,21 +325,28 @@ export default function MapScreen() {
       // Haptics can be unavailable on some devices/emulators.
     }
     setIsFabOpen(false);
-    void notify('Glosuj', 'Przejdz do listy projektow i wybierz projekt do glosowania.', 'info');
+    requireAuth(() => {
+      router.push('/(drawer)/(tabs)/my-votes');
+    });
   };
 
   return (
-    <AppScreen keyboardAvoiding={false} edges={['bottom']} contentContainerStyle={styles.safeArea}>
+    <AppScreen keyboardAvoiding={false} backgroundless edges={[]} contentContainerStyle={styles.safeArea}>
       <View style={styles.container}>
-        <MapConfigNotice />
-        {mapLoadTimedOut && !isMapReady ? <MapConfigNotice variant="loadFailed" /> : null}
         <MapView
           ref={mapRef}
           style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          removeClippedSubviews={false}
           initialRegion={INITIAL_REGION}
           maxDelta={MAX_REGION.latitudeDelta}
           minDelta={MIN_DELTA}
-          onMapReady={() => setIsMapReady(true)}
+          onMapReady={() => {
+            setIsMapReady(true);
+            if (__DEV__) {
+              console.log('[Map] onMapReady — widok mapy gotowy');
+            }
+          }}
           onRegionChangeComplete={onRegionChangeComplete}
           onPress={(event) => {
             const { latitude, longitude } = event.nativeEvent.coordinate;
@@ -339,37 +356,41 @@ export default function MapScreen() {
             lastPanAtRef.current = Date.now();
             dismissTapHint();
           }}
-          loadingEnabled={!isMapReady}
+          loadingEnabled={false}
           moveOnMarkerPress={false}
           toolbarEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}>
-          <Polygon
-            coordinates={[
-              { latitude: 90, longitude: -180 },
-              { latitude: 90, longitude: 180 },
-              { latitude: -90, longitude: 180 },
-              { latitude: -90, longitude: -180 },
-            ]}
-            holes={boundaryRings}
-            fillColor="rgba(17, 24, 39, 0.12)"
-            strokeWidth={0}
-          />
+          {isMapReady ? (
+            <>
+              <Polygon
+                coordinates={[
+                  { latitude: 90, longitude: -180 },
+                  { latitude: 90, longitude: 180 },
+                  { latitude: -90, longitude: 180 },
+                  { latitude: -90, longitude: -180 },
+                ]}
+                holes={boundaryRings}
+                fillColor="rgba(17, 24, 39, 0.12)"
+                strokeWidth={0}
+              />
 
-          {boundaryRings.map((ring, index) => (
-            <Polygon
-              key={`boundary-${index}`}
-              coordinates={ring}
-              strokeColor="rgba(220, 20, 60, 0.65)"
-              fillColor="rgba(220, 20, 60, 0.08)"
-              strokeWidth={2}
-            />
-          ))}
+              {boundaryRings.map((ring, index) => (
+                <Polygon
+                  key={`boundary-${index}`}
+                  coordinates={ring}
+                  strokeColor="rgba(220, 20, 60, 0.65)"
+                  fillColor="rgba(220, 20, 60, 0.08)"
+                  strokeWidth={2}
+                />
+              ))}
+            </>
+          ) : null}
 
-          {selectedCenter ? (
+          {canAccessPrivateFeatures && selectedCenter ? (
             <Marker
               coordinate={selectedCenter}
-              pinColor={markerOutsideBoundary ? appTheme.colors.warning : appTheme.colors.cherry}
+              pinColor={markerOutsideBoundary ? colors.warning : colors.cherry}
               title="Lokalizacja projektu"
               description="To miejsce zostanie przekazane do formularza zgłoszenia."
             />
@@ -384,100 +405,100 @@ export default function MapScreen() {
         </MapView>
 
         {selectedMapProject ? (
-          <View style={[styles.calloutWrap, { bottom: insets.bottom + 96 }]} pointerEvents="box-none">
+          <View style={[styles.calloutWrap, { bottom: fabBottom + 60 }]} pointerEvents="box-none">
             <MapProjectCalloutCard
               project={selectedMapProject}
               onClose={() => setSelectedMapProject(null)}
               onOpenDetails={(projectId) => {
                 setSelectedMapProject(null);
-                router.push(`/(drawer)/project/${projectId}`);
+                router.push(`/(drawer)/(tabs)/project/${projectId}`);
               }}
             />
           </View>
         ) : null}
 
-        <View style={styles.mapStatusBar}>
-          {projectsLoading ? (
-            <View style={styles.mapStatusPill}>
-              <ActivityIndicator size="small" color={appTheme.colors.primary} />
-              <Text color={appTheme.colors.textMuted} style={styles.mapStatusText}>
-                Ładuję projekty na mapie…
-              </Text>
-            </View>
-          ) : null}
-
-          {!projectsLoading && projectsError ? (
-            <Pressable onPress={() => void loadMapProjects()} style={styles.mapStatusPill}>
-              <Ionicons name="alert-circle-outline" size={16} color={appTheme.colors.danger} />
-              <Text color={appTheme.colors.danger} style={styles.mapStatusText}>
+        {projectsError ? (
+          <View style={styles.mapErrorBar}>
+            <Pressable onPress={() => void loadMapProjects()} style={[styles.mapErrorPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+              <Text color={colors.danger} style={styles.mapStatusText}>
                 Nie udało się wczytać projektów. Dotknij, aby spróbować ponownie.
               </Text>
             </Pressable>
-          ) : null}
-
-          {!projectsLoading && !projectsError && withCoordinates.length > 0 ? (
-            <View style={styles.mapStatusPill}>
-              <Ionicons name="location" size={16} color={appTheme.colors.primary} />
-              <Text color={appTheme.colors.textPrimary} style={styles.mapStatusText}>
-                {withCoordinates.length}{' '}
-                {withCoordinates.length === 1 ? 'projekt na mapie' : 'projektów na mapie'}
+          </View>
+        ) : isMapReady && mapProjects.length === 0 ? (
+          <View style={styles.mapErrorBar}>
+            <View style={[styles.mapErrorPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="map-outline" size={16} color={colors.textMuted} />
+              <Text color={colors.textMuted} style={styles.mapStatusText}>
+                Brak opublikowanych projektów na mapie. Sprawdź ponownie później.
               </Text>
             </View>
-          ) : null}
-
-          {!projectsLoading && !projectsError && mapProjects.length > 0 && withCoordinates.length === 0 ? (
-            <View style={styles.mapStatusPill}>
-              <Ionicons name="information-circle-outline" size={16} color={appTheme.colors.warning} />
-              <Text color={appTheme.colors.textPrimary} style={styles.mapStatusText}>
-                Zgłoszone projekty nie mają przypisanej lokalizacji na mapie.
-              </Text>
-            </View>
-          ) : null}
-
-          {!projectsLoading && !projectsError && withoutCoordinates.length > 0 && withCoordinates.length > 0 ? (
-            <View style={styles.mapStatusPill}>
-              <Ionicons name="information-circle-outline" size={16} color={appTheme.colors.textMuted} />
-              <Text color={appTheme.colors.textMuted} style={styles.mapStatusText}>
-                {withoutCoordinates.length}{' '}
-                {withoutCoordinates.length === 1
-                  ? 'projekt ma tylko opis lokalizacji'
-                  : 'projektów ma tylko opis lokalizacji'}
-                .
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         <View style={styles.toolRow}>
           <View style={styles.zoomControls}>
-            <Pressable onPress={() => handleZoom('in')} style={styles.iconButton} accessibilityLabel="Przybliz">
-              <Ionicons name="add" size={22} color={appTheme.colors.textPrimary} />
+            <Pressable
+              onPress={() => handleZoom('in')}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+              accessibilityLabel="Przybliż">
+              <Ionicons name="add" size={20} color={colors.textPrimary} />
             </Pressable>
-            <Pressable onPress={() => handleZoom('out')} style={styles.iconButton} accessibilityLabel="Oddal">
-              <Ionicons name="remove" size={22} color={appTheme.colors.textPrimary} />
+            <Pressable
+              onPress={() => handleZoom('out')}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+              accessibilityLabel="Oddal">
+              <Ionicons name="remove" size={20} color={colors.textPrimary} />
             </Pressable>
           </View>
           <Pressable
             onPress={() => {
               void handleMyLocation();
             }}
-            style={[styles.iconButton, styles.locationButton]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              styles.locationButton,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
             accessibilityLabel="Moja lokalizacja">
-            <Ionicons name="locate" size={22} color={appTheme.colors.textDark} />
+            <Ionicons name="locate" size={20} color={colors.textOnPrimary} />
           </Pressable>
         </View>
 
-        {showTapHint ? (
+        {canAccessPrivateFeatures && showTapHint ? (
           <View style={styles.hintCenter} pointerEvents="none">
-            <Text color={appTheme.colors.textPrimary} style={styles.hintCenterText}>
+            <Text
+              color={colors.textPrimary}
+              style={[styles.hintCenterText, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               Dotknij mapy, aby ustawic znacznik projektu.
             </Text>
           </View>
         ) : null}
 
-        {selectedCenter && markerOutsideBoundary ? (
+        {canAccessPrivateFeatures && selectedCenter && markerOutsideBoundary ? (
           <View style={styles.warningBanner}>
-            <Text color={appTheme.colors.warning} style={styles.hintWarning}>
+            <Text
+              color={colors.warning}
+              style={[styles.hintWarning, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               Wybrana lokalizacja jest poza granicami powiatu mlawskiego.
             </Text>
           </View>
@@ -485,38 +506,51 @@ export default function MapScreen() {
 
         {permissionGranted === false ? (
           <View style={styles.warningBanner}>
-            <Text color={appTheme.colors.danger} style={styles.hintWarning}>
+            <Text
+              color={colors.danger}
+              style={[styles.hintWarning, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               Uprawnienie lokalizacji zostalo odrzucone.
             </Text>
           </View>
         ) : null}
 
-        <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]} pointerEvents="box-none">
-          {isFabOpen ? (
-            <>
-              <View style={styles.fabActionStack}>
-                <Button onPress={handleActionVote} size="md" borderRadius="$full" bg={appTheme.colors.surface}>
-                  <ButtonText color={appTheme.colors.primary}>Glosuj</ButtonText>
-                </Button>
-              </View>
+        {canAccessPrivateFeatures ? (
+          <View style={[styles.fabContainer, { bottom: fabBottom }]} pointerEvents="box-none">
+            {isFabOpen ? (
+              <>
+                <Pressable
+                  onPress={handleActionVote}
+                  style={({ pressed }) => [
+                    styles.fabAction,
+                    { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+                  ]}>
+                  <Text style={[styles.fabActionText, { color: colors.primary }]}>Głosuj</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleActionReport}
+                  style={({ pressed }) => [
+                    styles.fabAction,
+                    { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+                  ]}>
+                  <Text style={[styles.fabActionText, { color: colors.primary }]}>Zgłoś projekt</Text>
+                </Pressable>
+              </>
+            ) : null}
 
-              <View style={styles.fabActionStack}>
-                <Button onPress={handleActionReport} size="md" borderRadius="$full" bg={appTheme.colors.surface}>
-                  <ButtonText color={appTheme.colors.primary}>Zglos projekt</ButtonText>
-                </Button>
-              </View>
-            </>
-          ) : null}
-
-          <Button
-            onPress={toggleFab}
-            size="lg"
-            borderRadius="$full"
-            bg={appTheme.colors.primary}
-            style={styles.fabMain}>
-            <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color={appTheme.colors.textDark} />
-          </Button>
-        </View>
+            <Pressable
+              onPress={toggleFab}
+              style={({ pressed }) => [
+                styles.fabMain,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: pressed ? 0.9 : 1,
+                  shadowColor: colors.primary,
+                },
+              ]}>
+              <Ionicons name={isFabOpen ? 'close' : 'add'} size={24} color={colors.textOnPrimary} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </AppScreen>
   );
@@ -528,7 +562,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   map: {
     flex: 1,
@@ -548,21 +581,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    minWidth: 44,
-    minHeight: 44,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appTheme.colors.surface,
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
-    ...appShadows.soft,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  locationButton: {
-    backgroundColor: appTheme.colors.primary,
-    borderColor: appTheme.colors.primary,
-    ...appShadows.button,
-  },
+  locationButton: {},
   hintCenter: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -571,7 +597,7 @@ const styles = StyleSheet.create({
     zIndex: 8,
   },
   hintCenterText: {
-    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderWidth: 1,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 16,
@@ -589,9 +615,7 @@ const styles = StyleSheet.create({
     zIndex: 11,
   },
   hintWarning: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     borderWidth: 1,
-    borderColor: appTheme.colors.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
@@ -608,31 +632,42 @@ const styles = StyleSheet.create({
     zIndex: 30,
     elevation: 10,
   },
-  fabActionStack: {
-    zIndex: 31,
-    ...appShadows.soft,
+  fabAction: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  fabActionText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   fabMain: {
-    ...appShadows.button,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  mapStatusBar: {
+  mapErrorBar: {
     position: 'absolute',
     top: 64,
     left: 16,
     right: 16,
-    gap: 8,
     zIndex: 11,
   },
-  mapStatusPill: {
+  mapErrorPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    borderWidth: 1,
-    borderColor: appTheme.colors.border,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   mapStatusText: {
     flex: 1,

@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { appColors } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 const SWEEP_CYCLE_MS = 18600;
 const SWEEP_DURATION_MS = 15600;
@@ -29,6 +30,7 @@ type SlashLineConfig = {
 
 type SlashSweepLineProps = SlashLineConfig & {
   containerHalf: number;
+  intensity?: 'normal' | 'subtle';
 };
 
 function SlashSweepLine({
@@ -38,6 +40,7 @@ function SlashSweepLine({
   delayMs,
   floatOffset,
   containerHalf,
+  intensity = 'normal',
 }: SlashSweepLineProps) {
   const sweep = useSharedValue(0);
   const float = useSharedValue(0);
@@ -73,7 +76,9 @@ function SlashSweepLine({
     opacity: interpolate(
       sweep.value,
       [0, 0.08, 0.2, 0.5, 0.8, 0.92, 1],
-      [0, 0, 0.58, 0.74, 0.58, 0, 0]
+      intensity === 'subtle'
+        ? [0, 0, 0.48, 0.68, 0.48, 0, 0]
+        : [0, 0, 0.58, 0.74, 0.58, 0, 0]
     ),
     transform: [
       { rotate: `${rotateDeg}deg` },
@@ -95,7 +100,7 @@ function SlashSweepLine({
         locations={[0, 0.28, 0.5, 0.72, 1]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
-        style={[styles.slashLine, { width: lineLength }]}
+        style={[styles.slashLine, { width: lineLength, height: intensity === 'subtle' ? 3.5 : 4 }]}
       />
     </Animated.View>
   );
@@ -112,9 +117,10 @@ const LOGO_SLASH_LINES: SlashLineConfig[] = [
 type LoginSlashLinesProps = {
   scope?: 'screen' | 'logo';
   logoWidth?: number;
+  intensity?: 'normal' | 'subtle';
 };
 
-export function LoginSlashLines({ scope = 'screen', logoWidth }: LoginSlashLinesProps) {
+export function LoginSlashLines({ scope = 'screen', logoWidth, intensity = 'normal' }: LoginSlashLinesProps) {
   const { width: screenWidth } = useWindowDimensions();
   const containerHalf = scope === 'logo' ? (logoWidth ?? screenWidth * 0.5) / 2 : screenWidth / 2;
   const lineScale = scope === 'logo' ? (logoWidth ?? screenWidth * 0.5) / 220 : 1;
@@ -136,13 +142,19 @@ export function LoginSlashLines({ scope = 'screen', logoWidth }: LoginSlashLines
   return (
     <View style={styles.slashLayer} pointerEvents="none">
       {lines.map((line) => (
-        <SlashSweepLine key={`${line.top}-${line.delayMs}`} {...line} containerHalf={containerHalf} />
+        <SlashSweepLine
+          key={`${line.top}-${line.delayMs}`}
+          {...line}
+          containerHalf={containerHalf}
+          intensity={intensity}
+        />
       ))}
     </View>
   );
 }
 
 export function LoginAnimatedBackground() {
+  const { colors, colorScheme } = useAppTheme();
   const ambient = useSharedValue(0);
 
   useEffect(() => {
@@ -160,15 +172,21 @@ export function LoginAnimatedBackground() {
   return (
     <View style={styles.root} pointerEvents="none">
       <LinearGradient
-        colors={['#FFFFFF', '#FFF7F7', '#FFF1F3', '#FFFFFF']}
+        colors={
+          colorScheme === 'dark'
+            ? ([colors.background, colors.backgroundSoft, colors.backgroundCherry, colors.background] as const)
+            : (['#FFFFFF', '#FFF7F7', '#FFF1F3', '#FFFFFF'] as const)
+        }
         locations={[0, 0.35, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />
 
-      <Animated.View style={[styles.softGlow, softGlowStyle]} />
+      <Animated.View
+        style={[styles.softGlow, { backgroundColor: colors.cherrySoft }, softGlowStyle]}
+      />
 
-      <View style={[styles.ring, styles.ringOne]} />
-      <View style={[styles.ring, styles.ringTwo]} />
+      <View style={[styles.ring, styles.ringOne, { borderColor: colors.cherryLine }]} />
+      <View style={[styles.ring, styles.ringTwo, { borderColor: colors.cherryLine }]} />
     </View>
   );
 }
@@ -184,7 +202,6 @@ const styles = StyleSheet.create({
     borderRadius: 160,
     top: '6%',
     alignSelf: 'center',
-    backgroundColor: appColors.cherrySoft,
   },
   slashLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -198,7 +215,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   slashLine: {
-    height: 4,
     borderRadius: 4,
     shadowColor: appColors.primary,
     shadowOffset: { width: 0, height: 0 },
@@ -209,7 +225,6 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderWidth: 1,
-    borderColor: appColors.cherryLine,
     borderRadius: 999,
     backgroundColor: 'transparent',
     opacity: 0.1,

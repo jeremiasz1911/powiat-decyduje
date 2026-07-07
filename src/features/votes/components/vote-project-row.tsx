@@ -9,7 +9,8 @@ import {
   truncateText,
 } from '@/src/features/projects/utils';
 import { type ProjectItem } from '@/src/services';
-import { appColors, appTheme } from '@/src/theme/app-theme';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type VoteProjectRowProps = {
   project: ProjectItem;
@@ -28,6 +29,7 @@ export function VoteProjectRow({
   onOpen,
   onVote,
 }: VoteProjectRowProps) {
+  const { colors } = useAppTheme();
   const categoryLabel = getProjectCategoryLabel(project.category);
   const communeLabel = getProjectCommuneLabel(project.commune);
   const votesLabel =
@@ -40,37 +42,44 @@ export function VoteProjectRow({
         onPress={onOpen}
         style={({ pressed }) => [styles.mainArea, pressed ? styles.mainAreaPressed : null]}
         accessibilityRole="button">
-        <View style={styles.iconWrap}>
-          <Ionicons name={resolveProjectIcon(project.icon)} size={18} color={appColors.primary} />
+        <View style={[styles.iconWrap, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name={resolveProjectIcon(project.icon)} size={18} color={colors.primary} />
         </View>
 
         <View style={styles.textBlock}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
             {project.title}
           </Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
             {truncateText(subtitle, 72)}
           </Text>
         </View>
 
-        <Ionicons name="chevron-forward" size={16} color={appColors.textMuted} />
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       </Pressable>
 
       <View style={styles.actionArea}>
         {alreadyVoted ? (
           <View style={styles.votedBadge}>
-            <Ionicons name="checkmark" size={14} color={appColors.primary} />
-            <Text style={styles.votedText}>Oddano</Text>
+            <Ionicons name="checkmark" size={14} color={colors.primary} />
+            <Text style={[styles.votedText, { color: colors.primary }]}>Oddano</Text>
           </View>
         ) : voting ? (
-          <ActivityIndicator size="small" color={appColors.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         ) : (
           <Pressable
             onPress={onVote}
             disabled={voteDisabled}
-            style={({ pressed }) => [styles.voteAction, pressed && !voteDisabled ? styles.voteActionPressed : null]}
+            style={({ pressed }) => [
+              styles.voteAction,
+              pressed && !voteDisabled ? { backgroundColor: colors.primarySoft } : null,
+            ]}
             hitSlop={6}>
-            <Text style={[styles.voteActionText, voteDisabled ? styles.voteActionTextDisabled : null]}>
+            <Text
+              style={[
+                styles.voteActionText,
+                { color: voteDisabled ? colors.textMuted : colors.primary },
+              ]}>
               Glosuj
             </Text>
           </Pressable>
@@ -104,20 +113,17 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appColors.primarySoft,
   },
   textBlock: {
     flex: 1,
     gap: 2,
   },
   title: {
-    color: appColors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
     lineHeight: 20,
   },
   subtitle: {
-    color: appColors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
@@ -132,16 +138,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
   },
-  voteActionPressed: {
-    backgroundColor: appColors.primarySoft,
-  },
   voteActionText: {
-    color: appColors.primary,
     fontSize: 14,
     fontWeight: '700',
-  },
-  voteActionTextDisabled: {
-    color: appColors.textMuted,
   },
   votedBadge: {
     flexDirection: 'row',
@@ -149,7 +148,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   votedText: {
-    color: appColors.primary,
     fontSize: 12,
     fontWeight: '700',
   },

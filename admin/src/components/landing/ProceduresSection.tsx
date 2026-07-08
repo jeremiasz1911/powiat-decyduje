@@ -5,7 +5,7 @@ import { SectionHeading, SectionShell } from './SectionShell';
 
 export function ProceduresSection() {
   return (
-    <SectionShell id="procedury">
+    <SectionShell id="procedures">
       <SectionHeading
         eyebrow="Procedury"
         title="Prosto o formalnościach"

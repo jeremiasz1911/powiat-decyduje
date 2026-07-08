@@ -24,37 +24,37 @@ export type LandingScreenshot = {
 export const LANDING_SCREENSHOTS: LandingScreenshot[] = [
   {
     id: 'start',
-    src: '/landing/screenshot-start.png',
+    src: '/landing/screenshot-start.jpg',
     label: 'Start',
     alt: 'Ekran startowy aplikacji Powiat Decyduje',
   },
   {
     id: 'mapa',
-    src: '/landing/screenshot-mapa.png',
+    src: '/landing/screenshot-mapa.jpg',
     label: 'Mapa',
     alt: 'Mapa projektów w aplikacji Powiat Decyduje',
   },
   {
     id: 'projekty',
-    src: '/landing/screenshot-projekty.png',
+    src: '/landing/screenshot-projekty.jpg',
     label: 'Projekty',
     alt: 'Lista projektów w aplikacji Powiat Decyduje',
   },
   {
     id: 'szczegoly',
-    src: '/landing/screenshot-szczegoly.png',
+    src: '/landing/screenshot-szczegoly.jpg',
     label: 'Szczegóły',
     alt: 'Szczegóły projektu w aplikacji Powiat Decyduje',
   },
   {
     id: 'profil',
-    src: '/landing/screenshot-profil.png',
+    src: '/landing/screenshot-profil.jpg',
     label: 'Profil',
     alt: 'Profil mieszkańca w aplikacji Powiat Decyduje',
   },
 ];
 
-export const HERO_PHONE_SCREENSHOT = '/landing/phone-start.png';
+export const HERO_PHONE_SCREENSHOT = '/landing/phone-start.jpg';
 
 export type LandingFeature = {
   icon: LucideIcon;
@@ -219,8 +219,9 @@ export const APP_LINKS = {
 };
 
 export const LANDING_NAV = [
-  { href: '#o-aplikacji', label: 'O aplikacji' },
-  { href: '#funkcje', label: 'Funkcje' },
-  { href: '#procedury', label: 'Procedury' },
-  { href: '#kontakt', label: 'Kontakt' },
+  { href: '/#about', label: 'O aplikacji' },
+  { href: '/#features', label: 'Funkcjonalności' },
+  { href: '/#procedures', label: 'Procedury' },
+  { href: '/#screenshots', label: 'Screenshoty' },
+  { href: '/#contact', label: 'Kontakt' },
 ];

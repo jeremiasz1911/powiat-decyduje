@@ -1,6 +1,6 @@
-import { PropsWithChildren } from 'react';
+import { PropsWithChildren, useContext } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import type { Edge } from 'react-native-safe-area-context';
 
 import { AppScreen } from '@/src/components/layout/app-screen';
@@ -24,7 +24,7 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   const { fontScaleMultiplier } = useSettings();
   const { colors } = useAppTheme();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useContext(BottomTabBarHeightContext) ?? 0;
   const edges: Edge[] = tabBarHeight > 0 ? [] : ['bottom'];
 
   return (

@@ -79,6 +79,18 @@ export default function LoginPage() {
             {loading ? 'Logowanie…' : 'Zaloguj się'}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-xs text-ink-muted">
+          Korzystając z aplikacji, akceptujesz{' '}
+          <a href="/terms" className="text-brand hover:underline">
+            Regulamin
+          </a>{' '}
+          i{' '}
+          <a href="/privacy" className="text-brand hover:underline">
+            Politykę prywatności
+          </a>
+          .
+        </p>
       </div>
     </div>
   );

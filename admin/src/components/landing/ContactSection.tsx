@@ -5,7 +5,7 @@ import { SectionHeading, SectionShell } from './SectionShell';
 
 export function ContactSection() {
   return (
-    <SectionShell id="kontakt" narrow>
+    <SectionShell id="contact" narrow>
       <SectionHeading
         eyebrow="Kontakt"
         title="Masz pytania?"

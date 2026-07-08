@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { ScrollReveal } from './ScrollReveal';
+
 type SectionShellProps = {
   id?: string;
   children: ReactNode;
@@ -9,8 +11,10 @@ type SectionShellProps = {
 
 export function SectionShell({ id, children, className = '', narrow = false }: SectionShellProps) {
   return (
-    <section id={id} className={`relative scroll-mt-24 px-5 py-20 sm:px-8 lg:py-28 ${className}`}>
-      <div className={`relative z-10 mx-auto ${narrow ? 'max-w-3xl' : 'max-w-6xl'}`}>{children}</div>
+    <section id={id} className={`relative scroll-mt-28 px-5 py-20 sm:px-8 lg:py-28 ${className}`}>
+      <ScrollReveal>
+        <div className={`relative z-10 mx-auto ${narrow ? 'max-w-3xl' : 'max-w-6xl'}`}>{children}</div>
+      </ScrollReveal>
     </section>
   );
 }
@@ -26,7 +30,7 @@ export function SectionHeading({ eyebrow, title, description, align = 'left' }: 
   const alignClass = align === 'center' ? 'text-center mx-auto' : '';
 
   return (
-    <div className={`mb-12 max-w-2xl landing-reveal ${alignClass}`}>
+    <div className={`mb-12 max-w-2xl ${alignClass}`}>
       {eyebrow ? (
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-brand">{eyebrow}</p>
       ) : null}

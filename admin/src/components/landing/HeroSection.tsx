@@ -1,44 +1,33 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import { ArrowDown, Smartphone } from 'lucide-react';
+'use client';
 
-import { APP_LINKS, HERO_PHONE_SCREENSHOT, LANDING_NAV } from './landing-data';
+import { ArrowDown } from 'lucide-react';
+import Image from 'next/image';
+import { useMemo, useState } from 'react';
+
+import { HERO_PHONE_SCREENSHOT } from './landing-data';
+import { Lightbox } from './Lightbox';
 import { PhoneMockup } from './PhoneMockup';
+import { PlatformBadges } from './PlatformBadges';
 
 export function HeroSection() {
-  return (
-    <header className="relative min-h-[90vh] overflow-hidden pt-24">
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/5 bg-[#0a0f1a]/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <a href="#" className="flex items-center gap-3">
-            <Image
-              src="/landing/logo-powiat.png"
-              alt="Herb Powiatu Mławskiego"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
-            />
-            <div className="hidden sm:block">
-              <p className="text-sm font-semibold text-white">Powiat Decyduje</p>
-              <p className="text-[11px] text-white/50">Powiat Mławski</p>
-            </div>
-          </a>
-          <div className="hidden items-center gap-6 md:flex">
-            {LANDING_NAV.map((item) => (
-              <a key={item.href} href={item.href} className="text-sm text-white/70 transition hover:text-white">
-                {item.label}
-              </a>
-            ))}
-          </div>
-          <Link
-            href="/login"
-            className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/10">
-            Panel administratora
-          </Link>
-        </div>
-      </nav>
+  const [open, setOpen] = useState(false);
+  const heroShots = useMemo(
+    () => [
+      {
+        id: 'hero',
+        src: HERO_PHONE_SCREENSHOT,
+        label: 'Ekran startowy',
+        alt: 'Podgląd aplikacji Powiat Decyduje — ekran startowy',
+      },
+    ],
+    [],
+  );
 
-      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-8 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pb-28">
+  return (
+    <header className="landing-hero relative min-h-[92vh] overflow-hidden pt-24 sm:pt-20">
+      <div className="landing-hero-spotlight pointer-events-none absolute inset-0" aria-hidden />
+
+      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-5 pb-20 pt-4 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pb-28">
         <div className="landing-reveal order-1">
           <div className="mb-6 flex items-center gap-3">
             <Image
@@ -52,44 +41,52 @@ export function HeroSection() {
               Aplikacja obywatelska
             </span>
           </div>
-          <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Powiat Decyduje
+          <h1 className="text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
+            Powiat <span className="text-brand">Decyduje</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70 sm:text-xl">
             Aplikacja dla mieszkańców Powiatu Mławskiego do zgłaszania, przeglądania i wspierania lokalnych
             inicjatyw.
           </p>
           <div className="mt-10 flex flex-wrap gap-3">
-            <a href="#funkcje" className="landing-btn landing-btn-primary">
-              Zobacz projekty
+            <a href="/#screenshots" className="landing-btn landing-btn-primary">
+              Zobacz aplikację
             </a>
-            <a href="#o-aplikacji" className="landing-btn landing-btn-secondary">
+            <a href="/#about" className="landing-btn landing-btn-secondary">
               Dowiedz się więcej
             </a>
-            <a href={APP_LINKS.openApp} className="landing-btn landing-btn-ghost">
-              <Smartphone className="h-4 w-4" />
-              Pobierz aplikację
+            <a href="/#features" className="landing-btn landing-btn-ghost">
+              Funkcjonalności
             </a>
           </div>
-          <p className="mt-4 text-xs text-white/40">
-            {/* TODO: Uzupełnij linki do App Store / Google Play w landing-data.ts */}
-            Link do sklepu z aplikacją — do uzupełnienia
-          </p>
+          <PlatformBadges />
         </div>
 
-        <div className="landing-reveal landing-reveal-delay order-2 flex justify-center lg:justify-end">
-          <PhoneMockup
-            src={HERO_PHONE_SCREENSHOT}
-            alt="Podgląd aplikacji Powiat Decyduje"
-            label="Ekran startowy"
-            priority
-            float
-          />
+        <div className="landing-reveal landing-reveal-delay order-2 flex justify-center overflow-visible lg:justify-end">
+          <div className="landing-hero-phone-stage">
+            <button
+              type="button"
+              className="inline-flex cursor-zoom-in"
+              onClick={() => setOpen(true)}
+              aria-label="Otwórz podgląd screenshotu z hero">
+              <PhoneMockup
+                src={HERO_PHONE_SCREENSHOT}
+                alt="Podgląd aplikacji Powiat Decyduje"
+                label="Ekran startowy"
+                priority
+                variant="hero"
+              />
+            </button>
+          </div>
         </div>
       </div>
 
+      {open ? (
+        <Lightbox shots={heroShots} index={0} onClose={() => setOpen(false)} onPrev={() => {}} onNext={() => {}} />
+      ) : null}
+
       <a
-        href="#o-aplikacji"
+        href="/#about"
         className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-1 text-white/40 transition hover:text-white/70 sm:flex"
         aria-label="Przewiń w dół">
         <span className="text-xs">Więcej</span>

@@ -54,3 +54,4 @@ secrets/firebase-debug.log
 firebase-debug.log
 secrets/
 secrets/
+.vercel

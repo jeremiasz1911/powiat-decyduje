@@ -4,7 +4,7 @@ import { SectionHeading, SectionShell } from './SectionShell';
 
 export function AboutSection() {
   return (
-    <SectionShell id="o-aplikacji">
+    <SectionShell id="about">
       <div className="grid items-center gap-12 lg:grid-cols-[1fr_280px]">
         <div>
           <SectionHeading
@@ -20,6 +20,18 @@ export function AboutSection() {
             <p>
               Upraszcza kontakt mieszkańca z samorządem powiatowym i sprawia, że informacje o projektach są
               przejrzyste, aktualne i dostępne z telefonu.
+            </p>
+            <p className="space-y-4 text-base leading-relaxed text-white/65">
+              <span className="font-semibold text-white">Powiat Decyduje</span> to projekt stworzony z inicjatywy
+              Młodzieżowej Rady Powiatu, którego celem jest zwiększenie zaangażowania mieszkańców w życie lokalnej
+              społeczności. Aplikacja umożliwia wygodne przeglądanie projektów, oddawanie głosów oraz śledzenie
+              inicjatyw realizowanych na terenie powiatu.
+            </p>
+            <p>
+              Projekt powstał z inicjatywy radnej{' '}
+              <span className="font-semibold text-white">Aleksandry Rutkowskiej</span> we współpracy z Młodzieżową
+              Radą Powiatu, aby wykorzystać nowoczesne technologie do wspierania dialogu między mieszkańcami a
+              samorządem.
             </p>
           </div>
         </div>

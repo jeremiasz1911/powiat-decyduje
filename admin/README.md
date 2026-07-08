@@ -77,25 +77,37 @@ Skopiuj wartości z lokalnego `admin/.env.local`. **Bez tych zmiennych landing d
 
 Po dodaniu zmiennych: **Deployments → Redeploy** (ostatni deployment).
 
-### 2. Domena powiatdecyduje.pl
+### 2. Domena powiatdecyduje.pl (NetArt)
 
-U rejestratora domeny (home.pl, OVH, nazwa.pl itd.) ustaw **jedną** z opcji:
+Domena jest u **NetArt** — to OK. **Nie wgrywaj plików admina na hosting NetArt** (shared hosting nie obsługuje Next.js z API). Domena ma tylko **wskazywać na Vercel**.
 
-**Opcja A — rekord A (zalecane):**
+**Problem:** jeśli w DNS jest adres NetArt (np. `77.55.85.255`), zobaczysz pustą stronę NetArt zamiast aplikacji. Admin działa na Vercel (`76.76.21.21`).
 
-| Typ | Nazwa | Wartość |
-|-----|-------|---------|
-| `A` | `@` | `76.76.21.21` |
-| `CNAME` | `www` | `cname.vercel-dns.com` |
+W panelu NetArt → **DNS / Strefa DNS** dla `powiatdecyduje.pl` ustaw:
 
-**Opcja B — nameservery Vercel:**
+| Typ | Host / nazwa | Wartość | TTL |
+|-----|--------------|---------|-----|
+| `A` | `@` (pusta lub `powiatdecyduje.pl`) | `76.76.21.21` | 3600 |
+| `CNAME` | `www` | `cname.vercel-dns.com` | 3600 |
 
-- `ns1.vercel-dns.com`
-- `ns2.vercel-dns.com`
+Usuń lub nadpisz stare rekordy `A` wskazujące na IP NetArt (`77.55.x.x`), jeśli kierują ruch na hosting WWW NetArt.
+
+Nameservery zostaw NetArt (`ns1.netart.com` itd.) — **nie musisz** ich zmieniać na Vercel.
 
 Weryfikacja: `vercel domains inspect powiatdecyduje.pl` (z katalogu `admin/`).
 
-### 3. Kolejne wdrożenia
+### 3. GitHub → automatyczny deploy
+
+Repozytorium jest podpięte: `github.com/jeremiasz1911/powiat-decyduje`.
+
+W [Vercel → powiat-decyduje → Settings → General](https://vercel.com/jeremiasz1911s-projects/powiat-decyduje/settings) ustaw:
+
+- **Root Directory:** `admin`
+- **Production Branch:** `stabilize-sms-auth-password-reset` (lub `main`, jeśli tam mergujesz)
+
+Bez **Root Directory = `admin`** build z GitHub się wywali (repo to monorepo: app mobilna + admin).
+
+### 4. Kolejne wdrożenia
 
 ```bash
 cd admin

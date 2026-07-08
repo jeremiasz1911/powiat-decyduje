@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { LEGAL_FOOTER_LINKS } from '@/components/legal/legal-content';
 import { LANDING_NAV } from './landing-data';
 
 export function Footer() {
@@ -25,19 +26,28 @@ export function Footer() {
             Aplikacja wspierająca udział mieszkańców w lokalnych decyzjach.
           </p>
         </div>
-        <nav className="flex flex-wrap gap-x-8 gap-y-3">
-          {LANDING_NAV.map((item) => (
-            <a key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
-              {item.label}
-            </a>
-          ))}
-          <Link href="/login" className="text-sm text-white/60 transition hover:text-white">
-            Panel administratora
-          </Link>
-        </nav>
+        <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
+          <nav className="flex flex-col gap-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Nawigacja</p>
+            {LANDING_NAV.map((item) => (
+              <a key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <nav className="flex flex-col gap-2">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Informacje prawne</p>
+            {LEGAL_FOOTER_LINKS.map((item) => (
+              <Link key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
+                {item.labelPl}
+              </Link>
+            ))}
+          </nav>
+        </div>
       </div>
       <div className="border-t border-white/5 px-5 py-6 text-center text-xs text-white/35 sm:px-8">
-        © {new Date().getFullYear()} Powiat Mławski · Powiat Decyduje
+        <div>© {new Date().getFullYear()} Jeremiasz Wiśniewski · Powiat Decyduje</div>
+        <div className="mt-1">Aplikacja wspierająca udział mieszkańców Powiatu Mławskiego w lokalnych decyzjach.</div>
       </div>
     </footer>
   );

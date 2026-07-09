@@ -1,9 +1,9 @@
 'use client';
 
 import { ArrowDown } from 'lucide-react';
-import Image from 'next/image';
 import { useMemo, useState } from 'react';
 
+import { BrandLogo } from './BrandLogo';
 import { HERO_PHONE_SCREENSHOT } from './landing-data';
 import { Lightbox } from './Lightbox';
 import { PhoneMockup } from './PhoneMockup';
@@ -29,14 +29,8 @@ export function HeroSection() {
 
       <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-5 pb-20 pt-4 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pb-28">
         <div className="landing-reveal order-1">
-          <div className="mb-6 flex items-center gap-3">
-            <Image
-              src="/landing/logo-app.png"
-              alt="Logo Powiat Decyduje"
-              width={48}
-              height={48}
-              className="h-12 w-12 object-contain"
-            />
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <BrandLogo height={48} priority />
             <span className="rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-xs font-medium text-brand">
               Aplikacja obywatelska
             </span>

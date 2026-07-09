@@ -1,9 +1,9 @@
 'use client';
 
-import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { BrandLogo } from './BrandLogo';
 import { LANDING_NAV } from './landing-data';
 
 export function LandingNav() {
@@ -30,17 +30,11 @@ export function LandingNav() {
         scrolled ? 'border-b border-white/10 bg-[#0a0f1a]/92 shadow-lg shadow-black/20 backdrop-blur-xl' : 'border-b border-white/5 bg-[#0a0f1a]/70 backdrop-blur-md'
       }`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8 sm:py-4">
-        <a href="#" className="flex min-w-0 items-center gap-3" onClick={() => setOpen(false)}>
-          <Image
-            src="/landing/logo-powiat.png"
-            alt="Herb Powiatu Mławskiego"
-            width={40}
-            height={40}
-            className="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10"
-          />
-          <div className="min-w-0">
+        <a href="#" className="flex min-w-0 items-center gap-2.5 sm:gap-3" onClick={() => setOpen(false)}>
+          <BrandLogo height={36} className="shrink-0 sm:max-h-10" />
+          <div className="hidden min-w-0 sm:block">
             <p className="truncate text-sm font-semibold text-white">Powiat Decyduje</p>
-            <p className="hidden text-[11px] text-white/50 sm:block">Powiat Mławski</p>
+            <p className="text-[11px] text-white/50">Powiat Mławski</p>
           </div>
         </a>
 

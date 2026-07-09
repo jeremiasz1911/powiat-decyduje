@@ -212,6 +212,9 @@ table.data-table tbody tr:hover {
 }
 
 .landing-screenshots-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  touch-action: pan-x;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
@@ -232,6 +235,11 @@ table.data-table tbody tr:hover {
 
 .landing-drag-scroll.is-dragging {
   cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.landing-drag-scroll.is-dragging button {
+  pointer-events: none;
 }
 
 .landing-drag-scroll button {
@@ -250,7 +258,7 @@ table.data-table tbody tr:hover {
 .landing-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 100;
   display: grid;
   place-items: center;
   padding: 20px;
@@ -259,33 +267,41 @@ table.data-table tbody tr:hover {
 .landing-lightbox-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.72);
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .landing-lightbox-panel {
   position: relative;
   width: min(920px, 92vw);
+  max-height: min(92dvh, 900px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(10, 15, 26, 0.78);
+  background: rgba(10, 15, 26, 0.92);
   border-radius: 24px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .landing-lightbox-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .landing-lightbox-close {
-  @apply rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 transition;
+  @apply inline-flex shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-sm font-medium text-white/80 transition;
   @apply hover:border-white/25 hover:bg-white/10 hover:text-white;
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 14px;
 }
 
 .landing-lightbox-content {
@@ -293,23 +309,105 @@ table.data-table tbody tr:hover {
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
   gap: 8px;
-  padding: 18px;
+  padding: 16px;
+  flex: 1;
+  min-height: 0;
 }
 
 .landing-lightbox-nav {
-  @apply inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white transition;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 text-white transition;
   @apply hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.landing-lightbox-nav-side {
+  @apply h-11 w-11;
+}
+
+.landing-lightbox-nav:disabled {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .landing-lightbox-imageWrap {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.landing-lightbox-frame {
+  position: relative;
+  width: min(86vw, 420px);
+  height: min(72dvh, 680px);
+  max-height: calc(92dvh - 180px);
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.landing-lightbox-counter {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.landing-lightbox-bottom {
+  display: none;
 }
 
 @media (max-width: 640px) {
+  .landing-lightbox {
+    padding: 0;
+  }
+
+  .landing-lightbox-panel {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border: none;
+  }
+
+  .landing-lightbox-top {
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+  }
+
   .landing-lightbox-content {
-    grid-template-columns: 40px 1fr 40px;
-    padding: 14px;
+    grid-template-columns: 1fr;
+    padding: 8px 12px 12px;
+    flex: 1;
+  }
+
+  .landing-lightbox-nav-side {
+    display: none;
+  }
+
+  .landing-lightbox-frame {
+    width: 100%;
+    height: auto;
+    flex: 1;
+    max-height: calc(100dvh - 160px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    aspect-ratio: 9 / 19.5;
+    border-radius: 12px;
+  }
+
+  .landing-lightbox-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 12px max(12px, env(safe-area-inset-bottom));
+    flex-shrink: 0;
+  }
+
+  .landing-lightbox-bottom .landing-lightbox-nav {
+    width: 100%;
+    padding: 0 12px;
+    font-size: 14px;
   }
 }
 

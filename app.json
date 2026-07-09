@@ -2,7 +2,7 @@
   "expo": {
     "name": "Powiat Decyduje",
     "slug": "powiat-decyduje",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/powiatIcon.png",
     "scheme": "powiatdecyduje",
@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jeremiasz1911.powiatdecyduje",
-      "buildNumber": "7",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -20,6 +20,7 @@
     "android": {
       "package": "com.jeremiasz1911.powiatdecyduje",
       "googleServicesFile": "./google-services.json",
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

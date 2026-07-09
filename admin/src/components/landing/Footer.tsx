@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { LEGAL_FOOTER_LINKS } from '@/components/legal/legal-content';
+import { BrandLogo } from './BrandLogo';
 import { LANDING_NAV } from './landing-data';
 
 export function Footer() {
@@ -10,12 +11,13 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-start">
         <div>
           <div className="flex items-center gap-4">
+            <BrandLogo height={48} />
             <Image
               src="/landing/logo-powiat.png"
               alt="Herb Powiatu Mławskiego"
               width={48}
               height={48}
-              className="h-12 w-12 object-contain"
+              className="hidden h-12 w-12 object-contain sm:block"
             />
             <div>
               <p className="text-lg font-semibold text-white">Powiat Decyduje</p>

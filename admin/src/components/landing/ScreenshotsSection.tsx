@@ -34,6 +34,8 @@ export function ScreenshotsSection() {
   const goNext = () => setLightboxIndex((i) => (i === null ? i : (i + 1) % shots.length));
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Na dotyku zostaw natywny scroll — custom drag blokuje tap i lightbox.
+    if (e.pointerType !== 'mouse') return;
     const el = scrollRef.current;
     if (!el) return;
     dragStateRef.current.active = true;
@@ -45,11 +47,12 @@ export function ScreenshotsSection() {
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
     const el = scrollRef.current;
     const state = dragStateRef.current;
     if (!el || !state.active) return;
     const delta = e.clientX - state.startX;
-    if (Math.abs(delta) > 6) state.moved = true;
+    if (Math.abs(delta) > 10) state.moved = true;
     el.scrollLeft = state.scrollLeft - delta;
   };
 
@@ -87,7 +90,7 @@ export function ScreenshotsSection() {
 
       <div
         ref={scrollRef}
-        className={`landing-screenshots-scroll landing-drag-scroll flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 pt-2 ${
+        className={`landing-screenshots-scroll landing-drag-scroll flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 pt-2 sm:gap-8 ${
           isDragging ? 'is-dragging' : ''
         }`}
         onPointerDown={onPointerDown}

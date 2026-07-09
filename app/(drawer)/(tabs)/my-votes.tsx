@@ -1,28 +1,31 @@
-import { Box, Button, ButtonText, Heading, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { StyleSheet, View } from 'react-native';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
-import { ProjectCard } from '@/src/features/projects/components/project-card';
+import { ScreenContainer } from '@/src/components/screen-container';
+import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { VoteProjectRow } from '@/src/features/votes/components/vote-project-row';
+import { VoteAnonymousToggle } from '@/src/features/projects/components/vote-anonymous-toggle';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import {
-    ensureAnonymousAuth,
-    getInstallationId,
-    getVotesSummary,
-    listProjects,
-    listProjectsVotedByUser,
-    type ProjectItem,
-    voteForProject,
+  getInstallationId,
+  getVotesSummary,
+  listProjects,
+  listProjectsVotedByUser,
+  requireSignedInUser,
+  type ProjectItem,
+  voteForProject,
 } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { appTheme } from '@/src/theme/app-theme';
 
 export default function MyVotesScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const canAccessPrivateFeatures = usePrivateRoute();
 
   const [items, setItems] = useState<ProjectItem[]>([]);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -34,6 +37,7 @@ export default function MyVotesScreen() {
   const [votesRemaining, setVotesRemaining] = useState<number | null>(null);
   const [votingProjectId, setVotingProjectId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [voteAnonymously, setVoteAnonymously] = useState(false);
 
   const refreshVotesMeta = useCallback(async (uid: string) => {
     const summary = await getVotesSummary(uid);
@@ -80,9 +84,13 @@ export default function MyVotesScreen() {
   );
 
   useEffect(() => {
+    if (!canAccessPrivateFeatures) {
+      return;
+    }
+
     const bootstrap = async () => {
       try {
-        const user = await ensureAnonymousAuth();
+        const user = await requireSignedInUser();
         setUserId(user.uid);
         await refreshVotesMeta(user.uid);
       } catch (bootstrapError) {
@@ -95,7 +103,7 @@ export default function MyVotesScreen() {
     };
 
     void bootstrap();
-  }, [refreshVotesMeta]);
+  }, [canAccessPrivateFeatures, refreshVotesMeta]);
 
   useEffect(() => {
     if (!userId) {
@@ -116,6 +124,16 @@ export default function MyVotesScreen() {
     );
   }, [items, search]);
 
+  const votedProjects = useMemo(
+    () => filteredItems.filter((project) => votedIds.includes(project.id)),
+    [filteredItems, votedIds]
+  );
+
+  const availableProjects = useMemo(
+    () => filteredItems.filter((project) => !votedIds.includes(project.id)),
+    [filteredItems, votedIds]
+  );
+
   const handleVote = async (project: ProjectItem) => {
     if (!userId) {
       return;
@@ -125,7 +143,9 @@ export default function MyVotesScreen() {
 
     try {
       const installationId = await getInstallationId();
-      const result = await voteForProject(project.id, userId, installationId);
+      const result = await voteForProject(project.id, userId, installationId, {
+        anonymous: voteAnonymously,
+      });
 
       setItems((prev) =>
         prev.map((item) => (item.id === project.id ? { ...item, votesCount: result.votesCount } : item))
@@ -135,7 +155,7 @@ export default function MyVotesScreen() {
 
       if (result.added) {
         setVotedIds((prev) => (prev.includes(project.id) ? prev : [...prev, project.id]));
-        await notify('Glos zapisany', 'Oddales glos na projekt.', 'success');
+        await notify('Glos zapisany', voteAnonymously ? 'Oddales anonimowy glos.' : 'Oddales glos na projekt.', 'success');
       } else if (result.reason === 'vote_limit_reached') {
         await notify('Limit glosow', 'Wykorzystales limit 5 glosow.', 'error');
       } else {
@@ -149,104 +169,113 @@ export default function MyVotesScreen() {
     }
   };
 
+  const openProject = (projectId: string) => {
+    router.push(`/(drawer)/(tabs)/project/${projectId}`);
+  };
+
   const hasMore = Boolean(cursor);
+  const voteDisabled = votesRemaining === 0;
+
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
+  const renderProjectRows = (projects: ProjectItem[]) =>
+    projects.map((project) => {
+      const alreadyVoted = votedIds.includes(project.id);
+      const disabled = alreadyVoted || votingProjectId === project.id || voteDisabled;
+
+      return (
+        <VoteProjectRow
+          key={project.id}
+          project={project}
+          alreadyVoted={alreadyVoted}
+          voting={votingProjectId === project.id}
+          voteDisabled={disabled}
+          onOpen={() => openProject(project.id)}
+          onVote={() => void handleVote(project)}
+        />
+      );
+    });
 
   return (
-    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
-      <Box flex={1}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <VStack space="md">
-            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>My Votes</Heading>
-            <Text color={futuristicTheme.colors.textMuted}>Szukaj projektow i glosuj bezposrednio z tej zakladki.</Text>
-            <Text color={futuristicTheme.colors.accent}>Pozostale glosy: {votesRemaining ?? '-'}</Text>
+    <ScreenContainer title="Głosy" description="Oddawaj głosy na projekty obywatelskie.">
+      <View style={styles.sections}>
+        <SettingsGroup
+          title="Podsumowanie"
+          footer="Możesz oddać maksymalnie 5 głosów na różne projekty.">
+          <SettingsCard>
+            <SettingsRow
+              label="Pozostałe głosy"
+              icon="heart-outline"
+              value={votesRemaining != null ? String(votesRemaining) : '—'}
+            />
+          </SettingsCard>
+        </SettingsGroup>
 
-            <Input style={styles.input}>
-              <InputField
-                placeholder="Szukaj po tytule, opisie lub miejscowosci..."
-                value={search}
-                onChangeText={setSearch}
-                color={futuristicTheme.colors.textPrimary}
-                placeholderTextColor={futuristicTheme.colors.textMuted}
-              />
-            </Input>
+        <SettingsGroup title="Anonimowość">
+          <VoteAnonymousToggle value={voteAnonymously} onValueChange={setVoteAnonymously} />
+        </SettingsGroup>
 
-            {loading ? <LoadingState label="Laduje projekty do glosowania..." /> : null}
+        <SettingsGroup title="Szukaj">
+          <AppTextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Tytuł lub opis projektu…"
+            variant="minimal"
+          />
+        </SettingsGroup>
 
-            {error ? (
-              <ErrorState
-                message={error}
-                actionLabel="Sprobuj ponownie"
-                onActionPress={() => void fetchProjects(true, null, [])}
-              />
-            ) : null}
+        {loading ? <LoadingState label="Ładuję projekty do głosowania..." /> : null}
 
-            {!loading && !error && filteredItems.length === 0 ? (
-              <EmptyState
-                title="Brak projektow"
-                description="Sprobuj zmienic fraze wyszukiwania."
-                actionLabel="Wyczysc"
-                onActionPress={() => setSearch('')}
-              />
-            ) : null}
+        {error ? (
+          <ErrorState
+            message={error}
+            actionLabel="Sprobuj ponownie"
+            onActionPress={() => void fetchProjects(true, null, [])}
+          />
+        ) : null}
 
-            {filteredItems.map((project, index) => {
-              const alreadyVoted = votedIds.includes(project.id);
-              const disabled = alreadyVoted || votingProjectId === project.id || votesRemaining === 0;
+        {!loading && !error && filteredItems.length === 0 ? (
+          <EmptyState
+            title="Brak projektów do głosowania"
+            description="Głosować można tylko na projekty zaakceptowane przez administratora. Jeśli właśnie coś zgłosiłeś, poczekaj na akceptację w panelu admina."
+            actionLabel="Wyczysc"
+            onActionPress={() => setSearch('')}
+          />
+        ) : null}
 
-              return (
-                <Animated.View key={project.id} entering={FadeInDown.delay(index * 35).duration(230)}>
-                  <VStack space="sm">
-                    <ProjectCard project={project} onOpenDetails={(projectId) => router.push(`/(drawer)/project/${projectId}`)} />
-                    <Button
-                      size="sm"
-                      action={alreadyVoted ? 'secondary' : 'primary'}
-                      variant={alreadyVoted ? 'outline' : 'solid'}
-                      style={alreadyVoted ? styles.ghostButton : styles.primaryButton}
-                      isDisabled={disabled}
-                      onPress={() => void handleVote(project)}>
-                      <ButtonText color={alreadyVoted ? futuristicTheme.colors.textPrimary : futuristicTheme.colors.textDark}>
-                        {alreadyVoted
-                          ? 'Juz zaglosowano'
-                          : votingProjectId === project.id
-                            ? 'Glosowanie...'
-                            : 'Glosuj na projekt'}
-                      </ButtonText>
-                    </Button>
-                  </VStack>
-                </Animated.View>
-              );
-            })}
+        {!loading && votedProjects.length > 0 ? (
+          <SettingsGroup title="Oddane głosy" footer={`${votedProjects.length} projektów z Twoim głosem.`}>
+            <SettingsCard>{renderProjectRows(votedProjects)}</SettingsCard>
+          </SettingsGroup>
+        ) : null}
 
-            {hasMore ? (
-              <Button onPress={() => void fetchProjects(false, cursor, items)} isDisabled={loadingMore} style={styles.ghostButton}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
-              </Button>
-            ) : null}
-          </VStack>
-        </ScrollView>
-      </Box>
-    </AppScreen>
+        {!loading && availableProjects.length > 0 ? (
+          <SettingsGroup
+            title="Dostępne projekty"
+            footer={voteDisabled ? 'Wykorzystałeś limit głosów.' : 'Wybierz projekt i oddaj głos.'}>
+            <SettingsCard>{renderProjectRows(availableProjects)}</SettingsCard>
+          </SettingsGroup>
+        ) : null}
+
+        {hasMore ? (
+          <SettingsRow
+            label={loadingMore ? 'Ładowanie...' : 'Pokaż więcej'}
+            icon="add-circle-outline"
+            onPress={() => void fetchProjects(false, cursor, items)}
+            disabled={loadingMore}
+            loading={loadingMore}
+            showChevron={!loadingMore}
+          />
+        ) : null}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    paddingBottom: 36,
-  },
-  input: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 14,
-  },
-  primaryButton: {
-    backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 12,
-    ...futuristicShadows.glow,
-  },
-  ghostButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    borderWidth: 1,
+  sections: {
+    gap: appTheme.spacing.lg,
   },
 });

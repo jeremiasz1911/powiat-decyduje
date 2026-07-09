@@ -144,7 +144,38 @@ function createVerificationId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type SmsLogType = 'registration' | 'password_reset';
+
+async function logSmsEvent(params: {
+  phoneNumber: string;
+  type: SmsLogType;
+  status: 'sent' | 'error';
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    await db.collection('sms_logs').add({
+      phoneNumber: maskPhone(params.phoneNumber),
+      phoneMasked: maskPhone(params.phoneNumber),
+      type: params.type,
+      status: params.status,
+      errorMessage: params.errorMessage ?? null,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: 'logSmsEvent',
+        message: error instanceof Error ? error.message : 'unknown_error',
+      })
+    );
+  }
+}
+
 async function sendSms(phoneNumber: string, code: string, context: string): Promise<void> {
+  const smsType: SmsLogType =
+    context === 'password_reset' || context === 'password-reset' ? 'password_reset' : 'registration';
+
   if (isFunctionsEmulator()) {
     console.info(
       JSON.stringify({
@@ -153,6 +184,7 @@ async function sendSms(phoneNumber: string, code: string, context: string): Prom
         context,
       })
     );
+    await logSmsEvent({ phoneNumber, type: smsType, status: 'sent' });
     return;
   }
 
@@ -216,8 +248,16 @@ async function sendSms(phoneNumber: string, code: string, context: string): Prom
         response: responseText.slice(0, 500),
       })
     );
+    await logSmsEvent({
+      phoneNumber,
+      type: smsType,
+      status: 'error',
+      errorMessage: `SMS provider rejected the message (${response.status})`,
+    });
     throw new HttpsError('internal', 'SMS provider rejected the message');
   }
+
+  await logSmsEvent({ phoneNumber, type: smsType, status: 'sent' });
 
   console.info(
     JSON.stringify({
@@ -358,6 +398,42 @@ function assertSmsCodeShape(code: string): void {
     throw new HttpsError('invalid-argument', 'Nieprawidlowy kod SMS.');
   }
 }
+
+export const checkResidentRegistrationAvailability = onCall(callableOptions, async (request) => {
+  const phoneNumber = typeof request.data?.phoneNumber === 'string' ? request.data.phoneNumber : '';
+  const pesel = typeof request.data?.pesel === 'string' ? request.data.pesel.trim() : '';
+
+  if (!phoneNumber || !pesel) {
+    throw new HttpsError('invalid-argument', 'Brak numeru telefonu lub PESEL.');
+  }
+
+  const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+  assertValidPesel(pesel);
+
+  const [phoneIndexSnapshot, peselIndexSnapshot] = await Promise.all([
+    db.collection('auth_index_phone').doc(normalizedPhoneNumber).get(),
+    db.collection('auth_index_pesel').doc(pesel).get(),
+  ]);
+
+  const phoneIndexData = phoneIndexSnapshot.data() as
+    | { accountCount?: number; residentAccountIds?: string[] }
+    | undefined;
+  const phoneAccountsCount =
+    typeof phoneIndexData?.accountCount === 'number'
+      ? phoneIndexData.accountCount
+      : Array.isArray(phoneIndexData?.residentAccountIds)
+        ? phoneIndexData.residentAccountIds.length
+        : phoneIndexSnapshot.exists
+          ? 1
+          : 0;
+
+  return {
+    phoneRegistered: phoneIndexSnapshot.exists,
+    peselTaken: peselIndexSnapshot.exists,
+    phoneAccountsCount,
+    phoneLimitReached: phoneAccountsCount >= MAX_PHONE_ACCOUNTS,
+  };
+});
 
 export const sendRegistrationSmsCode = onCall(smsSendCallableOptions, async (request) => {
   let normalizedPhoneNumber = '';

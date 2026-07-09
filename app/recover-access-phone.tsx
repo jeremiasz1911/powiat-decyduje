@@ -1,20 +1,30 @@
-import { useState } from 'react';
-import { StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { StyleSheet, View } from 'react-native';
 
+import { AuthBrandHeader } from '@/src/components/brand/AuthBrandHeader';
 import { ScreenContainer } from '@/src/components/screen-container';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { FormCard } from '@/src/components/ui/FormCard';
+import { StepIndicator } from '@/src/components/ui/StepIndicator';
 import { passwordResetSchema, type PasswordResetFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { normalizePhoneNumber, sendPasswordResetSmsCode } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appTheme } from '@/src/theme/app-theme';
 
 export default function RecoverAccessPhoneScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('RecoverAccessPhone screen mounted');
+    }
+  }, []);
 
   const {
     control,
@@ -55,87 +65,46 @@ export default function RecoverAccessPhoneScreen() {
 
   return (
     <ScreenContainer
+      softOverlay
       title="Nie pamiętam hasła"
-      description="Wpisz numer telefonu przypisany do konta, aby otrzymać kod SMS do resetu hasła.">
-      <Box style={styles.card}>
-        <VStack space="md">
-          <Text style={styles.helper}>
-            Reset hasła odbywa się przez SMS na numer telefonu powiązany z kontem mieszkańca.
-          </Text>
-
+      description="Odzyskaj dostęp do konta mieszkańca przez SMS.">
+      <StepIndicator current={1} total={2} labels={['Numer telefonu', 'Nowe hasło']} />
+      <AuthBrandHeader compact showLogo={false} description="Wyślemy kod SMS na numer powiązany z kontem." />
+      <FormCard>
+        <View style={styles.form}>
           <Controller
             control={control}
             name="phoneNumber"
             render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text style={styles.label}>Numer telefonu</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    placeholder="+48 500 600 700"
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                    keyboardType="phone-pad"
-                    autoCapitalize="none"
-                    style={styles.inputText}
-                  />
-                </Input>
-                {errors.phoneNumber ? <Text style={styles.errorText}>{errors.phoneNumber.message}</Text> : null}
-              </VStack>
+              <AppTextInput
+                label="Numer telefonu"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="+48 500 600 700"
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                error={errors.phoneNumber?.message}
+                helperText="Reset hasła odbywa się przez SMS."
+              />
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
-            <ButtonText style={styles.primaryButtonText}>
-              {isSubmitting ? 'Wysyłanie...' : 'Wyślij kod SMS'}
-            </ButtonText>
-          </Button>
-        </VStack>
-      </Box>
+          <AppButton
+            title="Wyślij kod SMS"
+            loadingTitle="Wysyłanie..."
+            loading={isSubmitting}
+            disabled={isSubmitting}
+            onPress={handleSubmit(onSubmit)}
+          />
+        </View>
+      </FormCard>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 20,
-    padding: 16,
-    ...futuristicShadows.soft,
-  },
-  helper: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
-  },
-  primaryButton: {
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
-  },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontWeight: '800',
+  form: {
+    gap: appTheme.spacing.lg,
   },
 });

@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getCountFromServer,
   getDocs,
   getDoc,
   increment,
@@ -18,10 +19,19 @@ import {
   type Timestamp,
 } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
-import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
 
 import { resolveProjectIcon, type ProjectIconId } from '@/src/features/projects/project-icons';
-import { db, storage } from '@/src/lib/firebase';
+import { resolveProjectMarkerColor } from '@/src/features/projects/project-marker-colors';
+import {
+  canUserViewProject,
+  canVoteOnProject,
+  getProjectAuthorId,
+  normalizeProjectStatus,
+  type ProjectStatus,
+} from '@/src/features/projects/project-status';
+import { parseCoordinate } from '@/src/features/projects/utils';
+import { db } from '@/src/lib/firebase';
+import { uploadProjectImages } from '@/src/services/project-image-upload';
 
 export type CreateProjectPayload = {
   userId: string;
@@ -41,10 +51,14 @@ export type CreateProjectPayload = {
   };
   imageUris: string[];
   icon: ProjectIconId;
+  markerColor: string;
 };
+
+export type { ProjectStatus } from '@/src/features/projects/project-status';
 
 export type ProjectItem = {
   id: string;
+  authorId: string;
   createdBy: string;
   createdByResidentAccountId: string;
   createdByResidentPesel: string;
@@ -63,9 +77,14 @@ export type ProjectItem = {
     longitude: number;
   };
   createdAt: Timestamp | null;
-  status: string;
+  updatedAt: Timestamp | null;
+  reviewedAt: Timestamp | null;
+  reviewedBy: string | null;
+  rejectionReason: string | null;
+  status: ProjectStatus;
   votesCount: number;
   icon: ProjectIconId;
+  markerColor: string;
 };
 
 export type ListProjectsFilters = {
@@ -73,6 +92,8 @@ export type ListProjectsFilters = {
   category?: string;
   pageSize?: number;
   cursor?: QueryDocumentSnapshot<DocumentData> | null;
+  /** When true (default), only approved projects are returned. */
+  publicOnly?: boolean;
 };
 
 export type ListProjectsResult = {
@@ -112,14 +133,115 @@ export type UpdateProjectPayload = {
     longitude: number;
   };
   icon: ProjectIconId;
+  markerColor: string;
 };
 
+export type VoteProjectOptions = {
+  anonymous?: boolean;
+};
+
+function normalizeProjectLocation(data: DocumentData): { latitude: number; longitude: number } {
+  const locationField = data.location as { latitude?: unknown; longitude?: unknown } | undefined;
+  const latitude =
+    parseCoordinate(locationField?.latitude) ??
+    parseCoordinate(data.latitude) ??
+    parseCoordinate((data as { lat?: unknown }).lat);
+  const longitude =
+    parseCoordinate(locationField?.longitude) ??
+    parseCoordinate(data.longitude) ??
+    parseCoordinate((data as { lng?: unknown }).lng);
+
+  return {
+    latitude: latitude ?? Number.NaN,
+    longitude: longitude ?? Number.NaN,
+  };
+}
+
+function hasStoredVoteCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+export async function countProjectVotes(projectId: string): Promise<number> {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+
+  const votesCollection = collection(db, 'projects', projectId, 'votes');
+  const snapshot = await getCountFromServer(votesCollection);
+  return snapshot.data().count;
+}
+
+export async function enrichProjectsWithVoteCounts(projects: ProjectItem[]): Promise<ProjectItem[]> {
+  return Promise.all(projects.map((project) => enrichProjectVoteCount(project)));
+}
+
+async function enrichProjectVoteCount(project: ProjectItem): Promise<ProjectItem> {
+  if (project.votesCount >= 0) {
+    return project;
+  }
+
+  try {
+    const count = await countProjectVotes(project.id);
+    return { ...project, votesCount: count };
+  } catch {
+    return { ...project, votesCount: -1 };
+  }
+}
+
+export async function listProjectsForMap(
+  userId?: string | null,
+  pageSize = 50,
+  maxPages = 10
+): Promise<ProjectItem[]> {
+  const merged = new Map<string, ProjectItem>();
+
+  let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+  for (let page = 0; page < maxPages; page += 1) {
+    const result = await listProjects({ pageSize, cursor, publicOnly: true });
+    for (const project of result.items) {
+      merged.set(project.id, project);
+    }
+    if (!result.nextCursor) {
+      break;
+    }
+    cursor = result.nextCursor;
+  }
+
+  if (userId) {
+    let ownCursor: QueryDocumentSnapshot<DocumentData> | null = null;
+    try {
+      for (let page = 0; page < maxPages; page += 1) {
+        const result = await listMyProjects(userId, { pageSize, cursor: ownCursor });
+        for (const project of result.items) {
+          merged.set(project.id, project);
+        }
+        if (!result.nextCursor) {
+          break;
+        }
+        ownCursor = result.nextCursor;
+      }
+    } catch {
+      // Publiczne projekty nadal są widoczne, nawet gdy odczyt własnych się nie powiedzie.
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
 function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectItem {
-  const data = docSnap.data() as Omit<ProjectItem, 'id'>;
+  const data = docSnap.data() as Omit<ProjectItem, 'id' | 'status' | 'authorId'> & {
+    status?: string;
+    authorId?: string;
+  };
+  const authorId = getProjectAuthorId({
+    authorId: data.authorId,
+    createdBy: data.createdBy,
+  });
 
   return {
     id: docSnap.id,
-    createdBy: data.createdBy ?? '',
+    authorId,
+    createdBy: data.createdBy ?? authorId,
     createdByResidentAccountId: data.createdByResidentAccountId ?? '',
     createdByResidentPesel: data.createdByResidentPesel ?? '',
     createdByResidentLabel: data.createdByResidentLabel ?? '',
@@ -132,11 +254,16 @@ function mapProjectDoc(docSnap: QueryDocumentSnapshot<DocumentData>): ProjectIte
     cost: data.cost,
     imageUrl: data.imageUrl,
     imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
-    location: data.location,
+    location: normalizeProjectLocation(data),
     createdAt: data.createdAt ?? null,
-    status: data.status ?? 'submitted',
-    votesCount: data.votesCount ?? 0,
+    updatedAt: data.updatedAt ?? null,
+    reviewedAt: data.reviewedAt ?? null,
+    reviewedBy: data.reviewedBy ?? null,
+    rejectionReason: data.rejectionReason ?? null,
+    status: normalizeProjectStatus(data.status),
+    votesCount: hasStoredVoteCount(data.votesCount) ? data.votesCount : -1,
     icon: resolveProjectIcon(data.icon as string | undefined),
+    markerColor: resolveProjectMarkerColor(data.markerColor as string | undefined),
   };
 }
 
@@ -148,88 +275,18 @@ function isMissingIndexError(error: unknown): boolean {
   );
 }
 
-async function fileUriToBlob(fileUri: string): Promise<Blob> {
-  // On React Native, fetch(file://...) can fail with "Network request failed".
-  // XHR with responseType=blob is significantly more reliable for local URIs.
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onerror = async () => {
-      try {
-        const fallbackResponse = await fetch(fileUri);
-        if (!fallbackResponse.ok) {
-          reject(new Error(`Unable to read selected image file (HTTP ${fallbackResponse.status}).`));
-          return;
-        }
-        const fallbackBlob = await fallbackResponse.blob();
-        resolve(fallbackBlob);
-      } catch {
-        reject(new Error(`Unable to read selected image file (${fileUri.slice(0, 24)}...).`));
-      }
-    };
-    xhr.onload = () => {
-      if (!xhr.response) {
-        reject(new Error('Unable to read selected image file.'));
-        return;
-      }
-
-      resolve(xhr.response as Blob);
-    };
-    xhr.responseType = 'blob';
-    xhr.open('GET', fileUri, true);
-    xhr.send();
-  });
-}
-
-async function uploadProjectImage(userId: string, imageUri: string): Promise<string> {
-  if (!storage) {
-    throw new Error('Firebase Storage is not configured.');
-  }
-
-  const fileRef = ref(storage, `projects/${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`);
-
-  if (imageUri.startsWith('data:')) {
-    const match = imageUri.match(/^data:([^;]+);base64,(.+)$/);
-    if (!match) {
-      throw new Error('Niepoprawny format danych obrazu.');
-    }
-
-    const [, contentType, base64Data] = match;
-    await uploadString(fileRef, base64Data, 'base64', { contentType });
-    return getDownloadURL(fileRef);
-  }
-
-  const blob = await fileUriToBlob(imageUri);
-  try {
-    await uploadBytes(fileRef, blob, {
-      contentType: 'image/jpeg',
-    });
-  } catch (error) {
-    if (error instanceof FirebaseError) {
-      throw new Error(`Blad wysylania obrazu: ${error.code}`);
-    }
-    throw error;
-  } finally {
-    const maybeClosable = blob as Blob & { close?: () => void };
-    maybeClosable.close?.();
-  }
-
-  return getDownloadURL(fileRef);
-}
-
-async function uploadProjectImages(userId: string, imageUris: string[]): Promise<string[]> {
-  const uploads = imageUris.map((uri) => uploadProjectImage(userId, uri));
-  return Promise.all(uploads);
-}
-
 export async function createProject(payload: CreateProjectPayload): Promise<string> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
 
-  const imageUrls = await uploadProjectImages(payload.userId, payload.imageUris);
-  const primaryImageUrl = imageUrls[0];
+  const imageUrls =
+    payload.imageUris.length > 0
+      ? await uploadProjectImages(payload.userId, payload.imageUris)
+      : [];
 
-  const docRef = await addDoc(collection(db, 'projects'), {
+  const docData = {
+    authorId: payload.userId,
     createdBy: payload.userId,
     createdByResidentAccountId: payload.residentAccountId,
     createdByResidentPesel: payload.residentPesel,
@@ -242,15 +299,27 @@ export async function createProject(payload: CreateProjectPayload): Promise<stri
     village: payload.village,
     cost: payload.cost,
     location: payload.location,
-    imageUrl: primaryImageUrl,
     imageUrls,
     icon: payload.icon,
+    markerColor: resolveProjectMarkerColor(payload.markerColor),
     createdAt: serverTimestamp(),
-    status: 'submitted',
+    updatedAt: serverTimestamp(),
+    status: 'submitted' as const,
     votesCount: 0,
-  });
+    ...(imageUrls[0] ? { imageUrl: imageUrls[0] } : {}),
+  };
 
-  return docRef.id;
+  try {
+    const docRef = await addDoc(collection(db, 'projects'), docData);
+    return docRef.id;
+  } catch (error) {
+    if (error instanceof FirebaseError && error.code === 'permission-denied') {
+      throw new Error(
+        'Brak uprawnień do zapisu projektu. Wdróż reguły Firestore: firebase deploy --only firestore:rules'
+      );
+    }
+    throw error;
+  }
 }
 
 export async function listProjects(filters: ListProjectsFilters = {}): Promise<ListProjectsResult> {
@@ -259,7 +328,12 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
   }
 
   const pageSize = filters.pageSize ?? 10;
+  const publicOnly = filters.publicOnly !== false;
   const constraints = [] as Parameters<typeof query>[1][];
+
+  if (publicOnly) {
+    constraints.push(where('status', '==', 'approved'));
+  }
 
   if (filters.commune) {
     constraints.push(where('commune', '==', filters.commune));
@@ -282,7 +356,7 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
   try {
     const projectsQuery = query(projectsCollection, ...constraints);
     const snapshot = await getDocs(projectsQuery);
-    const items = snapshot.docs.map(mapProjectDoc);
+    const items = await enrichProjectsWithVoteCounts(snapshot.docs.map(mapProjectDoc));
     const nextCursor = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
     return {
@@ -290,8 +364,7 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
       nextCursor,
     };
   } catch (error) {
-    // Fallback when composite index is still building/missing.
-    if (!isMissingIndexError(error) || (!filters.commune && !filters.category)) {
+    if (!isMissingIndexError(error)) {
       throw error;
     }
 
@@ -302,6 +375,10 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
 
     while (items.length < pageSize && attempts < maxAttempts) {
       const fallbackConstraints = [] as Parameters<typeof query>[1][];
+
+      if (publicOnly) {
+        fallbackConstraints.push(where('status', '==', 'approved'));
+      }
 
       fallbackConstraints.push(orderBy('createdAt', 'desc'));
       if (cursor) {
@@ -321,6 +398,7 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
         .map(mapProjectDoc)
         .filter(
           (project) =>
+            (!publicOnly || project.status === 'approved') &&
             (!filters.commune || project.commune === filters.commune) &&
             (!filters.category || project.category === filters.category)
         );
@@ -330,7 +408,7 @@ export async function listProjects(filters: ListProjectsFilters = {}): Promise<L
     }
 
     return {
-      items: items.slice(0, pageSize),
+      items: await enrichProjectsWithVoteCounts(items.slice(0, pageSize)),
       nextCursor: cursor,
     };
   }
@@ -360,7 +438,7 @@ export async function listMyProjects(
 
   try {
     const snapshot = await getDocs(query(projectsCollection, ...constraints));
-    const items = snapshot.docs.map(mapProjectDoc);
+    const items = await enrichProjectsWithVoteCounts(snapshot.docs.map(mapProjectDoc));
     const nextCursor = snapshot.docs.length === pageSize ? snapshot.docs[snapshot.docs.length - 1] : null;
 
     return {
@@ -379,7 +457,7 @@ export async function listMyProjects(
 
     while (items.length < pageSize && attempts < maxAttempts) {
       const fallbackConstraints = [] as Parameters<typeof query>[1][];
-      fallbackConstraints.push(orderBy('createdAt', 'desc'));
+      fallbackConstraints.push(where('createdBy', '==', userId));
 
       if (cursor) {
         fallbackConstraints.push(startAfter(cursor));
@@ -395,13 +473,13 @@ export async function listMyProjects(
       }
 
       cursor = snapshot.docs[snapshot.docs.length - 1];
-      const filtered = snapshot.docs.map(mapProjectDoc).filter((project) => project.createdBy === userId);
+      const filtered = snapshot.docs.map(mapProjectDoc);
       items.push(...filtered);
       attempts += 1;
     }
 
     return {
-      items: items.slice(0, pageSize),
+      items: await enrichProjectsWithVoteCounts(items.slice(0, pageSize)),
       nextCursor: cursor,
     };
   }
@@ -464,7 +542,10 @@ export async function checkUserVoteLimit(userId: string): Promise<VoteLimitCheck
   };
 }
 
-export async function getProjectById(projectId: string): Promise<ProjectItem> {
+export async function getProjectById(
+  projectId: string,
+  options: { userId?: string | null } = {}
+): Promise<ProjectItem> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
   }
@@ -476,29 +557,13 @@ export async function getProjectById(projectId: string): Promise<ProjectItem> {
     throw new Error('Project not found.');
   }
 
-  const data = snapshot.data() as Omit<ProjectItem, 'id'>;
+  const project = mapProjectDoc(snapshot as QueryDocumentSnapshot<DocumentData>);
 
-  return {
-    id: snapshot.id,
-    createdBy: data.createdBy ?? '',
-    createdByResidentAccountId: data.createdByResidentAccountId ?? '',
-    createdByResidentPesel: data.createdByResidentPesel ?? '',
-    createdByResidentLabel: data.createdByResidentLabel ?? '',
-    title: data.title,
-    description: data.description,
-    category: data.category,
-    locationLabel: data.locationLabel ?? '',
-    commune: data.commune,
-    village: data.village,
-    cost: data.cost,
-    imageUrl: data.imageUrl,
-    imageUrls: Array.isArray(data.imageUrls) ? data.imageUrls : data.imageUrl ? [data.imageUrl] : [],
-    location: data.location,
-    createdAt: data.createdAt ?? null,
-    status: data.status ?? 'submitted',
-    votesCount: data.votesCount ?? 0,
-    icon: resolveProjectIcon(data.icon as string | undefined),
-  };
+  if (!canUserViewProject(project, options.userId)) {
+    throw new Error('Brak dostępu do tego projektu.');
+  }
+
+  return enrichProjectVoteCount(project);
 }
 
 export async function updateProject(
@@ -519,8 +584,12 @@ export async function updateProject(
 
   const existing = snapshot.data() as Partial<ProjectItem>;
 
-  if (existing.createdBy !== userId) {
+  if (getProjectAuthorId(existing) !== userId) {
     throw new Error('Nie masz uprawnien do edycji tego projektu.');
+  }
+
+  if (normalizeProjectStatus(existing.status) !== 'submitted') {
+    throw new Error('Możesz edytować projekt tylko przed weryfikacją przez administratora.');
   }
 
   await updateDoc(projectRef, {
@@ -533,6 +602,7 @@ export async function updateProject(
     cost: payload.cost,
     location: payload.location,
     icon: payload.icon,
+    markerColor: resolveProjectMarkerColor(payload.markerColor),
     updatedAt: serverTimestamp(),
   });
 }
@@ -542,7 +612,8 @@ const MAX_VOTES_PER_USER = 5;
 export async function voteForProject(
   projectId: string,
   userId: string,
-  installationId: string
+  installationId: string,
+  options: VoteProjectOptions = {}
 ): Promise<VoteProjectResult> {
   if (!db) {
     throw new Error('Firebase Firestore is not configured.');
@@ -578,6 +649,11 @@ export async function voteForProject(
       throw new Error('Project not found.');
     }
 
+    const projectStatus = normalizeProjectStatus(projectSnap.data().status);
+    if (!canVoteOnProject(projectStatus)) {
+      throw new Error('Głosowanie jest dostępne tylko dla zaakceptowanych projektów.');
+    }
+
     const currentVotes = (projectSnap.data().votesCount as number | undefined) ?? 0;
     const usedVotes = (userVotesCounterSnap.data()?.votesUsed as number | undefined) ?? 0;
 
@@ -603,12 +679,14 @@ export async function voteForProject(
       userId,
       installationId,
       createdAt: serverTimestamp(),
+      isAnonymous: options.anonymous ?? false,
     });
 
     transaction.set(installationVoteRef, {
       userId,
       installationId,
       createdAt: serverTimestamp(),
+      isAnonymous: options.anonymous ?? false,
     });
 
     transaction.update(projectRef, {

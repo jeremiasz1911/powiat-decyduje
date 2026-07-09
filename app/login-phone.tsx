@@ -1,41 +1,67 @@
-import {
-    Box,
-    Button,
-    ButtonText,
-    Input,
-    InputField,
-    Text,
-    VStack,
-} from '@gluestack-ui/themed';
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet } from 'react-native';
-import Animated, {
-    Easing,
-    FadeIn,
-    FadeInDown,
-    FadeInUp,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { LoginBrandedHeader } from '@/src/components/auth/LoginBrandedHeader';
+import { LoginScreenFooter } from '@/src/components/auth/LoginScreenFooter';
+import { LoginAnimatedBackground } from '@/src/components/auth/LoginAnimatedBackground';
+import { AuthScreenOverlay } from '@/src/components/layout/auth-screen-overlay';
+import { BootstrapLoadingScreen } from '@/src/components/bootstrap-loading-screen';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import { residentLoginSchema, type ResidentLoginFormValues } from '@/src/features/auth/resident-registration.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import {
+  getRememberMePreference,
+  markPersistentLogin,
+  markSessionOnlyLogin,
+  setRememberMePreference,
+} from '@/src/lib/remember-me';
 import { loginWithIdentifier } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 export default function LoginPhoneScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { notify } = useAppFeedback();
-  const { refreshResidentAccounts, setActiveResidentAccountId } = useAuthContext();
+  const { colors, colorScheme, shadows } = useAppTheme();
+  const { refreshResidentAccounts, setActiveResidentAccountId, enterGuestMode, isAuthenticated, loading } =
+    useAuthContext();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isEnteringGuestMode, setIsEnteringGuestMode] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMeReady, setRememberMeReady] = useState(false);
+
+  useEffect(() => {
+    void getRememberMePreference().then((value) => {
+      setRememberMe(value);
+      setRememberMeReady(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      router.replace('/(drawer)/(tabs)');
+    }
+  }, [isAuthenticated, loading, router]);
 
   const {
     control,
@@ -50,24 +76,14 @@ export default function LoginPhoneScreen() {
     mode: 'onBlur',
   });
 
-  const logoScale = useSharedValue(0.88);
-  const glow = useSharedValue(0.45);
-
-  useEffect(() => {
-    logoScale.value = withSpring(1, { damping: 14, stiffness: 160 });
-    glow.value = withRepeat(withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.cubic) }), -1, true);
-  }, [glow, logoScale]);
-
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-    transform: [{ scale: 0.94 + glow.value * 0.08 }],
-  }));
-
   const finishLogin = async (identifier: string, password: string) => {
+    if (rememberMe) {
+      markPersistentLogin();
+    } else {
+      markSessionOnlyLogin();
+    }
+
+    await setRememberMePreference(rememberMe);
     await loginWithIdentifier({ identifier, password });
     const accounts = await refreshResidentAccounts();
 
@@ -81,7 +97,7 @@ export default function LoginPhoneScreen() {
     }
 
     await notify('Zalogowano', 'Witamy w systemie Powiat Decyduje.', 'success');
-    router.replace('/(drawer)/(tabs)/projects');
+    router.replace('/(drawer)/(tabs)');
   };
 
   const onSubmit = async (values: ResidentLoginFormValues) => {
@@ -97,195 +113,266 @@ export default function LoginPhoneScreen() {
     }
   };
 
+  const handleContinueAsGuest = async () => {
+    setIsEnteringGuestMode(true);
+
+    try {
+      await enterGuestMode();
+      router.replace('/(drawer)/(tabs)/map');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Nie udało się przejść w tryb gościa.';
+      await notify('Błąd', message, 'error');
+    } finally {
+      setIsEnteringGuestMode(false);
+    }
+  };
+
+  if (loading || !rememberMeReady) {
+    return <BootstrapLoadingScreen label="Ładowanie logowania" />;
+  }
+
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
-    <AppScreen
-      gradientColors={[futuristicTheme.colors.bgTop, '#061b33', futuristicTheme.colors.bgBottom]}
-      contentContainerStyle={styles.safeArea}>
-      <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
-        <Animated.View style={[styles.glow, glowStyle]} />
+    <View
+      style={[
+        styles.root,
+        {
+          width: windowWidth,
+          height: windowHeight,
+          backgroundColor: colors.background,
+        },
+      ]}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
+      <LoginAnimatedBackground />
+      <AuthScreenOverlay />
 
-        <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
-          <Text style={styles.logoText}>PD</Text>
-        </Animated.View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[
+          styles.flex,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          },
+        ]}>
+        <View style={styles.page}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}>
+            <View style={styles.header}>
+              <LoginBrandedHeader />
+            </View>
 
-        <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
-          Powiat Decyduje
-        </Animated.Text>
+            <Animated.View entering={FadeInDown.delay(80).duration(480)} style={styles.form}>
+              <Controller
+                control={control}
+                name="identifier"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <AppTextInput
+                    variant="minimal"
+                    label="Email lub telefon"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="jan@example.com"
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    error={errors.identifier?.message}
+                  />
+                )}
+              />
 
-        <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.subtitle}>
-          Zaloguj się do Powiat Decyduje.
-        </Animated.Text>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <AppTextInput
+                    variant="minimal"
+                    label="Hasło"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    secureTextEntry
+                    placeholder="••••••••"
+                    autoCapitalize="none"
+                    error={errors.password?.message}
+                  />
+                )}
+              />
 
-        <Box style={styles.card}>
-          <VStack space="md">
-            <Controller
-              control={control}
-              name="identifier"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <VStack space="xs">
-                  <Text style={styles.label}>Email lub numer telefonu</Text>
-                  <Input style={styles.input}>
-                    <InputField
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      placeholder="jan@example.com lub 500 600 700"
-                      placeholderTextColor={futuristicTheme.colors.textMuted}
-                      autoCapitalize="none"
-                      style={styles.inputText}
-                    />
-                  </Input>
-                  {errors.identifier ? <Text style={styles.errorText}>{errors.identifier.message}</Text> : null}
-                </VStack>
-              )}
-            />
+              <View style={styles.metaRow}>
+                <Pressable
+                  onPress={() => setRememberMe((current) => !current)}
+                  style={styles.rememberRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: rememberMe }}
+                  accessibilityLabel="Zapamiętaj mnie">
+                  <Ionicons
+                    name={rememberMe ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={rememberMe ? colors.primary : colors.textMuted}
+                  />
+                  <Text style={[styles.rememberLabel, { color: colors.textSecondary }]}>Zapamiętaj mnie</Text>
+                </Pressable>
 
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <VStack space="xs">
-                  <Text style={styles.label}>Hasło</Text>
-                  <Input style={styles.input}>
-                    <InputField
-                      value={value}
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      secureTextEntry
-                      placeholder="Wpisz hasło"
-                      placeholderTextColor={futuristicTheme.colors.textMuted}
-                      autoCapitalize="none"
-                      style={styles.inputText}
-                    />
-                  </Input>
-                  {errors.password ? <Text style={styles.errorText}>{errors.password.message}</Text> : null}
-                </VStack>
-              )}
-            />
+                <Pressable onPress={() => router.push('/recover-access-phone')} hitSlop={8}>
+                  <Text style={[styles.linkText, { color: colors.primary }]}>Nie pamiętasz hasła?</Text>
+                </Pressable>
+              </View>
 
-            <Button onPress={handleSubmit(onSubmit)} isDisabled={isSigningIn} style={styles.primaryButton}>
-              <ButtonText style={styles.primaryButtonText}>
-                {isSigningIn ? 'Logowanie...' : 'Zaloguj się'}
-              </ButtonText>
-            </Button>
+              <AppButton
+                title="Zaloguj się"
+                loadingTitle="Logowanie..."
+                loading={isSigningIn}
+                disabled={isSigningIn}
+                onPress={handleSubmit(onSubmit)}
+                style={[styles.primaryButton, { borderRadius: 12 }]}
+              />
 
-            <Button variant="outline" onPress={() => router.push('/register-resident')} style={styles.secondaryButton}>
-              <ButtonText style={styles.secondaryButtonText}>Zarejestruj konto</ButtonText>
-            </Button>
+              <View style={styles.secondaryActions}>
+                <Pressable onPress={() => router.push('/register-resident')} hitSlop={8}>
+                  <Text style={[styles.secondaryLink, { color: colors.textSecondary }]}>
+                    Nie masz konta?{' '}
+                    <Text style={[styles.secondaryLinkStrong, { color: colors.primary }]}>Zarejestruj się</Text>
+                  </Text>
+                </Pressable>
 
-            <Button variant="outline" onPress={() => router.push('/recover-access-phone')} style={styles.ghostButton}>
-              <ButtonText style={styles.ghostButtonText}>Nie pamiętam hasła</ButtonText>
-            </Button>
-          </VStack>
-        </Box>
-      </Animated.View>
-    </AppScreen>
+                <View style={styles.guestDividerRow}>
+                  <View style={[styles.guestDividerLine, { backgroundColor: colors.border }]} />
+                  <Text style={[styles.guestDividerText, { color: colors.textMuted }]}>lub</Text>
+                  <View style={[styles.guestDividerLine, { backgroundColor: colors.border }]} />
+                </View>
+
+                <AppButton
+                  title="Kontynuuj jako gość"
+                  loadingTitle="Ładowanie..."
+                  loading={isEnteringGuestMode}
+                  disabled={isSigningIn || isEnteringGuestMode}
+                  variant="ghost"
+                  onPress={() => void handleContinueAsGuest()}
+                  style={[
+                    styles.guestOutlineButton,
+                    colorScheme === 'light' ? shadows.soft : null,
+                    {
+                      borderColor:
+                        colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+                      backgroundColor:
+                        colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.42)',
+                    },
+                  ]}
+                  textStyle={[styles.guestOutlineText, { color: colors.textPrimary }]}
+                />
+              </View>
+            </Animated.View>
+          </ScrollView>
+
+          <LoginScreenFooter />
+        </View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
+    overflow: 'hidden',
   },
-  content: {
+  flex: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    gap: 18,
+    zIndex: 2,
   },
-  glow: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(34, 211, 238, 0.22)',
+  page: {
+    flex: 1,
+    paddingHorizontal: appTheme.spacing.xl,
+    justifyContent: 'space-between',
   },
-  logo: {
-    alignSelf: 'center',
-    width: 124,
-    height: 124,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
+  scroll: {
+    flex: 1,
+    overflow: 'visible',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingTop: appTheme.spacing.md,
+    paddingBottom: appTheme.spacing.lg,
+    overflow: 'visible',
+  },
+  header: {
     alignItems: 'center',
-    justifyContent: 'center',
-    ...futuristicShadows.glow,
+    marginBottom: appTheme.spacing.xl,
+    overflow: 'visible',
+    zIndex: 5,
   },
-  logoText: {
-    color: futuristicTheme.colors.accent,
-    fontSize: 44,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+  form: {
+    gap: appTheme.spacing.lg,
   },
-  title: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    textAlign: 'center',
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: appTheme.spacing.md,
+    marginTop: -appTheme.spacing.xs,
   },
-  subtitle: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 4,
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: appTheme.spacing.xs,
+    flexShrink: 1,
   },
-  card: {
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    padding: 18,
-    ...futuristicShadows.soft,
+  rememberLabel: {
+    fontSize: 13,
+    fontWeight: '500',
   },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    minHeight: 60,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 16,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
+  linkText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   primaryButton: {
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
+    minHeight: 52,
+    marginTop: appTheme.spacing.sm,
   },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontSize: 16,
-    fontWeight: '800',
+  secondaryActions: {
+    alignItems: 'stretch',
+    gap: appTheme.spacing.lg,
+    marginTop: appTheme.spacing.md,
+    width: '100%',
   },
-  secondaryButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: 'rgba(13, 47, 79, 0.5)',
-  },
-  secondaryButtonText: {
-    color: futuristicTheme.colors.textPrimary,
+  secondaryLink: {
     fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  secondaryLinkStrong: {
     fontWeight: '700',
   },
-  ghostButton: {
-    borderRadius: 14,
+  guestDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: appTheme.spacing.md,
+    width: '100%',
   },
-  ghostButtonText: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 14,
+  guestDividerLine: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  guestDividerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'lowercase',
+  },
+  guestOutlineButton: {
+    minHeight: 52,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    alignSelf: 'stretch',
+  },
+  guestOutlineText: {
+    fontWeight: '700',
   },
 });

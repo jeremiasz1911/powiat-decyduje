@@ -1,35 +1,24 @@
-import {
-    Box,
-    Button,
-    ButtonText,
-    Heading,
-    Input,
-    InputField,
-    Text,
-    VStack,
-} from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { type DocumentData, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState, ErrorState, LoadingState } from '@/src/components/feedback-state';
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { ScreenContainer } from '@/src/components/screen-container';
 import { ProjectCard } from '@/src/features/projects/components/project-card';
+import { ProjectFiltersPanel } from '@/src/features/projects/components/project-filters-panel';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { listProjects, type ProjectItem } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
-
-const CATEGORIES = ['Infrastruktura', 'Edukacja', 'Sport', 'Ekologia', 'Kultura', 'Inne'] as const;
-const COMMUNES = ['Mlawa', 'Lipowiec Koscielny', 'Szydlowo', 'Wieczfnia Koscielna'] as const;
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 export default function ProjectsScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { colors } = useAppTheme();
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedCommune, setSelectedCommune] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCommune, setSelectedCommune] = useState('');
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [cursor, setCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,171 +69,126 @@ export default function ProjectsScreen() {
     }
 
     return projects.filter((project) =>
-      [project.title, project.description, project.village].some((field) =>
-        field.toLowerCase().includes(normalized)
-      )
+      [project.title, project.description].some((field) => field.toLowerCase().includes(normalized))
     );
   }, [projects, search]);
 
-  const onApplyFilters = async () => {
-    setCursor(null);
-    await fetchProjects(true, null);
+  const handleClearFilters = () => {
+    setSelectedCategory('');
+    setSelectedCommune('');
+    setSearch('');
   };
 
   const hasMore = Boolean(cursor);
+
   const handleOpenDetails = useCallback(
     (projectId: string) => {
-      void notify('Projekt', 'Otwieram szczegoly projektu.', 'info');
-      router.push(`/(drawer)/project/${projectId}`);
+      router.push(`/(drawer)/(tabs)/project/${projectId}`);
     },
-    [notify, router]
+    [router]
   );
 
   return (
-    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
-      <Box flex={1}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <VStack space="md">
-            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>Projects</Heading>
-            <Text color={futuristicTheme.colors.textMuted}>Lista projektow z wyszukiwaniem i filtrami.</Text>
+    <ScreenContainer
+      title="Projekty"
+      description="Przegladaj inicjatywy obywatelskie powiatu mlawskiego.">
+      <View style={styles.sections}>
+        <ProjectFiltersPanel
+          variant="minimal"
+          search={search}
+          selectedCategory={selectedCategory}
+          selectedCommune={selectedCommune}
+          onSearchChange={setSearch}
+          onCategoryChange={setSelectedCategory}
+          onCommuneChange={setSelectedCommune}
+          onClearFilters={handleClearFilters}
+          resultsCount={filteredBySearch.length}
+        />
 
-            <Input style={styles.input}>
-              <InputField
-                placeholder="Szukaj po tytule, opisie lub miejscowosci..."
-                value={search}
-                onChangeText={setSearch}
-                color={futuristicTheme.colors.textPrimary}
-                placeholderTextColor={futuristicTheme.colors.textMuted}
-              />
-            </Input>
+        {loading ? <LoadingState label="Pobieram projekty..." /> : null}
 
-            <VStack space="xs">
-              <Text color={futuristicTheme.colors.textPrimary}>Kategoria</Text>
-              <View style={styles.filterWrap}>
-                <Button
-                  size="sm"
-                  variant={selectedCategory ? 'outline' : 'solid'}
-                  action={selectedCategory ? 'secondary' : 'primary'}
-                  borderRadius="$full"
-                  style={styles.filterButton}
-                  onPress={() => setSelectedCategory('')}>
-                  <ButtonText color={futuristicTheme.colors.textPrimary}>Wszystkie</ButtonText>
-                </Button>
-                {CATEGORIES.map((category) => (
-                  <Button
-                    key={category}
-                    size="sm"
-                    variant={selectedCategory === category ? 'solid' : 'outline'}
-                    action={selectedCategory === category ? 'primary' : 'secondary'}
-                    borderRadius="$full"
-                    style={styles.filterButton}
-                    onPress={() => setSelectedCategory(category)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>{category}</ButtonText>
-                  </Button>
-                ))}
-              </View>
-            </VStack>
+        {error ? (
+          <ErrorState
+            message={error}
+            actionLabel="Sprobuj ponownie"
+            onActionPress={() => void fetchProjects(true, null)}
+          />
+        ) : null}
 
-            <VStack space="xs">
-              <Text color={futuristicTheme.colors.textPrimary}>Gmina</Text>
-              <View style={styles.filterWrap}>
-                <Button
-                  size="sm"
-                  variant={selectedCommune ? 'outline' : 'solid'}
-                  action={selectedCommune ? 'secondary' : 'primary'}
-                  borderRadius="$full"
-                  style={styles.filterButton}
-                  onPress={() => setSelectedCommune('')}>
-                  <ButtonText color={futuristicTheme.colors.textPrimary}>Wszystkie</ButtonText>
-                </Button>
-                {COMMUNES.map((commune) => (
-                  <Button
-                    key={commune}
-                    size="sm"
-                    variant={selectedCommune === commune ? 'solid' : 'outline'}
-                    action={selectedCommune === commune ? 'primary' : 'secondary'}
-                    borderRadius="$full"
-                    style={styles.filterButton}
-                    onPress={() => setSelectedCommune(commune)}>
-                    <ButtonText color={futuristicTheme.colors.textPrimary}>{commune}</ButtonText>
-                  </Button>
-                ))}
-              </View>
-            </VStack>
+        {!loading && filteredBySearch.length === 0 && !error ? (
+          <EmptyState
+            title="Brak zaakceptowanych projektów"
+            description="Na liście publicznej widać tylko projekty zaakceptowane przez administratora."
+            actionLabel="Wyczysc filtry"
+            onActionPress={handleClearFilters}
+          />
+        ) : null}
 
-            <Button onPress={onApplyFilters} style={styles.primaryButton}>
-              <ButtonText color={futuristicTheme.colors.textDark}>Zastosuj filtry</ButtonText>
-            </Button>
+        {!loading && filteredBySearch.length > 0 ? (
+          <View style={styles.listSection}>
+            <Text style={[styles.listTitle, { color: colors.textPrimary }]}>Lista projektów</Text>
+            <Text style={[styles.listMeta, { color: colors.textMuted }]}>
+              Wyświetlam {filteredBySearch.length}{' '}
+              {filteredBySearch.length === 1 ? 'projekt' : 'projektów'}
+            </Text>
+            <View style={styles.projectList}>
+              {filteredBySearch.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  variant="flat"
+                  onOpenDetails={handleOpenDetails}
+                />
+              ))}
+            </View>
+          </View>
+        ) : null}
 
-            {loading ? <LoadingState label="Pobieram projekty..." /> : null}
-
-            {error ? (
-              <ErrorState
-                message={error}
-                actionLabel="Sprobuj ponownie"
-                onActionPress={() => void fetchProjects(true, null)}
-              />
-            ) : null}
-
-            {!loading && filteredBySearch.length === 0 && !error ? (
-              <EmptyState
-                title="Brak projektow"
-                description="Sprobuj zmienic filtry lub wyszukiwanie."
-                actionLabel="Wyczysc filtry"
-                onActionPress={() => {
-                  setSelectedCategory('');
-                  setSelectedCommune('');
-                  setSearch('');
-                  void fetchProjects(true, null);
-                }}
-              />
-            ) : null}
-
-            {filteredBySearch.map((project, index) => (
-              <Animated.View key={project.id} entering={FadeInDown.delay(index * 40).duration(260)}>
-                <ProjectCard project={project} onOpenDetails={handleOpenDetails} />
-              </Animated.View>
-            ))}
-
-            {hasMore ? (
-              <Button onPress={() => fetchProjects(false, cursor)} isDisabled={loadingMore} style={styles.ghostButton}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>{loadingMore ? 'Ladowanie...' : 'Pokaz wiecej'}</ButtonText>
-              </Button>
-            ) : null}
-          </VStack>
-        </ScrollView>
-      </Box>
-    </AppScreen>
+        {hasMore ? (
+          <Pressable
+            onPress={() => void fetchProjects(false, cursor)}
+            disabled={loadingMore}
+            style={({ pressed }) => [
+              styles.loadMore,
+              { borderColor: colors.border, opacity: pressed || loadingMore ? 0.7 : 1 },
+            ]}>
+            <Text style={[styles.loadMoreText, { color: colors.primary }]}>
+              {loadingMore ? 'Ładowanie…' : 'Pokaż więcej'}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    paddingBottom: 30,
+  sections: {
+    gap: appTheme.spacing.xl,
   },
-  input: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 14,
+  listSection: {
+    gap: appTheme.spacing.md,
   },
-  filterWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  listTitle: {
+    fontSize: 16,
+    fontWeight: '800',
   },
-  filterButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
+  listMeta: {
+    fontSize: 13,
+    marginTop: -appTheme.spacing.xs,
   },
-  primaryButton: {
-    backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 14,
-    ...futuristicShadows.glow,
+  projectList: {
+    gap: appTheme.spacing.lg,
   },
-  ghostButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-    borderWidth: 1,
+  loadMore: {
+    alignSelf: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: appTheme.spacing.lg,
+    paddingVertical: appTheme.spacing.sm,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

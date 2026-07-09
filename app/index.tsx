@@ -1,42 +1,69 @@
 import { useAuthContext } from '@/src/store/auth-context';
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
 
+import { BootstrapLoadingScreen } from '@/src/components/bootstrap-loading-screen';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
-import { futuristicTheme } from '@/src/theme/futuristic';
+import { useBootstrapTheme } from '@/src/theme/use-bootstrap-theme';
+
+const FORCE_SHOW_INTRO_IN_DEV = true;
+const RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV = false;
+let forcedIntroShownInCurrentSession = false;
 
 export default function AppEntryScreen() {
-  const { user } = useAuthContext();
-  const [loading, setLoading] = useState(true);
-  const [completed, setCompleted] = useState(false);
+  const { isAuthenticated, isGuest, loading: authLoading } = useAuthContext();
+  const { settingsReady } = useBootstrapTheme();
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState(false);
 
   useEffect(() => {
+    if (!settingsReady) {
+      return;
+    }
+
     const checkOnboarding = async () => {
+      if (__DEV__ && RESET_ONBOARDING_KEY_ON_LAUNCH_IN_DEV) {
+        await secureStore.remove(STORAGE_KEYS.onboardingCompleted);
+      }
+
       const done = await secureStore.get(STORAGE_KEYS.onboardingCompleted);
-      setCompleted(done === 'true');
-      setLoading(false);
+      const onboardingCompleted = done === 'true';
+      const forceIntroNow = __DEV__ && FORCE_SHOW_INTRO_IN_DEV && !forcedIntroShownInCurrentSession;
+      const nextShouldShowOnboarding = forceIntroNow ? true : !onboardingCompleted;
+
+      if (forceIntroNow) {
+        forcedIntroShownInCurrentSession = true;
+      }
+
+      if (__DEV__) {
+        console.log('[AppEntry] onboardingCompleted:', onboardingCompleted);
+        console.log('[AppEntry] forceIntroNow:', forceIntroNow);
+        console.log('[AppEntry] shouldShowOnboarding:', nextShouldShowOnboarding);
+      }
+
+      setShouldShowOnboarding(nextShouldShowOnboarding);
+      setOnboardingChecked(true);
     };
 
     void checkOnboarding();
-  }, []);
+  }, [settingsReady]);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color={futuristicTheme.colors.accent} />
-      </View>
-    );
+  if (!settingsReady || !onboardingChecked || authLoading) {
+    return <BootstrapLoadingScreen label="Uruchamianie aplikacji" />;
   }
 
-  if (!completed) {
+  if (shouldShowOnboarding) {
     return <Redirect href="/onboarding" />;
   }
 
-  if (!user || user.isAnonymous) {
-    return <Redirect href="/login-phone" />;
+  if (isAuthenticated) {
+    return <Redirect href="/(drawer)/(tabs)" />;
   }
 
-  return <Redirect href="/(drawer)/(tabs)/projects" />;
+  if (isGuest) {
+    return <Redirect href="/(drawer)/(tabs)/map" />;
+  }
+
+  return <Redirect href="/login-phone" />;
 }

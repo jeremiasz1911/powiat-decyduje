@@ -1,24 +1,30 @@
 import { AppScreen } from '@/src/components/layout/app-screen';
 import {
-    isPointInPolygon,
-    MLAWA_BOUNDARY_RINGS,
-    MLAWA_BOUNDS,
-    MLAWA_CENTER,
+  isPointInPolygon,
+  MLAWA_BOUNDARY_RINGS,
+  MLAWA_BOUNDS,
+  MLAWA_CENTER,
 } from '@/src/features/map/mlawa-boundary';
-import { resolveProjectIcon } from '@/src/features/projects/project-icons';
+import { MapProjectCalloutCard } from '@/src/features/map/components/map-project-callout-card';
+import { logMapDiagnostics } from '@/src/features/map/map-diagnostics';
+import {
+  MapProjectMarkers,
+} from '@/src/features/map/components/map-project-markers';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
-import { listProjects, type ProjectItem } from '@/src/services';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { listProjectsForMap, type ProjectItem } from '@/src/services';
+import { useAuthContext } from '@/src/store/auth-context';
+import { useRequireAuth } from '@/src/store/login-required-context';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, ButtonText, Text } from '@gluestack-ui/themed';
-import { useFocusEffect } from '@react-navigation/native';
+import { Text } from '@gluestack-ui/themed';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polygon, type Region } from 'react-native-maps';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import MapView, { Marker, Polygon, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 
 const INITIAL_REGION: Region = {
   latitude: MLAWA_CENTER.latitude,
@@ -74,33 +80,100 @@ const toTargetRegion = (latitude: number, longitude: number, delta = 0.02): Regi
   longitudeDelta: delta,
 });
 
+const MAP_LOAD_TIMEOUT_MS = 12000;
+
 export default function MapScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
-  const insets = useSafeAreaInsets();
+  const { colors } = useAppTheme();
+  const { user, canAccessPrivateFeatures } = useAuthContext();
+  const { requireAuth } = useRequireAuth();
+  const userId = canAccessPrivateFeatures ? user?.uid ?? null : null;
+  const fabBottom = 16;
   const mapRef = useRef<MapView>(null);
   const lastPanAtRef = useRef(0);
+  const isProgrammaticMoveRef = useRef(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
-  const [selectedInsideBoundary, setSelectedInsideBoundary] = useState(true);
+  const [markerOutsideBoundary, setMarkerOutsideBoundary] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [showTapHint, setShowTapHint] = useState(true);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [mapProjects, setMapProjects] = useState<ProjectItem[]>([]);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [selectedMapProject, setSelectedMapProject] = useState<ProjectItem | null>(null);
 
   const boundaryRings = useMemo(() => MLAWA_BOUNDARY_RINGS, []);
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId]
+
+  const loadMapProjects = useCallback(async () => {
+    setProjectsError(null);
+
+    try {
+      const items = await listProjectsForMap(userId);
+      setMapProjects(items);
+      console.log(`[Map] Projekty na mapie: ${items.length}`);
+    } catch (loadError) {
+      const message =
+        loadError instanceof Error ? loadError.message : 'Nie udało się pobrać projektów na mapę.';
+      setProjectsError(message);
+      setMapProjects([]);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    void loadMapProjects();
+  }, [loadMapProjects]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadMapProjects();
+    }, [loadMapProjects])
   );
 
+  const dismissTapHint = useCallback(() => {
+    setShowTapHint(false);
+  }, []);
+
+  useEffect(() => {
+    if (__DEV__) {
+      logMapDiagnostics('map-screen-mount');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isMapReady) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (!isMapReady && __DEV__) {
+        logMapDiagnostics('map-load-timeout');
+        console.warn(
+          '[Map] Timeout 12s — onMapReady nie wywołane. Sprawdź logcat: adb logcat | rg -i "Google Maps|Authorization|API_KEY"'
+        );
+      }
+    }, MAP_LOAD_TIMEOUT_MS);
+
+    return () => clearTimeout(timer);
+  }, [isMapReady]);
+
   const moveCamera = (region: Region, animated = true) => {
+    isProgrammaticMoveRef.current = true;
     mapRef.current?.animateToRegion(region, animated ? 280 : 0);
   };
 
   const onRegionChangeComplete = (region: Region, details?: { isGesture?: boolean }) => {
     const clamped = clampToMlawa(region);
+
+    if (isProgrammaticMoveRef.current) {
+      isProgrammaticMoveRef.current = false;
+      setCurrentRegion(clamped);
+      if (details?.isGesture) {
+        dismissTapHint();
+      }
+      return;
+    }
 
     const hasChanged =
       Math.abs(clamped.latitude - region.latitude) > 0.00001 ||
@@ -108,18 +181,15 @@ export default function MapScreen() {
       Math.abs(clamped.latitudeDelta - region.latitudeDelta) > 0.00001 ||
       Math.abs(clamped.longitudeDelta - region.longitudeDelta) > 0.00001;
 
-    if (hasChanged && details?.isGesture !== false) {
+    if (hasChanged && details?.isGesture === true) {
       moveCamera(clamped);
+    } else {
+      setCurrentRegion(clamped);
     }
 
-    setCurrentRegion(clamped);
-    setSelectedInsideBoundary(
-      isPointInPolygon(
-        { latitude: clamped.latitude, longitude: clamped.longitude },
-        boundaryRings
-      )
-    );
-
+    if (details?.isGesture) {
+      dismissTapHint();
+    }
   };
 
   const handleMyLocation = async () => {
@@ -142,30 +212,55 @@ export default function MapScreen() {
       }
 
       if (!position?.coords) {
-        await notify('Lokalizacja niedostepna', 'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.', 'error');
+        await notify(
+          'Lokalizacja niedostepna',
+          'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.',
+          'error'
+        );
         return;
       }
 
-      const targetRegion = clampToMlawa(toTargetRegion(position.coords.latitude, position.coords.longitude));
+      const { latitude, longitude } = position.coords;
+      const inside = isPointInPolygon({ latitude, longitude }, boundaryRings);
+
+      if (canAccessPrivateFeatures) {
+        setSelectedCenter({ latitude, longitude });
+        setMarkerOutsideBoundary(!inside);
+      }
+
+      const targetRegion = clampToMlawa(toTargetRegion(latitude, longitude));
       moveCamera(targetRegion);
     } catch {
-      await notify('Lokalizacja niedostepna', 'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.', 'error');
+      await notify(
+        'Lokalizacja niedostepna',
+        'Nie moge pobrac pozycji. Sprawdz uslugi lokalizacji i sprobuj ponownie.',
+        'error'
+      );
     }
   };
 
   const handleMapPress = (latitude: number, longitude: number) => {
+    dismissTapHint();
+    setSelectedMapProject(null);
+
+    if (!canAccessPrivateFeatures) {
+      return;
+    }
+
     if (Date.now() - lastPanAtRef.current < 250) {
       return;
     }
 
-    setSelectedProjectId(null);
+    const inside = isPointInPolygon({ latitude, longitude }, boundaryRings);
+    setSelectedCenter({ latitude, longitude });
+    setMarkerOutsideBoundary(!inside);
+
     const targetRegion = clampToMlawa({
       latitude,
       longitude,
       latitudeDelta: currentRegion.latitudeDelta * POINT_PLACEMENT_ZOOM_FACTOR,
       longitudeDelta: currentRegion.longitudeDelta * POINT_PLACEMENT_ZOOM_FACTOR,
     });
-    setSelectedCenter({ latitude: targetRegion.latitude, longitude: targetRegion.longitude });
     moveCamera(targetRegion);
   };
 
@@ -180,30 +275,6 @@ export default function MapScreen() {
 
     moveCamera(nextRegion);
   };
-
-  const fetchProjectsForMap = useCallback(async () => {
-    setProjectsLoading(true);
-    try {
-      const result = await listProjects({ pageSize: 60 });
-      setProjects(
-        result.items.filter(
-          (project) =>
-            Number.isFinite(project.location?.latitude) && Number.isFinite(project.location?.longitude)
-        )
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie pobrac projektow na mape.';
-      await notify('Blad mapy', message, 'error');
-    } finally {
-      setProjectsLoading(false);
-    }
-  }, [notify]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void fetchProjectsForMap();
-    }, [fetchProjectsForMap])
-  );
 
   const toggleFab = () => {
     setIsFabOpen((prev) => !prev);
@@ -227,12 +298,23 @@ export default function MapScreen() {
       return;
     }
 
-    router.push({
-      pathname: '/(drawer)/submit-project',
-      params: {
-        latitude: String(selectedCenter.latitude),
-        longitude: String(selectedCenter.longitude),
-      },
+    if (markerOutsideBoundary) {
+      void notify(
+        'Poza granicami powiatu',
+        'Wybrana lokalizacja znajduje sie poza granicami powiatu mlawskiego.',
+        'error'
+      );
+      return;
+    }
+
+    requireAuth(() => {
+      router.push({
+        pathname: '/(drawer)/submit-project',
+        params: {
+          latitude: String(selectedCenter.latitude),
+          longitude: String(selectedCenter.longitude),
+        },
+      });
     });
   };
 
@@ -243,177 +325,232 @@ export default function MapScreen() {
       // Haptics can be unavailable on some devices/emulators.
     }
     setIsFabOpen(false);
-    void notify('Glosuj', 'Przejdz do listy projektow i wybierz projekt do glosowania.', 'info');
+    requireAuth(() => {
+      router.push('/(drawer)/(tabs)/my-votes');
+    });
   };
 
   return (
-    <AppScreen keyboardAvoiding={false} contentContainerStyle={styles.safeArea}>
+    <AppScreen keyboardAvoiding={false} backgroundless edges={[]} contentContainerStyle={styles.safeArea}>
       <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={INITIAL_REGION}
-        maxDelta={MAX_REGION.latitudeDelta}
-        minDelta={MIN_DELTA}
-        onRegionChangeComplete={onRegionChangeComplete}
-        onPress={(event) => {
-          const { latitude, longitude } = event.nativeEvent.coordinate;
-          handleMapPress(latitude, longitude);
-        }}
-        onPanDrag={() => {
-          lastPanAtRef.current = Date.now();
-        }}
-        loadingEnabled
-        moveOnMarkerPress={false}
-        toolbarEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}>
-        <Polygon
-          coordinates={[
-            { latitude: 90, longitude: -180 },
-            { latitude: 90, longitude: 180 },
-            { latitude: -90, longitude: 180 },
-            { latitude: -90, longitude: -180 },
-          ]}
-          holes={boundaryRings}
-          fillColor="rgba(15, 23, 42, 0.16)"
-          strokeWidth={0}
-        />
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          removeClippedSubviews={false}
+          initialRegion={INITIAL_REGION}
+          maxDelta={MAX_REGION.latitudeDelta}
+          minDelta={MIN_DELTA}
+          onMapReady={() => {
+            setIsMapReady(true);
+            if (__DEV__) {
+              console.log('[Map] onMapReady — widok mapy gotowy');
+            }
+          }}
+          onRegionChangeComplete={onRegionChangeComplete}
+          onPress={(event) => {
+            const { latitude, longitude } = event.nativeEvent.coordinate;
+            handleMapPress(latitude, longitude);
+          }}
+          onPanDrag={() => {
+            lastPanAtRef.current = Date.now();
+            dismissTapHint();
+          }}
+          loadingEnabled={false}
+          moveOnMarkerPress={false}
+          toolbarEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}>
+          {isMapReady ? (
+            <>
+              <Polygon
+                coordinates={[
+                  { latitude: 90, longitude: -180 },
+                  { latitude: 90, longitude: 180 },
+                  { latitude: -90, longitude: 180 },
+                  { latitude: -90, longitude: -180 },
+                ]}
+                holes={boundaryRings}
+                fillColor="rgba(17, 24, 39, 0.12)"
+                strokeWidth={0}
+              />
 
-        {boundaryRings.map((ring, index) => (
-          <Polygon
-            key={`boundary-${index}`}
-            coordinates={ring}
-            strokeColor="rgba(37, 99, 235, 0.85)"
-            fillColor="rgba(37, 99, 235, 0.08)"
-            strokeWidth={2}
-          />
-        ))}
-
-        {selectedCenter ? (
-          <Marker
-            coordinate={selectedCenter}
-            pinColor="#2563eb"
-            title="Lokalizacja projektu"
-            description="To miejsce zostanie przekazane do formularza zgłoszenia."
-          />
-        ) : null}
-
-        {projects.map((project) => {
-          const isSelected = project.id === selectedProjectId;
-          return (
-            <Marker
-              key={project.id}
-              coordinate={{
-                latitude: project.location.latitude,
-                longitude: project.location.longitude,
-              }}
-              onPress={() => setSelectedProjectId(project.id)}
-              title={project.title}
-              description={project.category}>
-              <View style={[styles.projectMarker, isSelected ? styles.projectMarkerActive : null]}>
-                <Ionicons
-                  name={isSelected ? 'sparkles' : resolveProjectIcon(project.icon)}
-                  size={14}
-                  color={isSelected ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}
+              {boundaryRings.map((ring, index) => (
+                <Polygon
+                  key={`boundary-${index}`}
+                  coordinates={ring}
+                  strokeColor="rgba(220, 20, 60, 0.65)"
+                  fillColor="rgba(220, 20, 60, 0.08)"
+                  strokeWidth={2}
                 />
-              </View>
-            </Marker>
-          );
-        })}
-      </MapView>
+              ))}
+            </>
+          ) : null}
 
-      <View style={[styles.controls, { top: insets.top + 18 }]}>
-        <View style={styles.zoomControls}>
-          <Button onPress={() => handleZoom('in')} size="sm" bg={futuristicTheme.colors.panel} style={styles.zoomButton}>
-            <ButtonText color={futuristicTheme.colors.textPrimary}>+</ButtonText>
-          </Button>
-          <Button onPress={() => handleZoom('out')} size="sm" bg={futuristicTheme.colors.panel} style={styles.zoomButton}>
-            <ButtonText color={futuristicTheme.colors.textPrimary}>-</ButtonText>
-          </Button>
+          {canAccessPrivateFeatures && selectedCenter ? (
+            <Marker
+              coordinate={selectedCenter}
+              pinColor={markerOutsideBoundary ? colors.warning : colors.cherry}
+              title="Lokalizacja projektu"
+              description="To miejsce zostanie przekazane do formularza zgłoszenia."
+            />
+          ) : null}
+
+          <MapProjectMarkers
+            projects={mapProjects}
+            selectedProjectId={selectedMapProject?.id}
+            viewerUserId={userId}
+            onSelectProject={setSelectedMapProject}
+          />
+        </MapView>
+
+        {selectedMapProject ? (
+          <View style={[styles.calloutWrap, { bottom: fabBottom + 60 }]} pointerEvents="box-none">
+            <MapProjectCalloutCard
+              project={selectedMapProject}
+              onClose={() => setSelectedMapProject(null)}
+              onOpenDetails={(projectId) => {
+                setSelectedMapProject(null);
+                router.push(`/(drawer)/(tabs)/project/${projectId}`);
+              }}
+            />
+          </View>
+        ) : null}
+
+        {projectsError ? (
+          <View style={styles.mapErrorBar}>
+            <Pressable onPress={() => void loadMapProjects()} style={[styles.mapErrorPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+              <Text color={colors.danger} style={styles.mapStatusText}>
+                Nie udało się wczytać projektów. Dotknij, aby spróbować ponownie.
+              </Text>
+            </Pressable>
+          </View>
+        ) : isMapReady && mapProjects.length === 0 ? (
+          <View style={styles.mapErrorBar}>
+            <View style={[styles.mapErrorPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="map-outline" size={16} color={colors.textMuted} />
+              <Text color={colors.textMuted} style={styles.mapStatusText}>
+                Brak opublikowanych projektów na mapie. Sprawdź ponownie później.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.toolRow}>
+          <View style={styles.zoomControls}>
+            <Pressable
+              onPress={() => handleZoom('in')}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+              accessibilityLabel="Przybliż">
+              <Ionicons name="add" size={20} color={colors.textPrimary} />
+            </Pressable>
+            <Pressable
+              onPress={() => handleZoom('out')}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+              accessibilityLabel="Oddal">
+              <Ionicons name="remove" size={20} color={colors.textPrimary} />
+            </Pressable>
+          </View>
+          <Pressable
+            onPress={() => {
+              void handleMyLocation();
+            }}
+            style={({ pressed }) => [
+              styles.iconButton,
+              styles.locationButton,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+            accessibilityLabel="Moja lokalizacja">
+            <Ionicons name="locate" size={20} color={colors.textOnPrimary} />
+          </Pressable>
         </View>
-        <Button onPress={handleMyLocation} size="md" bg={futuristicTheme.colors.accent} style={styles.locationButton}>
-          <ButtonText color={futuristicTheme.colors.textDark}>My Location</ButtonText>
-        </Button>
-        <Text color={futuristicTheme.colors.textPrimary} style={styles.hint}>
-          Mapa jest ograniczona do obszaru Mlawy.
-        </Text>
-        <Text color={futuristicTheme.colors.textPrimary} style={styles.hint}>
-          Dotknij mapy, aby ustawic znacznik projektu.
-        </Text>
-        <Text color={futuristicTheme.colors.accent} style={styles.hint}>
-          Projekty na mapie: {projectsLoading ? 'ladowanie...' : projects.length}
-        </Text>
-        <Text color={selectedInsideBoundary ? futuristicTheme.colors.success : futuristicTheme.colors.warning} style={styles.hint}>
-          {selectedInsideBoundary
-            ? 'Wybrana pozycja jest w granicy.'
-            : 'Pozycja poza granica - wracam do obszaru Mlawy.'}
-        </Text>
+
+        {canAccessPrivateFeatures && showTapHint ? (
+          <View style={styles.hintCenter} pointerEvents="none">
+            <Text
+              color={colors.textPrimary}
+              style={[styles.hintCenterText, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              Dotknij mapy, aby ustawic znacznik projektu.
+            </Text>
+          </View>
+        ) : null}
+
+        {canAccessPrivateFeatures && selectedCenter && markerOutsideBoundary ? (
+          <View style={styles.warningBanner}>
+            <Text
+              color={colors.warning}
+              style={[styles.hintWarning, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              Wybrana lokalizacja jest poza granicami powiatu mlawskiego.
+            </Text>
+          </View>
+        ) : null}
+
         {permissionGranted === false ? (
-          <Text color={futuristicTheme.colors.danger} style={styles.hint}>
-            Uprawnienie lokalizacji zostalo odrzucone.
-          </Text>
-        ) : null}
-      </View>
-
-      {selectedProject ? (
-        <View style={[styles.previewCard, { bottom: insets.bottom + 24 }]}>
-          <Text color={futuristicTheme.colors.accent} style={styles.previewTag}>
-            {selectedProject.category}
-          </Text>
-          <Text color={futuristicTheme.colors.textPrimary} style={styles.previewTitle}>
-            {selectedProject.title}
-          </Text>
-          <Text color={futuristicTheme.colors.textMuted} numberOfLines={2}>
-            {selectedProject.description}
-          </Text>
-          <Text color={futuristicTheme.colors.textMuted}>
-            {selectedProject.village} • {selectedProject.cost.toLocaleString('pl-PL')} PLN
-          </Text>
-          <Button
-            onPress={() => router.push(`/(drawer)/project/${selectedProject.id}`)}
-            size="sm"
-            bg={futuristicTheme.colors.accent}
-            style={styles.previewButton}>
-            <ButtonText color={futuristicTheme.colors.textDark}>Zobacz projekt</ButtonText>
-          </Button>
-        </View>
-      ) : null}
-
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 24 }]} pointerEvents="box-none">
-        {isFabOpen ? (
-          <>
-            <View style={styles.fabActionStack}>
-              <Button
-                onPress={handleActionVote}
-                size="md"
-                borderRadius="$full"
-                bg={futuristicTheme.colors.panel}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>Glosuj</ButtonText>
-              </Button>
-            </View>
-
-            <View style={styles.fabActionStack}>
-              <Button
-                onPress={handleActionReport}
-                size="md"
-                borderRadius="$full"
-                bg={futuristicTheme.colors.panel}>
-                <ButtonText color={futuristicTheme.colors.textPrimary}>Zglos projekt</ButtonText>
-              </Button>
-            </View>
-          </>
+          <View style={styles.warningBanner}>
+            <Text
+              color={colors.danger}
+              style={[styles.hintWarning, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              Uprawnienie lokalizacji zostalo odrzucone.
+            </Text>
+          </View>
         ) : null}
 
-        <Button
-          onPress={toggleFab}
-          size="lg"
-          borderRadius="$full"
-          bg={futuristicTheme.colors.accent}
-          style={styles.fabMain}>
-          <Ionicons name={isFabOpen ? 'close' : 'add'} size={26} color={futuristicTheme.colors.textDark} />
-        </Button>
-      </View>
+        {canAccessPrivateFeatures ? (
+          <View style={[styles.fabContainer, { bottom: fabBottom }]} pointerEvents="box-none">
+            {isFabOpen ? (
+              <>
+                <Pressable
+                  onPress={handleActionVote}
+                  style={({ pressed }) => [
+                    styles.fabAction,
+                    { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+                  ]}>
+                  <Text style={[styles.fabActionText, { color: colors.primary }]}>Głosuj</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleActionReport}
+                  style={({ pressed }) => [
+                    styles.fabAction,
+                    { backgroundColor: colors.background, borderColor: colors.border, opacity: pressed ? 0.8 : 1 },
+                  ]}>
+                  <Text style={[styles.fabActionText, { color: colors.primary }]}>Zgłoś projekt</Text>
+                </Pressable>
+              </>
+            ) : null}
+
+            <Pressable
+              onPress={toggleFab}
+              style={({ pressed }) => [
+                styles.fabMain,
+                {
+                  backgroundColor: colors.primary,
+                  opacity: pressed ? 0.9 : 1,
+                  shadowColor: colors.primary,
+                },
+              ]}>
+              <Ionicons name={isFabOpen ? 'close' : 'add'} size={24} color={colors.textOnPrimary} />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </AppScreen>
   );
@@ -425,83 +562,66 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   map: {
     flex: 1,
   },
-  controls: {
+  toolRow: {
     position: 'absolute',
+    top: 8,
     right: 16,
-    left: 16,
-    top: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    alignItems: 'flex-start',
+    zIndex: 12,
+    elevation: 12,
   },
   zoomControls: {
     flexDirection: 'row',
     gap: 8,
   },
-  zoomButton: {
-    minWidth: 44,
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    ...futuristicShadows.soft,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  hint: {
-    backgroundColor: 'rgba(3, 24, 47, 0.88)',
+  locationButton: {},
+  hintCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    zIndex: 8,
+  },
+  hintCenterText: {
     borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 16,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 22,
+    overflow: 'hidden',
+  },
+  warningBanner: {
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    zIndex: 11,
+  },
+  hintWarning: {
+    borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
+    fontSize: 13,
+    fontWeight: '600',
     overflow: 'hidden',
-  },
-  locationButton: {
-    ...futuristicShadows.glow,
-  },
-  projectMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    ...futuristicShadows.soft,
-  },
-  projectMarkerActive: {
-    backgroundColor: futuristicTheme.colors.accent,
-    borderColor: futuristicTheme.colors.accent,
-  },
-  previewCard: {
-    position: 'absolute',
-    left: 16,
-    right: 86,
-    bottom: 24,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 16,
-    padding: 12,
-    gap: 6,
-    ...futuristicShadows.soft,
-  },
-  previewTag: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  previewTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  previewButton: {
-    marginTop: 4,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    ...futuristicShadows.glow,
   },
   fabContainer: {
     position: 'absolute',
@@ -512,11 +632,54 @@ const styles = StyleSheet.create({
     zIndex: 30,
     elevation: 10,
   },
-  fabActionStack: {
-    zIndex: 31,
-    ...futuristicShadows.soft,
+  fabAction: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  fabActionText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   fabMain: {
-    ...futuristicShadows.glow,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  mapErrorBar: {
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    zIndex: 11,
+  },
+  mapErrorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  mapStatusText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  calloutWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    alignItems: 'center',
   },
 });

@@ -1,68 +1,130 @@
-import {
-    Box,
-    Button,
-    ButtonText,
-    Checkbox,
-    CheckboxIcon,
-    CheckboxIndicator,
-    CheckboxLabel,
-    CheckIcon,
-    Heading,
-    Input,
-    InputField,
-    Text,
-    VStack,
-} from '@gluestack-ui/themed';
+import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ErrorState, LoadingState } from '@/src/components/feedback-state';
+import { AppScreen } from '@/src/components/layout/app-screen';
+import { ScreenContainer } from '@/src/components/screen-container';
+import { SettingsCard, SettingsGroup, SettingsRow } from '@/src/components/settings/settings-ui';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
 import {
-    residentProfileSchema,
-    type ResidentProfileFormValues,
+  ProfileDetailRow,
+  ProfileHero,
+  ProfileVerificationBadge,
+} from '@/src/features/profile/components/profile-ui';
+import {
+  residentProfileEditSchema,
+  type ResidentProfileEditValues,
 } from '@/src/features/profile/resident-profile.schema';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import {
-    ensureAnonymousAuth,
-    getResidentAccountProfile,
-    upsertResidentAccountProfile,
+  getResidentAccountProfile,
+  requireSignedInUser,
+  upsertResidentAccountProfile,
+  type ResidentAccount,
+  type ResidentProfile,
 } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { useSettings, type FontScalePreference, type ThemePreference } from '@/src/store/settings-context';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
+
+const THEME_LABELS: Record<ThemePreference, string> = {
+  system: 'Systemowy',
+  light: 'Jasny',
+  dark: 'Ciemny',
+};
+
+const FONT_SCALE_LABELS: Record<FontScalePreference, string> = {
+  normal: 'Normalny',
+  large: 'Wiekszy',
+  xlarge: 'Bardzo duzy',
+};
+
+function formatAddress(account: ResidentAccount | null): string | null {
+  if (!account?.address) {
+    return null;
+  }
+
+  const { street, houseNumber, apartmentNumber, postalCode, city } = account.address;
+  const parts = [
+    [street, houseNumber].filter(Boolean).join(' '),
+    apartmentNumber ? `lok. ${apartmentNumber}` : null,
+    [postalCode, city].filter(Boolean).join(' '),
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function maskPesel(pesel: string): string {
+  if (pesel.length < 4) {
+    return pesel;
+  }
+
+  return `•••••••${pesel.slice(-4)}`;
+}
+
+function buildProfileValues(
+  account: ResidentAccount | null,
+  profile: ResidentProfile | null
+): ResidentProfileEditValues {
+  return {
+    fullName: profile?.fullName || account?.fullName || account?.label || '',
+    email: profile?.email || account?.email || '',
+    phone: profile?.phone || account?.phoneNumber || '',
+    village: profile?.village || account?.commune || account?.address?.commune || 'Mlawa',
+    street: profile?.street || formatAddress(account)?.split(', ')[0] || '',
+  };
+}
+
+function resolveAccountStatus(account: ResidentAccount | null, profile: ResidentProfile | null): string {
+  if (!account) {
+    return 'Brak konta';
+  }
+
+  if (account.phoneVerified && account.residentStatus === 'verified_resident') {
+    return profile ? 'Profil uzupelniony' : 'Konto zweryfikowane';
+  }
+
+  if (account.phoneVerified) {
+    return 'Telefon zweryfikowany';
+  }
+
+  return 'Oczekuje weryfikacji';
+}
 
 export default function DrawerProfileScreen() {
   const router = useRouter();
   const { notify } = useAppFeedback();
+  const { colors } = useAppTheme();
+  const canAccessPrivateFeatures = usePrivateRoute();
+  const { settings } = useSettings();
   const { activeResidentAccount, refreshResidentAccounts, logout } = useAuthContext();
   const [loading, setLoading] = useState(true);
-  const [profileExists, setProfileExists] = useState(false);
+  const [profile, setProfile] = useState<ResidentProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const defaultValues = useMemo<ResidentProfileFormValues>(
-    () => ({
-      fullName: '',
-      email: '',
-      phone: '',
-      village: 'Mlawa',
-      street: '',
-      acceptedRegulations: false,
-    }),
-    []
+  const defaultValues = useMemo(
+    () => buildProfileValues(activeResidentAccount, profile),
+    [activeResidentAccount, profile]
   );
 
   const {
     control,
     reset,
     handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<ResidentProfileFormValues>({
-    resolver: zodResolver(residentProfileSchema),
+    formState: { errors },
+  } = useForm<ResidentProfileEditValues>({
+    resolver: zodResolver(residentProfileEditSchema),
     defaultValues,
     mode: 'onBlur',
   });
@@ -72,42 +134,51 @@ export default function DrawerProfileScreen() {
     setError(null);
 
     try {
-      const user = await ensureAnonymousAuth();
+      const user = await requireSignedInUser();
       setUid(user.uid);
+
       if (!activeResidentAccount) {
-        throw new Error('Wybierz aktywne konto mieszkanca, aby edytowac profil.');
-      }
-      const profile = await getResidentAccountProfile(user.uid, activeResidentAccount.id);
-
-      if (!profile) {
-        setProfileExists(false);
-        reset(defaultValues);
-        return;
+        throw new Error('Wybierz aktywne konto mieszkanca, aby wyswietlic profil.');
       }
 
-      setProfileExists(true);
-      reset({
-        fullName: profile.fullName,
-        email: profile.email ?? '',
-        phone: profile.phone ?? '',
-        village: profile.village || 'Mlawa',
-        street: profile.street ?? '',
-        acceptedRegulations: true,
-      });
+      const loadedProfile = await getResidentAccountProfile(user.uid, activeResidentAccount.id);
+      setProfile(loadedProfile);
+      reset(buildProfileValues(activeResidentAccount, loadedProfile));
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac profilu.';
+      const rawMessage = loadError instanceof Error ? loadError.message : 'Nie udalo sie pobrac profilu.';
+      const isPermissionError =
+        rawMessage.includes('Missing or insufficient permissions') ||
+        rawMessage.includes('permission-denied');
+
+      const message = isPermissionError
+        ? 'Brak uprawnien do odczytu profilu. Sprobuj ponownie za chwile lub skontaktuj sie z administratorem.'
+        : rawMessage;
+
+      setProfile(null);
       setError(message);
-      await notify('Blad profilu', message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [activeResidentAccount, defaultValues, notify, reset]);
+  }, [activeResidentAccount, reset]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
 
-  const onSubmit = async (values: ResidentProfileFormValues) => {
+  const displayValues = useMemo(
+    () => buildProfileValues(activeResidentAccount, profile),
+    [activeResidentAccount, profile]
+  );
+
+  const accountStatus = resolveAccountStatus(activeResidentAccount, profile);
+  const formattedAddress = formatAddress(activeResidentAccount);
+  const communeLabel = activeResidentAccount?.commune ?? displayValues.village ?? 'Mlawa';
+  const hasMissingContact =
+    !displayValues.fullName.trim() ||
+    !(displayValues.phone ?? '').trim() ||
+    !(displayValues.email ?? '').trim();
+
+  const onSubmit = async (values: ResidentProfileEditValues) => {
     if (!uid) {
       await notify('Brak sesji', 'Nie mozna zapisac profilu bez aktywnego uzytkownika.', 'error');
       return;
@@ -117,6 +188,8 @@ export default function DrawerProfileScreen() {
       await notify('Brak profilu', 'Wybierz konto mieszkanca przed zapisem profilu.', 'error');
       return;
     }
+
+    setIsSaving(true);
 
     try {
       await upsertResidentAccountProfile({
@@ -130,16 +203,17 @@ export default function DrawerProfileScreen() {
       });
       await refreshResidentAccounts();
 
-      setProfileExists(true);
-      await notify(
-        profileExists ? 'Profil zaktualizowany' : 'Rejestracja zakonczona',
-        'Konto mieszkanca gminy Mlawa jest gotowe.',
-        'success'
-      );
+      const nextProfile = await getResidentAccountProfile(uid, activeResidentAccount.id);
+      setProfile(nextProfile);
+      reset(buildProfileValues(activeResidentAccount, nextProfile));
+      setIsEditing(false);
+
+      await notify('Profil zaktualizowany', 'Dane konta zostaly zapisane.', 'success');
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : 'Nie udalo sie zapisac profilu.';
-      setError(message);
       await notify('Blad zapisu', message, 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -158,202 +232,304 @@ export default function DrawerProfileScreen() {
     }
   };
 
+  const handleCancelEdit = () => {
+    reset(displayValues);
+    setIsEditing(false);
+  };
+
+  const openSettings = () => {
+    router.push('/(drawer)/(tabs)/settings');
+  };
+
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   if (loading) {
-    return <LoadingState label="Laduje profil mieszkanca..." />;
+    return (
+      <AppScreen cherryBackground contentContainerStyle={styles.centeredState}>
+        <LoadingState label="Laduje profil..." />
+      </AppScreen>
+    );
   }
 
   if (error) {
     return (
-      <Box flex={1} bg={futuristicTheme.colors.bgTop} p="$4" justifyContent="center">
-        <ErrorState message={error} actionLabel="Sprobuj ponownie" onActionPress={() => void loadProfile()} />
-      </Box>
+      <AppScreen cherryBackground contentContainerStyle={styles.centeredState}>
+        <ErrorState
+          message={error}
+          actionLabel={activeResidentAccount ? 'Sprobuj ponownie' : 'Wybierz konto'}
+          onActionPress={() => {
+            if (activeResidentAccount) {
+              void loadProfile();
+              return;
+            }
+
+            router.push('/select-resident-account');
+          }}
+        />
+      </AppScreen>
     );
   }
 
+  const displayName =
+    displayValues.fullName.trim() ||
+    activeResidentAccount?.label ||
+    `${activeResidentAccount?.firstName ?? ''} ${activeResidentAccount?.lastName ?? ''}`.trim() ||
+    'Mieszkaniec';
+
+  const profileLabel = activeResidentAccount?.label ?? displayName;
+  const declarationNote = activeResidentAccount?.consents?.residentDeclaration
+    ? 'Oswiadczenie mieszkanca zostalo zlozone podczas rejestracji.'
+    : undefined;
+
   return (
-    <AppScreen gradientColors={[futuristicTheme.colors.bgTop, futuristicTheme.colors.bgBottom]}>
-      <Box flex={1}>
-        <ScrollView contentContainerStyle={styles.content}>
-          <VStack space="lg">
-            <Heading size="lg" color={futuristicTheme.colors.textPrimary}>Profil mieszkanca</Heading>
-            <Text color={futuristicTheme.colors.textMuted}>
-            Zarejestruj sie jako mieszkaniec gminy Mlawa. Po zapisie otrzymasz karte profilu.
+    <ScreenContainer title="Profil mieszkańca" description="Dane konta, preferencje i sesja.">
+      <View style={styles.sections}>
+        <ProfileHero
+          name={displayName}
+          subtitle={`Mieszkaniec · ${communeLabel}`}
+          statusLabel={accountStatus}
+          verified={Boolean(activeResidentAccount?.phoneVerified)}
+        />
+
+        {hasMissingContact && !isEditing ? (
+          <View style={[styles.notice, { borderColor: colors.border }]}>
+            <View style={[styles.noticeIconWrap, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+            </View>
+            <Text style={[styles.noticeText, { color: colors.textSecondary }]}>
+              Niektóre dane kontaktowe są niekompletne. Uzupełnij je w sekcji edycji.
             </Text>
+          </View>
+        ) : null}
 
-            <Box style={styles.profileCard}>
-              <VStack space="xs">
-                <Text style={styles.cardTitle}>Karta profilu</Text>
-                <Text color={futuristicTheme.colors.textMuted}>Konto: {activeResidentAccount?.label ?? '-'}</Text>
-                <Text color={futuristicTheme.colors.textMuted}>PESEL: {activeResidentAccount?.pesel ?? '-'}</Text>
-                <Text color={futuristicTheme.colors.textMuted}>Gmina: Mlawa</Text>
-                <Text color={futuristicTheme.colors.textMuted}>Status: {profileExists ? 'Mieszkaniec zarejestrowany' : 'Nieuzupelniony'}</Text>
-                <Text color={futuristicTheme.colors.textMuted}>UID: {uid ?? '-'}</Text>
-              </VStack>
-            </Box>
+        {!isEditing ? (
+          <>
+            <SettingsGroup title="Dane uzytkownika">
+              <SettingsCard>
+                <ProfileDetailRow icon="person-outline" label="Imie i nazwisko" value={displayName} />
+                <ProfileDetailRow icon="business-outline" label="Gmina" value={communeLabel} />
+                <ProfileDetailRow
+                  icon="location-outline"
+                  label="Adres"
+                  value={formattedAddress || (displayValues.street ?? '').trim() || 'Brak'}
+                />
+              </SettingsCard>
+            </SettingsGroup>
 
-          <Controller
-            control={control}
-            name="fullName"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Imie i nazwisko</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    placeholder="Np. Jan Kowalski"
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    color={futuristicTheme.colors.textPrimary}
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
+            <SettingsGroup title="Dane konta" footer={declarationNote}>
+              <SettingsCard>
+                <ProfileDetailRow
+                  icon="call-outline"
+                  label="Telefon"
+                  value={(displayValues.phone ?? '').trim() || 'Brak'}
+                  badge={
+                    activeResidentAccount ? (
+                      <ProfileVerificationBadge verified={activeResidentAccount.phoneVerified} />
+                    ) : null
+                  }
+                />
+                <ProfileDetailRow
+                  icon="mail-outline"
+                  label="E-mail"
+                  value={(displayValues.email ?? '').trim() || 'Brak'}
+                  badge={
+                    activeResidentAccount ? (
+                      <ProfileVerificationBadge verified={activeResidentAccount.emailVerified} />
+                    ) : null
+                  }
+                />
+                <ProfileDetailRow
+                  icon="id-card-outline"
+                  label="PESEL"
+                  value={activeResidentAccount ? maskPesel(activeResidentAccount.pesel) : 'Brak'}
+                />
+                <ProfileDetailRow icon="people-outline" label="Profil mieszkanca" value={profileLabel} />
+              </SettingsCard>
+            </SettingsGroup>
+
+            <SettingsGroup title="Preferencje" footer="Pełna konfiguracja dostępna w ustawieniach aplikacji.">
+              <SettingsCard>
+                <SettingsRow
+                  icon="color-palette-outline"
+                  label="Motyw"
+                  value={THEME_LABELS[settings.theme]}
+                  onPress={openSettings}
+                />
+                <SettingsRow
+                  icon="text-outline"
+                  label="Rozmiar tekstu"
+                  value={FONT_SCALE_LABELS[settings.fontScale]}
+                  onPress={openSettings}
+                />
+                <SettingsRow
+                  icon="phone-portrait-outline"
+                  label="Wibracje"
+                  value={settings.hapticsEnabled ? 'Włączone' : 'Wyłączone'}
+                  onPress={openSettings}
+                />
+              </SettingsCard>
+            </SettingsGroup>
+
+            <View style={styles.actions}>
+              <AppButton title="Edytuj profil" onPress={() => setIsEditing(true)} />
+              <AppButton
+                title="Zmień profil mieszkańca"
+                variant="secondary"
+                onPress={() => router.push('/select-resident-account')}
+              />
+              <AppButton
+                title={isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
+                variant="danger"
+                loading={isLoggingOut}
+                disabled={isLoggingOut}
+                onPress={() => void handleLogout()}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            <SettingsGroup
+              title="Edycja profilu"
+              footer="Oświadczenie mieszkańca nie wymaga ponownego potwierdzenia.">
+              <View style={styles.form}>
+                  <Controller
+                    control={control}
+                    name="fullName"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Imie i nazwisko"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="Np. Jan Kowalski"
+                        error={errors.fullName?.message}
+                      />
+                    )}
                   />
-                </Input>
-                {errors.fullName ? <Text color="$error600">{errors.fullName.message}</Text> : null}
-              </VStack>
-            )}
-          />
 
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Email (opcjonalnie)</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    placeholder="jan@example.com"
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    color={futuristicTheme.colors.textPrimary}
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Telefon"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="Np. 600700800"
+                        keyboardType="phone-pad"
+                        error={errors.phone?.message}
+                      />
+                    )}
                   />
-                </Input>
-                {errors.email ? <Text color="$error600">{errors.email.message}</Text> : null}
-              </VStack>
-            )}
-          />
 
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Telefon (opcjonalnie)</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    placeholder="Np. 600700800"
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    keyboardType="phone-pad"
-                    color={futuristicTheme.colors.textPrimary}
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="E-mail"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="jan@example.com"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        error={errors.email?.message}
+                      />
+                    )}
                   />
-                </Input>
-                {errors.phone ? <Text color="$error600">{errors.phone.message}</Text> : null}
-              </VStack>
-            )}
-          />
 
-          <Controller
-            control={control}
-            name="village"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Miejscowosc</Text>
-                <Input style={styles.input}>
-                  <InputField placeholder="Mlawa" value={value} onBlur={onBlur} onChangeText={onChange} color={futuristicTheme.colors.textPrimary} placeholderTextColor={futuristicTheme.colors.textMuted} />
-                </Input>
-                {errors.village ? <Text color="$error600">{errors.village.message}</Text> : null}
-              </VStack>
-            )}
-          />
+                  <Controller
+                    control={control}
+                    name="village"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Miejscowosc"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="Mlawa"
+                        error={errors.village?.message}
+                      />
+                    )}
+                  />
 
-          <Controller
-            control={control}
-            name="street"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text color={futuristicTheme.colors.textPrimary}>Ulica i nr (opcjonalnie)</Text>
-                <Input style={styles.input}>
-                  <InputField placeholder="Np. Sienkiewicza 12" value={value} onBlur={onBlur} onChangeText={onChange} color={futuristicTheme.colors.textPrimary} placeholderTextColor={futuristicTheme.colors.textMuted} />
-                </Input>
-                {errors.street ? <Text color="$error600">{errors.street.message}</Text> : null}
-              </VStack>
-            )}
-          />
+                  <Controller
+                    control={control}
+                    name="street"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <AppTextInput
+                        label="Ulica i nr (opcjonalnie)"
+                        value={value}
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        placeholder="Np. Sienkiewicza 12"
+                        error={errors.street?.message}
+                      />
+                    )}
+                  />
+                </View>
+            </SettingsGroup>
 
-          <Controller
-            control={control}
-            name="acceptedRegulations"
-            render={({ field: { onChange, value } }) => (
-              <VStack space="xs">
-                <Checkbox value="accepted" isChecked={Boolean(value)} onChange={onChange}>
-                  <CheckboxIndicator mr="$2">
-                    <CheckboxIcon as={CheckIcon} />
-                  </CheckboxIndicator>
-                  <CheckboxLabel color={futuristicTheme.colors.textPrimary}>Oswiadczam, ze jestem mieszkancem gminy Mlawa.</CheckboxLabel>
-                </Checkbox>
-                {errors.acceptedRegulations ? (
-                  <Text color="$error600">{errors.acceptedRegulations.message}</Text>
-                ) : null}
-              </VStack>
-            )}
-          />
-
-            <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
-              <ButtonText color={futuristicTheme.colors.textDark}>{isSubmitting ? 'Zapisywanie...' : profileExists ? 'Aktualizuj profil' : 'Zarejestruj profil'}</ButtonText>
-            </Button>
-
-            <Button
-              onPress={handleLogout}
-              isDisabled={isLoggingOut}
-              style={styles.dangerButton}
-              action="negative">
-              <ButtonText color={futuristicTheme.colors.textPrimary}>
-                {isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
-              </ButtonText>
-            </Button>
-          </VStack>
-        </ScrollView>
-      </Box>
-    </AppScreen>
+            <View style={styles.actions}>
+              <AppButton
+                title={isSaving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+                loading={isSaving}
+                disabled={isSaving}
+                onPress={handleSubmit(onSubmit)}
+              />
+              <AppButton
+                title="Anuluj edycję"
+                variant="secondary"
+                disabled={isSaving}
+                onPress={handleCancelEdit}
+              />
+            </View>
+          </>
+        )}
+      </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    padding: 16,
-    paddingBottom: 40,
+  sections: {
+    gap: appTheme.spacing.lg,
   },
-  input: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 14,
+  centeredState: {
+    flexGrow: 1,
+    paddingHorizontal: appTheme.spacing.xl,
+    paddingVertical: appTheme.spacing.xxl,
+    justifyContent: 'center',
   },
-  profileCard: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 18,
-    padding: 14,
-    ...futuristicShadows.soft,
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: appTheme.spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: appTheme.spacing.md,
   },
-  cardTitle: {
-    fontWeight: '700',
-    color: futuristicTheme.colors.accent,
+  noticeIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  primaryButton: {
-    backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 14,
-    ...futuristicShadows.glow,
+  noticeText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  dangerButton: {
-    borderColor: futuristicTheme.colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderRadius: 14,
+  form: {
+    gap: appTheme.spacing.md,
+  },
+  actions: {
+    gap: appTheme.spacing.sm,
+    paddingTop: appTheme.spacing.sm,
   },
 });

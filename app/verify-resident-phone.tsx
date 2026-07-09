@@ -1,17 +1,20 @@
-import { Box, Button, ButtonText, Input, InputField, Text, VStack } from '@gluestack-ui/themed';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { z } from 'zod';
 
+import { AuthBrandHeader } from '@/src/components/brand/AuthBrandHeader';
 import { ScreenContainer } from '@/src/components/screen-container';
+import { AppButton } from '@/src/components/ui/AppButton';
+import { AppTextInput } from '@/src/components/ui/AppTextInput';
+import { FormCard } from '@/src/components/ui/FormCard';
 import { useAppFeedback } from '@/src/hooks/use-app-feedback';
 import { completeResidentRegistration, sendResidentPhoneVerificationCode } from '@/src/services';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useAuthFlow } from '@/src/store/auth-flow-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appTheme, formStyles } from '@/src/theme/app-theme';
 
 const smsCodeSchema = z.object({
   smsCode: z.string().trim().regex(/^\d{6}$/, 'Kod SMS musi mieć dokładnie 6 cyfr.'),
@@ -36,6 +39,12 @@ export default function VerifyResidentPhoneScreen() {
   const mode = useMemo(() => params.mode ?? 'register', [params.mode]);
   const phoneNumber = useMemo(() => params.phoneNumber ?? '', [params.phoneNumber]);
   const isRegisterMode = mode === 'register';
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('VerifyResidentPhone screen mounted');
+    }
+  }, []);
 
   useEffect(() => {
     if (resendCooldownSeconds <= 0) {
@@ -91,7 +100,7 @@ export default function VerifyResidentPhoneScreen() {
       await refreshResidentAccounts(pending.pesel.trim());
 
       await notify('Rejestracja zakończona', 'Konto mieszkańca zostało utworzone.', 'success');
-      router.replace('/(drawer)/(tabs)/projects');
+      router.replace('/(drawer)/(tabs)');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nie udało się potwierdzić kodu SMS.';
       await notify('Błąd weryfikacji', message, 'error');
@@ -132,111 +141,65 @@ export default function VerifyResidentPhoneScreen() {
   };
 
   return (
-    <ScreenContainer title="Potwierdź kod SMS" description="Wpisz kod SMS wysłany na Twój numer telefonu.">
-      <Box style={styles.card}>
-        <VStack space="md">
-          <Text style={styles.meta}>Numer telefonu: {phoneNumber || '-'}</Text>
+    <ScreenContainer
+      softOverlay
+      title="Potwierdź kod SMS"
+      description="Wpisz 6-cyfrowy kod wysłany na Twój numer telefonu.">
+      <AuthBrandHeader compact showLogo={false} description="Ostatni krok rejestracji mieszkańca." />
+      <FormCard>
+        <View style={styles.form}>
+          <Text style={formStyles.meta}>Numer telefonu: {phoneNumber || '—'}</Text>
 
           <Controller
             control={control}
             name="smsCode"
             render={({ field: { onChange, onBlur, value } }) => (
-              <VStack space="xs">
-                <Text style={styles.label}>Kod SMS</Text>
-                <Input style={styles.input}>
-                  <InputField
-                    value={value}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    placeholder="000000"
-                    autoComplete="one-time-code"
-                    placeholderTextColor={futuristicTheme.colors.textMuted}
-                    style={styles.inputText}
-                  />
-                </Input>
-                {errors.smsCode ? <Text style={styles.errorText}>{errors.smsCode.message}</Text> : null}
-              </VStack>
+              <AppTextInput
+                label="Kod SMS"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="000000"
+                autoComplete="one-time-code"
+                smsCode
+                error={errors.smsCode?.message}
+                helperText="Kod jest ważny przez kilka minut."
+              />
             )}
           />
 
-          <Button onPress={handleSubmit(onSubmit)} isDisabled={isSubmitting} style={styles.primaryButton}>
-            <ButtonText style={styles.primaryButtonText}>
-              {isSubmitting ? 'Potwierdzanie...' : 'Potwierdź kod'}
-            </ButtonText>
-          </Button>
+          <AppButton
+            title="Potwierdź"
+            loadingTitle="Sprawdzanie..."
+            loading={isSubmitting}
+            disabled={isSubmitting}
+            onPress={handleSubmit(onSubmit)}
+          />
 
-          <Button
-            variant="outline"
-            onPress={handleResendCode}
-            isDisabled={isResending || resendCooldownSeconds > 0 || resendCount >= 5}
-            style={styles.secondaryButton}
-          >
-            <ButtonText style={styles.secondaryButtonText}>
-              {isResending
+          <AppButton
+            title={
+              isResending
                 ? 'Wysyłanie...'
                 : resendCooldownSeconds > 0
-                  ? `Czekaj ${resendCooldownSeconds}s`
+                  ? `Wyślij ponownie za ${resendCooldownSeconds}s`
                   : resendCount >= 5
                     ? 'Limit wysyłek'
-                    : `Wyślij kod ponownie (${resendCount}/5)`}
-            </ButtonText>
-          </Button>
-        </VStack>
-      </Box>
+                    : `Wyślij kod ponownie (${resendCount}/5)`
+            }
+            variant="ghost"
+            disabled={isResending || resendCooldownSeconds > 0 || resendCount >= 5}
+            onPress={handleResendCode}
+          />
+        </View>
+      </FormCard>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 20,
-    padding: 16,
-    ...futuristicShadows.soft,
-  },
-  meta: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 13,
-  },
-  label: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  input: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panelSoft,
-  },
-  inputText: {
-    color: futuristicTheme.colors.textPrimary,
-  },
-  errorText: {
-    color: futuristicTheme.colors.danger,
-    fontSize: 12,
-  },
-  primaryButton: {
-    borderRadius: 14,
-    backgroundColor: futuristicTheme.colors.accent,
-    ...futuristicShadows.glow,
-  },
-  primaryButtonText: {
-    color: futuristicTheme.colors.textDark,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: 'rgba(13, 47, 79, 0.5)',
-  },
-  secondaryButtonText: {
-    color: futuristicTheme.colors.textPrimary,
-    fontWeight: '700',
+  form: {
+    gap: appTheme.spacing.lg,
   },
 });

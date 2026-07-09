@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import { Text } from '@gluestack-ui/themed';
-import { futuristicTheme } from '@/src/theme/futuristic';
+
+import { useAppTheme } from '@/src/theme/theme-context';
 
 type RichDescriptionPreviewProps = {
   content: string;
@@ -48,31 +49,32 @@ const parseInline = (value: string): InlineSegment[] => {
   return segments;
 };
 
-const renderInline = (value: string, compact: boolean) =>
-  parseInline(value).map((segment, index) => (
-    <Text
-      key={`${segment.text}-${index}`}
-      color={futuristicTheme.colors.textPrimary}
-      style={[
-        compact ? styles.baseTextCompact : styles.baseText,
-        segment.bold ? styles.bold : null,
-        segment.italic ? styles.italic : null,
-      ]}>
-      {segment.text}
-    </Text>
-  ));
-
 export function RichDescriptionPreview({
   content,
   emptyPlaceholder = 'Brak opisu',
   compact = false,
 }: RichDescriptionPreviewProps) {
+  const { colors } = useAppTheme();
   const lines = content.split('\n');
   const hasContent = content.trim().length > 0;
 
+  const renderInline = (value: string) =>
+    parseInline(value).map((segment, index) => (
+      <Text
+        key={`${segment.text}-${index}`}
+        color={colors.textPrimary}
+        style={[
+          compact ? styles.baseTextCompact : styles.baseText,
+          segment.bold ? styles.bold : null,
+          segment.italic ? styles.italic : null,
+        ]}>
+        {segment.text}
+      </Text>
+    ));
+
   if (!hasContent) {
     return (
-      <Text color={futuristicTheme.colors.textMuted} style={compact ? styles.baseTextCompact : styles.baseText}>
+      <Text color={colors.textMuted} style={compact ? styles.baseTextCompact : styles.baseText}>
         {emptyPlaceholder}
       </Text>
     );
@@ -99,7 +101,7 @@ export function RichDescriptionPreview({
           return (
             <Text
               key={`h-${index}`}
-              color={futuristicTheme.colors.textPrimary}
+              color={colors.textPrimary}
               style={[
                 styles.headingBase,
                 h1 ? styles.h1 : null,
@@ -116,11 +118,11 @@ export function RichDescriptionPreview({
         if (bullet) {
           return (
             <View key={`b-${index}`} style={styles.listRow}>
-              <Text color={futuristicTheme.colors.accent} style={styles.listPrefix}>
+              <Text color={colors.primary} style={styles.listPrefix}>
                 •
               </Text>
-              <Text color={futuristicTheme.colors.textPrimary} style={compact ? styles.baseTextCompact : styles.baseText}>
-                {renderInline(trimmed.slice(2), compact)}
+              <Text color={colors.textPrimary} style={compact ? styles.baseTextCompact : styles.baseText}>
+                {renderInline(trimmed.slice(2))}
               </Text>
             </View>
           );
@@ -131,11 +133,11 @@ export function RichDescriptionPreview({
           if (match) {
             return (
               <View key={`n-${index}`} style={styles.listRow}>
-                <Text color={futuristicTheme.colors.accent} style={styles.listPrefix}>
+                <Text color={colors.primary} style={styles.listPrefix}>
                   {match[1]}
                 </Text>
-                <Text color={futuristicTheme.colors.textPrimary} style={compact ? styles.baseTextCompact : styles.baseText}>
-                  {renderInline(match[2], compact)}
+                <Text color={colors.textPrimary} style={compact ? styles.baseTextCompact : styles.baseText}>
+                  {renderInline(match[2])}
                 </Text>
               </View>
             );
@@ -145,9 +147,9 @@ export function RichDescriptionPreview({
         return (
           <Text
             key={`p-${index}`}
-            color={futuristicTheme.colors.textPrimary}
+            color={colors.textPrimary}
             style={compact ? styles.baseTextCompact : styles.baseText}>
-            {renderInline(trimmed, compact)}
+            {renderInline(trimmed)}
           </Text>
         );
       })}

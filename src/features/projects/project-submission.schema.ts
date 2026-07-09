@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isProjectIconId, type ProjectIconId } from './project-icons';
+import { isProjectMarkerColor } from './project-marker-colors';
 
 export const projectSubmissionSchema = z.object({
   title: z.string().min(3, 'Tytul musi miec minimum 3 znaki').max(100, 'Tytul jest za dlugi'),
@@ -13,8 +14,10 @@ export const projectSubmissionSchema = z.object({
   village: z.string().min(2, 'Podaj miejscowosc'),
   cost: z
     .string()
-    .min(1, 'Podaj koszt')
-    .refine((value) => /^\d+(\.\d{1,2})?$/.test(value), 'Koszt musi byc poprawna liczba'),
+    .refine(
+      (value) => value.trim() === '' || /^\d+(\.\d{1,2})?$/.test(value.trim()),
+      'Koszt musi byc poprawna liczba'
+    ),
   location: z.object({
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
@@ -26,6 +29,10 @@ export const projectSubmissionSchema = z.object({
   icon: z.custom<ProjectIconId>(
     (value) => typeof value === 'string' && isProjectIconId(value),
     'Wybierz ikonke projektu'
+  ),
+  markerColor: z.custom<string>(
+    (value) => typeof value === 'string' && isProjectMarkerColor(value),
+    'Wybierz kolor pinezki'
   ),
 });
 

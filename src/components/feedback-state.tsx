@@ -1,6 +1,8 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { Box, Button, ButtonText, Text, VStack } from '@gluestack-ui/themed';
-import { futuristicTheme, futuristicShadows } from '@/src/theme/futuristic';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { AppButton } from '@/src/components/ui/AppButton';
+import { useAppTheme } from '@/src/theme/theme-context';
+import { appTheme } from '@/src/theme/app-theme';
 
 type LoadingStateProps = {
   label?: string;
@@ -20,51 +22,51 @@ type ErrorStateProps = {
   onActionPress?: () => void;
 };
 
-export function LoadingState({ label = 'Ladowanie...' }: LoadingStateProps) {
+export function LoadingState({ label = 'Ładowanie...' }: LoadingStateProps) {
+  const { colors } = useAppTheme();
+
   return (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color={futuristicTheme.colors.accent} />
-      <Text color={futuristicTheme.colors.textMuted}>{label}</Text>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={[styles.loadingLabel, { color: colors.textMuted }]}>{label}</Text>
     </View>
   );
 }
 
 export function EmptyState({ title, description, actionLabel, onActionPress }: EmptyStateProps) {
+  const { colors } = useAppTheme();
+
   return (
-    <Box style={styles.card}>
-      <VStack space="sm" alignItems="center">
-        <Text style={styles.title}>{title}</Text>
-        {description ? <Text color={futuristicTheme.colors.textMuted}>{description}</Text> : null}
-        {actionLabel && onActionPress ? (
-          <Button size="sm" action="secondary" variant="outline" onPress={onActionPress}>
-            <ButtonText>{actionLabel}</ButtonText>
-          </Button>
-        ) : null}
-      </VStack>
-    </Box>
+    <View style={styles.state}>
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {description ? <Text style={[styles.description, { color: colors.textMuted }]}>{description}</Text> : null}
+      {actionLabel && onActionPress ? (
+        <AppButton title={actionLabel} onPress={onActionPress} variant="secondary" fullWidth={false} style={styles.actionButton} />
+      ) : null}
+    </View>
   );
 }
 
 export function ErrorState({
-  title = 'Wystapil blad',
+  title = 'Wystąpił błąd',
   message,
   actionLabel,
   onActionPress,
 }: ErrorStateProps) {
+  const { colors } = useAppTheme();
+
   return (
-    <Box style={styles.card}>
-      <VStack space="sm" alignItems="center">
-        <Text color={futuristicTheme.colors.danger} style={styles.title}>
-          {title}
-        </Text>
-        <Text color={futuristicTheme.colors.textMuted}>{message}</Text>
-        {actionLabel && onActionPress ? (
-          <Button size="sm" action="negative" variant="outline" onPress={onActionPress}>
-            <ButtonText>{actionLabel}</ButtonText>
-          </Button>
-        ) : null}
-      </VStack>
-    </Box>
+    <View style={styles.state}>
+      <Text style={[styles.errorTitle, { color: colors.danger }]}>{title}</Text>
+      <Text style={[styles.description, { color: colors.textMuted }]}>{message}</Text>
+      {actionLabel && onActionPress ? (
+        <Pressable
+          onPress={onActionPress}
+          style={({ pressed }) => [styles.textAction, pressed ? { opacity: 0.7 } : null]}>
+          <Text style={[styles.textActionLabel, { color: colors.primary }]}>{actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -72,19 +74,45 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 32,
     gap: 10,
   },
-  card: {
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderRadius: 18,
-    padding: 16,
-    ...futuristicShadows.soft,
+  loadingLabel: {
+    fontSize: 14,
+  },
+  state: {
+    alignItems: 'center',
+    gap: appTheme.spacing.sm,
+    paddingVertical: appTheme.spacing.xl,
+    paddingHorizontal: appTheme.spacing.md,
   },
   title: {
+    fontWeight: '800',
+    fontSize: 17,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    fontWeight: '800',
+    fontSize: 17,
+    textAlign: 'center',
+  },
+  description: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  actionButton: {
+    marginTop: appTheme.spacing.sm,
+    paddingHorizontal: appTheme.spacing.xl,
+  },
+  textAction: {
+    marginTop: appTheme.spacing.xs,
+    paddingVertical: appTheme.spacing.sm,
+    paddingHorizontal: appTheme.spacing.md,
+  },
+  textActionLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: futuristicTheme.colors.textPrimary,
   },
 });

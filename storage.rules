@@ -1,0 +1,27 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidImageUpload() {
+      return request.resource.size < 10 * 1024 * 1024 &&
+        (
+          !('contentType' in request.resource) ||
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType == 'application/octet-stream'
+        );
+    }
+
+    match /projects/{userId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isOwner(userId) && isValidImageUpload();
+      allow delete: if isOwner(userId);
+    }
+  }
+}

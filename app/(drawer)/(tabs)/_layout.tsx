@@ -1,23 +1,28 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { futuristicTheme } from '@/src/theme/futuristic';
+
+import { tabNavIcons } from '@/src/navigation/nav-icons';
+import { useAuthContext } from '@/src/store/auth-context';
+import { useAppTheme } from '@/src/theme/theme-context';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { theme } = useAppTheme();
+  const { isGuest } = useAuthContext();
   const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
+      initialRouteName={isGuest ? 'map' : 'index'}
       screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: futuristicTheme.colors.accent,
-        tabBarInactiveTintColor: futuristicTheme.colors.textMuted,
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           height: 58 + bottomInset,
-          backgroundColor: '#03182f',
-          borderTopColor: futuristicTheme.colors.border,
+          backgroundColor: theme.colors.background,
+          borderTopColor: theme.colors.border,
           borderTopWidth: 1,
           paddingBottom: bottomInset,
           paddingTop: 6,
@@ -28,31 +33,63 @@ export default function TabsLayout() {
         },
       }}>
       <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Start',
+          href: isGuest ? null : undefined,
+          tabBarIcon: ({ color, size }) => tabNavIcons.home(color, size),
+        }}
+      />
+      <Tabs.Screen
         name="map"
         options={{
-          title: 'Map',
-          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" color={color} size={size} />,
+          title: 'Mapa',
+          tabBarIcon: ({ color, size }) => tabNavIcons.map(color, size),
         }}
       />
       <Tabs.Screen
         name="projects"
         options={{
-          title: 'Projects',
-          tabBarIcon: ({ color, size }) => <Ionicons name="briefcase-outline" color={color} size={size} />,
+          title: 'Projekty',
+          tabBarIcon: ({ color, size }) => tabNavIcons.projects(color, size),
         }}
       />
       <Tabs.Screen
         name="my-votes"
         options={{
-          title: 'My Votes',
-          tabBarIcon: ({ color, size }) => <Ionicons name="checkmark-done-outline" color={color} size={size} />,
+          title: 'Głosy',
+          href: isGuest ? null : undefined,
+          tabBarIcon: ({ color, size }) => tabNavIcons.myVotes(color, size),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
+          title: 'Ustawienia',
+          href: isGuest ? null : undefined,
+          tabBarIcon: ({ color, size }) => tabNavIcons.settings(color, size),
+        }}
+      />
+      <Tabs.Screen
+        name="about"
+        options={{
+          title: 'O aplikacji',
+          href: isGuest ? undefined : null,
+          tabBarIcon: ({ color, size }) => tabNavIcons.about(color, size),
+        }}
+      />
+      <Tabs.Screen
+        name="login-entry"
+        options={{
+          title: 'Zaloguj się',
+          href: isGuest ? undefined : null,
+          tabBarIcon: ({ color, size }) => tabNavIcons.login(color, size),
+        }}
+      />
+      <Tabs.Screen
+        name="project/[id]"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -1,23 +1,40 @@
-import { Button, ButtonText, Heading, Text, VStack } from '@gluestack-ui/themed';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '@/src/components/screen-container';
+import {
+  SettingsCard,
+  SettingsCheckRow,
+  SettingsGroup,
+  SettingsRow,
+  SettingsSwitchRow,
+} from '@/src/components/settings/settings-ui';
 import { envFlags } from '@/src/config/env';
 import { STORAGE_KEYS } from '@/src/constants/storage';
-import { useAppFeedback } from '@/src/hooks/use-app-feedback';
+import { usePrivateRoute } from '@/src/hooks/use-private-route';
 import { secureStore } from '@/src/lib/secure-store';
 import { useAuthContext } from '@/src/store/auth-context';
 import { useSettings, type FontScalePreference, type ThemePreference } from '@/src/store/settings-context';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { appTheme } from '@/src/theme/app-theme';
+
+const THEME_LABELS: Record<ThemePreference, string> = {
+  system: 'Systemowy',
+  light: 'Jasny',
+  dark: 'Ciemny',
+};
+
+const FONT_SCALE_LABELS: Record<FontScalePreference, string> = {
+  normal: 'Normalny',
+  large: 'Wiekszy',
+  xlarge: 'Bardzo duzy',
+};
 
 export default function DrawerSettingsScreen() {
   const router = useRouter();
-  const { notify } = useAppFeedback();
-  const { activeResidentAccount, logout } = useAuthContext();
+  const canAccessPrivateFeatures = usePrivateRoute();
+  const { activeResidentAccount } = useAuthContext();
   const [isResetting, setIsResetting] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { settings, setFontScale, setHapticsEnabled, setTheme } = useSettings();
   const showDiagnostics = __DEV__ || envFlags.diagnosticsEnabled;
 
@@ -27,137 +44,103 @@ export default function DrawerSettingsScreen() {
     router.replace('/onboarding');
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-
-    try {
-      await logout();
-      await notify('Wylogowano', 'Wylogowano z konta mieszkanca.', 'success');
-      router.replace('/login-phone');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Nie udalo sie wylogowac.';
-      await notify('Blad wylogowania', message, 'error');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
-
   const themes: ThemePreference[] = ['system', 'light', 'dark'];
   const fontScales: FontScalePreference[] = ['normal', 'large', 'xlarge'];
 
+  if (!canAccessPrivateFeatures) {
+    return null;
+  }
+
   return (
-    <ScreenContainer title="Settings" description="Wyglad i dostepnosc aplikacji.">
-      <VStack space="md">
-        <VStack space="xs">
-          <Heading size="sm" color={futuristicTheme.colors.textPrimary}>Motyw</Heading>
-          <VStack space="xs">
+    <ScreenContainer title="Ustawienia" description="Wygląd, dostępność i pomoc.">
+      <View style={styles.sections}>
+        <SettingsGroup
+          title="Wygląd"
+          footer="Motyw wpływa na kolorystykę interfejsu aplikacji.">
+          <SettingsCard>
             {themes.map((theme) => (
-              <Button
+              <SettingsCheckRow
                 key={theme}
-                size="sm"
-                variant={settings.theme === theme ? 'solid' : 'outline'}
-                action={settings.theme === theme ? 'primary' : 'secondary'}
-                style={settings.theme === theme ? styles.primaryButton : styles.ghostButton}
-                onPress={() => void setTheme(theme)}>
-                <ButtonText color={settings.theme === theme ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
-                  {theme === 'system' ? 'Systemowy' : theme === 'light' ? 'Jasny' : 'Ciemny'}
-                </ButtonText>
-              </Button>
+                label={THEME_LABELS[theme]}
+                selected={settings.theme === theme}
+                onPress={() => void setTheme(theme)}
+                icon={
+                  theme === 'system'
+                    ? 'phone-portrait-outline'
+                    : theme === 'light'
+                      ? 'sunny-outline'
+                      : 'moon-outline'
+                }
+              />
             ))}
-          </VStack>
-        </VStack>
+          </SettingsCard>
+        </SettingsGroup>
 
-        <VStack space="xs">
-          <Heading size="sm" color={futuristicTheme.colors.textPrimary}>Rozmiar tekstu</Heading>
-          <VStack space="xs">
+        <SettingsGroup
+          title="Dostępność"
+          footer="Większy tekst ułatwia czytanie treści w całej aplikacji.">
+          <SettingsCard>
             {fontScales.map((fontScale) => (
-              <Button
+              <SettingsCheckRow
                 key={fontScale}
-                size="sm"
-                variant={settings.fontScale === fontScale ? 'solid' : 'outline'}
-                action={settings.fontScale === fontScale ? 'primary' : 'secondary'}
-                style={settings.fontScale === fontScale ? styles.primaryButton : styles.ghostButton}
-                onPress={() => void setFontScale(fontScale)}>
-                <ButtonText color={settings.fontScale === fontScale ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
-                  {fontScale === 'normal' ? 'Normalny' : fontScale === 'large' ? 'Wiekszy' : 'Bardzo duzy'}
-                </ButtonText>
-              </Button>
+                label={FONT_SCALE_LABELS[fontScale]}
+                selected={settings.fontScale === fontScale}
+                onPress={() => void setFontScale(fontScale)}
+                icon="text-outline"
+              />
             ))}
-          </VStack>
-        </VStack>
+            <SettingsSwitchRow
+              label="Wibracje"
+              icon="phone-portrait-outline"
+              value={settings.hapticsEnabled}
+              onValueChange={(value) => void setHapticsEnabled(value)}
+            />
+          </SettingsCard>
+        </SettingsGroup>
 
-        <VStack space="xs">
-          <Heading size="sm" color={futuristicTheme.colors.textPrimary}>Haptics</Heading>
-          <Button
-            size="sm"
-            variant={settings.hapticsEnabled ? 'solid' : 'outline'}
-            action={settings.hapticsEnabled ? 'primary' : 'secondary'}
-            style={settings.hapticsEnabled ? styles.primaryButton : styles.ghostButton}
-            onPress={() => void setHapticsEnabled(!settings.hapticsEnabled)}>
-            <ButtonText color={settings.hapticsEnabled ? futuristicTheme.colors.textDark : futuristicTheme.colors.textPrimary}>
-              {settings.hapticsEnabled ? 'Wlaczone' : 'Wylaczone'}
-            </ButtonText>
-          </Button>
-          <Text color={futuristicTheme.colors.textMuted}>Wibracje przy akcjach i powiadomieniach.</Text>
-        </VStack>
+        <SettingsGroup title="Pomoc">
+          <SettingsCard>
+            <SettingsRow
+              label="Uruchom onboarding ponownie"
+              icon="refresh-outline"
+              onPress={() => void handleResetOnboarding()}
+              loading={isResetting}
+              showChevron
+            />
+          </SettingsCard>
+        </SettingsGroup>
 
-        <VStack space="sm">
-          <Text color={futuristicTheme.colors.textMuted}>Potrzebujesz zobaczyc onboarding ponownie?</Text>
-          <Button onPress={handleResetOnboarding} isDisabled={isResetting} style={styles.primaryButton}>
-            <ButtonText color={futuristicTheme.colors.textDark}>{isResetting ? 'Przekierowanie...' : 'Uruchom onboarding ponownie'}</ButtonText>
-          </Button>
-        </VStack>
         {showDiagnostics ? (
-          <VStack space="sm">
-            <Text color={futuristicTheme.colors.textMuted}>Diagnostyka konfiguracji aplikacji.</Text>
-            <Button onPress={() => router.push('/(drawer)/diagnostics')} style={styles.ghostButton} action="secondary" variant="outline">
-              <ButtonText color={futuristicTheme.colors.textPrimary}>Otwórz diagnostykę</ButtonText>
-            </Button>
-          </VStack>
+          <SettingsGroup title="Diagnostyka" footer="Narzedzia deweloperskie i informacje o konfiguracji.">
+            <SettingsCard>
+              <SettingsRow
+                label="Otworz diagnostyke"
+                icon="bug-outline"
+                onPress={() => router.push('/(drawer)/diagnostics')}
+                showChevron
+              />
+            </SettingsCard>
+          </SettingsGroup>
         ) : null}
 
-        <VStack space="sm">
-          <Text color={futuristicTheme.colors.textMuted}>
-            Aktywny profil: {activeResidentAccount?.label ?? 'brak wybranego'}
-          </Text>
-          <Button
-            onPress={() => router.push('/select-resident-account')}
-            isDisabled={isLoggingOut}
-            style={styles.ghostButton}
-            action="secondary"
-            variant="outline">
-            <ButtonText color={futuristicTheme.colors.textPrimary}>Zmien profil mieszkanca</ButtonText>
-          </Button>
-          <Button
-            onPress={handleLogout}
-            isDisabled={isLoggingOut}
-            style={styles.dangerButton}
-            action="negative">
-            <ButtonText color={futuristicTheme.colors.textPrimary}>
-              {isLoggingOut ? 'Wylogowywanie...' : 'Wyloguj'}
-            </ButtonText>
-          </Button>
-        </VStack>
-      </VStack>
+        <SettingsGroup title="Konto" footer="Zarządzanie profilem i sesją w sekcji Profil.">
+          <SettingsCard>
+            <SettingsRow
+              label="Profil mieszkańca"
+              icon="person-outline"
+              value={activeResidentAccount?.label ?? 'Brak'}
+              onPress={() => router.push('/(drawer)/profile')}
+              showChevron
+            />
+          </SettingsCard>
+        </SettingsGroup>
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  primaryButton: {
-    backgroundColor: futuristicTheme.colors.accent,
-    borderRadius: 12,
-    ...futuristicShadows.glow,
-  },
-  ghostButton: {
-    borderColor: futuristicTheme.colors.border,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderWidth: 1,
-  },
-  dangerButton: {
-    borderColor: futuristicTheme.colors.danger,
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderWidth: 1,
-    borderRadius: 12,
+  sections: {
+    gap: appTheme.spacing.lg,
   },
 });

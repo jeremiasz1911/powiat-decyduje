@@ -1,0 +1,202 @@
+import { StyleSheet } from 'react-native';
+
+import type { AppColorTokens } from '@/src/theme/app-theme';
+import { appShadows, appTheme } from '@/src/theme/app-theme';
+
+export function createSubmitProjectStyles(colors: AppColorTokens) {
+  return StyleSheet.create({
+    heroIconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+    },
+    heroTitle: {
+      color: colors.textPrimary,
+      fontSize: 22,
+      fontWeight: '800',
+      lineHeight: 28,
+    },
+    heroText: {
+      color: colors.textMuted,
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    descriptionWrap: {
+      minHeight: 180,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSoft,
+      paddingHorizontal: appTheme.spacing.md,
+      paddingVertical: appTheme.spacing.md,
+    },
+    descriptionWrapFocused: {
+      borderColor: colors.primary,
+      backgroundColor: colors.surface,
+    },
+    descriptionWrapError: {
+      borderColor: colors.danger,
+    },
+    descriptionInput: {
+      minHeight: 148,
+      color: colors.textPrimary,
+      fontSize: 16,
+      lineHeight: 24,
+      padding: 0,
+    },
+    charCount: {
+      color: colors.textMuted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    advancedEditorText: {
+      color: colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    fieldHint: {
+      color: colors.textMuted,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSoft,
+    },
+    chipSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    chipText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    chipTextSelected: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    iconTrigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSoft,
+      paddingHorizontal: appTheme.spacing.md,
+      paddingVertical: 12,
+    },
+    iconTriggerBadge: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    iconTriggerText: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    iconOption: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconOptionSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primarySoft,
+    },
+    coordsBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appTheme.spacing.sm,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceSoft,
+      paddingHorizontal: appTheme.spacing.md,
+      paddingVertical: appTheme.spacing.sm,
+    },
+    coordsText: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    inlineError: {
+      color: colors.danger,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    uploadBox: {
+      alignItems: 'center',
+      gap: appTheme.spacing.sm,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: colors.border,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceSoft,
+      paddingHorizontal: appTheme.spacing.lg,
+      paddingVertical: appTheme.spacing.lg,
+    },
+    uploadIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primarySoft,
+    },
+    uploadTitle: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    uploadHint: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+      textAlign: 'center',
+    },
+    uploadAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    uploadActionText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    previewItem: {
+      width: 96,
+      height: 96,
+      borderRadius: 12,
+      backgroundColor: colors.surfaceSoft,
+    },
+    submitButton: {
+      ...appShadows.button,
+    },
+  });
+}

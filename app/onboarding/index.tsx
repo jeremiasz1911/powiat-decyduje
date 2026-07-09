@@ -1,147 +1,65 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import Animated, {
-    Easing,
-    FadeIn,
-    FadeInDown,
-    FadeInUp,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-import { AppScreen } from '@/src/components/layout/app-screen';
+import { PowiatStartAnimation } from '@/src/components/brand/PowiatStartAnimation';
 import { STORAGE_KEYS } from '@/src/constants/storage';
 import { secureStore } from '@/src/lib/secure-store';
-import { futuristicShadows, futuristicTheme } from '@/src/theme/futuristic';
+import { useBootstrapTheme } from '@/src/theme/use-bootstrap-theme';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const LEAVE_TRANSITION_MS = 380;
 
 export default function OnboardingScreen() {
   const router = useRouter();
-
-  const logoScale = useSharedValue(0.9);
-  const logoRotate = useSharedValue(0);
-  const glow = useSharedValue(0.4);
+  const { colors } = useBootstrapTheme();
+  const [introFinished, setIntroFinished] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    logoScale.value = withSpring(1, { damping: 14, stiffness: 180 });
-    logoRotate.value = withSequence(
-      withTiming(-4, { duration: 300, easing: Easing.out(Easing.cubic) }),
-      withTiming(4, { duration: 600, easing: Easing.inOut(Easing.cubic) }),
-      withTiming(0, { duration: 300, easing: Easing.out(Easing.cubic) })
-    );
-    glow.value = withRepeat(withTiming(1, { duration: 1600 }), -1, true);
-  }, [glow, logoRotate, logoScale]);
+    if (__DEV__) {
+      console.log('Onboarding screen mounted');
+    }
 
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }, { rotate: `${logoRotate.value}deg` }],
-  }));
+    return () => {
+      if (leaveTimerRef.current) {
+        clearTimeout(leaveTimerRef.current);
+      }
+    };
+  }, []);
 
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-    transform: [{ scale: 0.9 + glow.value * 0.2 }],
-  }));
+  const handleIntroFinish = useCallback(() => {
+    if (__DEV__) {
+      console.log('Onboarding intro finished');
+    }
+    setIntroFinished(true);
+  }, []);
 
-  const handleStart = async () => {
-    await secureStore.set(STORAGE_KEYS.onboardingCompleted, 'true');
-    router.replace('/(drawer)/(tabs)/projects');
-  };
+  const handleStart = useCallback(() => {
+    if (isLeaving) return;
+
+    setIsLeaving(true);
+
+    leaveTimerRef.current = setTimeout(async () => {
+      await secureStore.set(STORAGE_KEYS.onboardingCompleted, 'true');
+      router.replace('/login-phone');
+    }, LEAVE_TRANSITION_MS);
+  }, [isLeaving, router]);
 
   return (
-    <AppScreen
-      gradientColors={[futuristicTheme.colors.bgTop, '#0a2a48', futuristicTheme.colors.bgBottom]}
-      contentContainerStyle={styles.safeArea}>
-      <Animated.View entering={FadeIn.duration(700)} style={styles.content}>
-        <Animated.View style={[styles.glow, glowStyle]} />
-
-        <Animated.View entering={FadeInDown.duration(700).springify()} style={[styles.logo, logoStyle]}>
-          <Animated.Text style={styles.logoText}>PD</Animated.Text>
-        </Animated.View>
-
-        <Animated.Text entering={FadeInUp.delay(120).duration(650)} style={styles.title}>
-          Powiat Decyduje
-        </Animated.Text>
-
-        <Animated.Text entering={FadeInUp.delay(240).duration(650)} style={styles.description}>
-          Zglaszaj pomysly, glosuj na projekty i wspoltworz decyzje lokalnej spolecznosci.
-        </Animated.Text>
-
-        <AnimatedPressable
-          entering={FadeInUp.delay(360).duration(650)}
-          style={styles.button}
-          onPress={handleStart}>
-          <Animated.Text style={styles.buttonText}>Zaczynamy</Animated.Text>
-        </AnimatedPressable>
-      </Animated.View>
-    </AppScreen>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <PowiatStartAnimation
+        onFinish={handleIntroFinish}
+        introFinished={introFinished}
+        isLeaving={isLeaving}
+        onStartPress={handleStart}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  glow: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(34, 211, 238, 0.35)',
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
-    backgroundColor: futuristicTheme.colors.panel,
-    borderWidth: 1,
-    borderColor: futuristicTheme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    ...futuristicShadows.glow,
-  },
-  logoText: {
-    color: futuristicTheme.colors.accent,
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  title: {
-    color: futuristicTheme.colors.textPrimary,
-    fontSize: 34,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  description: {
-    color: futuristicTheme.colors.textMuted,
-    fontSize: 16,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 34,
-    maxWidth: 360,
-  },
-  button: {
-    backgroundColor: futuristicTheme.colors.accent,
-    paddingHorizontal: 34,
-    paddingVertical: 14,
-    borderRadius: 999,
-    ...futuristicShadows.glow,
-  },
-  buttonText: {
-    color: futuristicTheme.colors.textDark,
-    fontWeight: '700',
-    fontSize: 16,
   },
 });

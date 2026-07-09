@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+admin/.next/
 
 # Expo
 .expo/
@@ -33,6 +34,13 @@ yarn-error.*
 # local env files
 .env*.local
 
+# build artifacts
+*.apk
+*.aab
+app.apk
+build-*.apk
+build-*.aab
+
 # typescript
 *.tsbuildinfo
 
@@ -48,3 +56,4 @@ secrets/firebase-debug.log
 firebase-debug.log
 secrets/
 secrets/
+.vercel

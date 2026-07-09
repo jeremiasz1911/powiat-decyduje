@@ -11,6 +11,7 @@ type PhoneMockupProps = {
   className?: string;
   variant?: 'default' | 'hero' | 'gallery';
   galleryIndex?: number;
+  showLabel?: boolean;
 };
 
 export function PhoneMockup({
@@ -21,6 +22,7 @@ export function PhoneMockup({
   className = '',
   variant = 'default',
   galleryIndex = 0,
+  showLabel = true,
 }: PhoneMockupProps) {
   const [failed, setFailed] = useState(false);
 
@@ -44,7 +46,7 @@ export function PhoneMockup({
               fill
               priority={priority}
               className="object-cover object-top"
-              sizes="(max-width: 768px) 220px, 280px"
+              sizes="(max-width: 640px) 85vw, (max-width: 1024px) 300px, 280px"
               onError={() => setFailed(true)}
             />
           ) : (
@@ -56,7 +58,7 @@ export function PhoneMockup({
           )}
         </div>
       </div>
-      {label ? <p className="landing-phone-label">{label}</p> : null}
+      {label && showLabel ? <p className="landing-phone-label">{label}</p> : null}
     </div>
   );
 }

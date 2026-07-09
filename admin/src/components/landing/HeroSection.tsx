@@ -24,53 +24,63 @@ export function HeroSection() {
   );
 
   return (
-    <header className="landing-hero relative min-h-[92vh] overflow-hidden pt-24 sm:pt-20">
+    <header className="landing-hero relative overflow-hidden pt-[calc(4.25rem+env(safe-area-inset-top,0px))] lg:min-h-[92vh] lg:pt-20">
       <div className="landing-hero-spotlight pointer-events-none absolute inset-0" aria-hidden />
 
-      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-5 pb-20 pt-4 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:pb-28">
-        <div className="landing-reveal order-1">
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <BrandLogo height={48} priority />
-            <span className="rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-xs font-medium text-brand">
-              Aplikacja obywatelska
-            </span>
-          </div>
-          <h1 className="text-4xl font-bold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Powiat <span className="text-brand">Decyduje</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/70 sm:text-xl">
-            Aplikacja dla mieszkańców Powiatu Mławskiego do zgłaszania, przeglądania i wspierania lokalnych
-            inicjatyw.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <a href="/#screenshots" className="landing-btn landing-btn-primary">
-              Zobacz aplikację
-            </a>
-            <a href="/#about" className="landing-btn landing-btn-secondary">
-              Dowiedz się więcej
-            </a>
-            <a href="/#features" className="landing-btn landing-btn-ghost">
-              Funkcjonalności
-            </a>
-          </div>
-          <PlatformBadges />
-        </div>
-
-        <div className="landing-reveal landing-reveal-delay order-2 flex justify-center overflow-visible lg:justify-end">
-          <div className="landing-hero-phone-stage">
+      <div className="landing-hero-grid relative z-10 mx-auto max-w-6xl px-4 pb-14 pt-2 sm:px-8 sm:pb-20 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 lg:pb-28">
+        {/* Mobile: screenshot pierwszy */}
+        <div className="landing-hero-visual order-1 flex justify-center lg:order-2 lg:justify-end">
+          <div className="landing-hero-phone-stage w-full max-w-[min(100%,320px)] sm:max-w-[300px] lg:max-w-none">
             <button
               type="button"
-              className="inline-flex cursor-zoom-in"
+              className="landing-hero-phone-tap mx-auto flex w-full cursor-zoom-in justify-center"
               onClick={() => setOpen(true)}
-              aria-label="Otwórz podgląd screenshotu z hero">
+              aria-label="Otwórz podgląd screenshotu aplikacji">
               <PhoneMockup
                 src={HERO_PHONE_SCREENSHOT}
                 alt="Podgląd aplikacji Powiat Decyduje"
                 label="Ekran startowy"
                 priority
                 variant="hero"
+                showLabel={false}
               />
             </button>
+            {/* <p className="mt-2 text-center text-xs text-white/40 lg:hidden">Dotknij, aby powiększyć</p> */}
+          </div>
+        </div>
+
+        {/* Mobile: treść pod screenshotem */}
+        <div className="landing-hero-copy order-2 mt-6 text-center lg:order-1 lg:mt-0 lg:text-left">
+          <div className="flex flex-col items-center gap-4 lg:items-start">
+            <BrandLogo height={52} priority className="lg:hidden" />
+            <span className="rounded-full border border-brand/30 bg-brand/10 px-3 py-1 text-xs font-medium text-brand">
+              Aplikacja obywatelska · Powiat Mławski
+            </span>
+          </div>
+
+          <h1 className="mt-5 text-[2rem] font-bold leading-[1.1] tracking-tight text-white sm:text-5xl lg:mt-4 lg:text-6xl">
+            Powiat <span className="text-brand">Decyduje</span>
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/70 sm:mt-6 sm:text-lg lg:mx-0 lg:text-xl">
+            Aplikacja dla mieszkańców Powiatu Mławskiego do zgłaszania, przeglądania i wspierania lokalnych
+            inicjatyw.
+          </p>
+
+          <div className="landing-hero-actions mt-8 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:justify-center lg:justify-start">
+            <a href="/#screenshots" className="landing-btn landing-btn-primary w-full sm:w-auto">
+              Zobacz aplikację
+            </a>
+            <a href="/#about" className="landing-btn landing-btn-secondary w-full sm:w-auto">
+              Dowiedz się więcej
+            </a>
+            <a href="/#features" className="landing-btn landing-btn-ghost w-full sm:w-auto">
+              Funkcjonalności
+            </a>
+          </div>
+
+          <div className="flex justify-center lg:justify-start">
+            <PlatformBadges />
           </div>
         </div>
       </div>
@@ -81,7 +91,7 @@ export function HeroSection() {
 
       <a
         href="/#about"
-        className="absolute bottom-8 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-1 text-white/40 transition hover:text-white/70 sm:flex"
+        className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-1 text-white/40 transition hover:text-white/70 lg:flex"
         aria-label="Przewiń w dół">
         <span className="text-xs">Więcej</span>
         <ArrowDown className="h-4 w-4 animate-bounce" />

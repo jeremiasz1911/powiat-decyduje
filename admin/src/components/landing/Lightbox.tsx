@@ -15,7 +15,7 @@ type LightboxProps = {
   onNext: () => void;
 };
 
-const SWIPE_THRESHOLD = 48;
+const SWIPE_THRESHOLD = 40;
 
 export function Lightbox({ shots, index, onClose, onPrev, onNext }: LightboxProps) {
   const shot = shots[index];
@@ -32,18 +32,23 @@ export function Lightbox({ shots, index, onClose, onPrev, onNext }: LightboxProp
   }, []);
 
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    const prevPaddingRight = document.body.style.paddingRight;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
+    const prevBodyPaddingRight = body.style.paddingRight;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
 
-    document.body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
     if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      body.style.paddingRight = `${scrollbarWidth}px`;
     }
 
     return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPaddingRight;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
+      body.style.paddingRight = prevBodyPaddingRight;
     };
   }, []);
 
@@ -84,7 +89,8 @@ export function Lightbox({ shots, index, onClose, onPrev, onNext }: LightboxProp
 
   return createPortal(
     <div className="landing-lightbox" role="dialog" aria-modal="true" aria-label="Podgląd screenshotu">
-      <button type="button" className="landing-lightbox-backdrop" onClick={onClose} aria-label="Zamknij" />
+      <button type="button" className="landing-lightbox-backdrop" onClick={onClose} aria-label="Zamknij podgląd" />
+
       <div
         className="landing-lightbox-panel"
         onTouchStart={onTouchStart}
@@ -92,60 +98,75 @@ export function Lightbox({ shots, index, onClose, onPrev, onNext }: LightboxProp
         onTouchCancel={() => {
           touchRef.current.active = false;
         }}>
-        <div className="landing-lightbox-top">
-          <div className="min-w-0 flex-1 pr-3">
+        <header className="landing-lightbox-top">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white sm:text-base">{shot.label}</p>
-            <p className="hidden truncate text-xs text-white/45 sm:block">{shot.alt}</p>
+            {hasNav ? (
+              <p className="mt-0.5 text-xs text-white/45">
+                {index + 1} / {shots.length}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs text-white/45 lg:hidden">Przesuń palcem lub dotknij tła, aby zamknąć</p>
+            )}
           </div>
           <button type="button" className="landing-lightbox-close" onClick={onClose} aria-label="Zamknij">
-            <X className="h-5 w-5 sm:hidden" />
-            <span className="hidden sm:inline">Zamknij</span>
+            <X className="h-6 w-6" />
           </button>
-        </div>
+        </header>
 
-        <div className="landing-lightbox-content">
-          <button
-            type="button"
-            className="landing-lightbox-nav landing-lightbox-nav-side"
-            onClick={onPrev}
-            aria-label="Poprzedni"
-            disabled={!hasNav}>
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+        <div className="landing-lightbox-body">
+          {hasNav ? (
+            <button
+              type="button"
+              className="landing-lightbox-nav landing-lightbox-nav-side"
+              onClick={onPrev}
+              aria-label="Poprzedni">
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+          ) : null}
 
           <div className="landing-lightbox-imageWrap">
             <div className="landing-lightbox-frame">
-              <Image src={shot.src} alt={shot.alt} fill className="object-contain object-center" sizes="100vw" priority />
+              <Image
+                src={shot.src}
+                alt={shot.alt}
+                fill
+                className="object-contain object-center"
+                sizes="(max-width: 640px) 100vw, 420px"
+                priority
+              />
             </div>
-            {hasNav ? (
-              <p className="landing-lightbox-counter">
-                {index + 1} / {shots.length}
-              </p>
-            ) : null}
           </div>
 
-          <button
-            type="button"
-            className="landing-lightbox-nav landing-lightbox-nav-side"
-            onClick={onNext}
-            aria-label="Następny"
-            disabled={!hasNav}>
-            <ChevronRight className="h-5 w-5" />
-          </button>
+          {hasNav ? (
+            <button
+              type="button"
+              className="landing-lightbox-nav landing-lightbox-nav-side"
+              onClick={onNext}
+              aria-label="Następny">
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          ) : null}
         </div>
 
         {hasNav ? (
-          <div className="landing-lightbox-bottom">
-            <button type="button" className="landing-lightbox-nav" onClick={onPrev} aria-label="Poprzedni">
-              <ChevronLeft className="h-5 w-5" />
+          <footer className="landing-lightbox-bottom">
+            <button type="button" className="landing-lightbox-nav landing-lightbox-nav-wide" onClick={onPrev}>
+              <ChevronLeft className="h-5 w-5 shrink-0" />
               <span>Poprzedni</span>
             </button>
-            <button type="button" className="landing-lightbox-nav" onClick={onNext} aria-label="Następny">
+            <button type="button" className="landing-lightbox-nav landing-lightbox-nav-wide" onClick={onNext}>
               <span>Następny</span>
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5 shrink-0" />
             </button>
-          </div>
-        ) : null}
+          </footer>
+        ) : (
+          <footer className="landing-lightbox-bottom landing-lightbox-bottom-single">
+            <button type="button" className="landing-lightbox-nav landing-lightbox-nav-wide" onClick={onClose}>
+              Zamknij podgląd
+            </button>
+          </footer>
+        )}
       </div>
     </div>,
     document.body,

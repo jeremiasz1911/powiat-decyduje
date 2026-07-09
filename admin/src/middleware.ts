@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   '/terms',
   '/support',
   '/account-deletion',
+  '/standardy',
 ];
 
 export async function middleware(request: NextRequest) {

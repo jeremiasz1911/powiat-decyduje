@@ -238,19 +238,6 @@ table.data-table tbody tr:hover {
   scroll-snap-type: none;
 }
 
-.landing-drag-scroll.is-dragging button {
-  pointer-events: none;
-}
-
-.landing-drag-scroll button {
-  outline: none;
-}
-
-.landing-drag-scroll button:focus-visible {
-  border-radius: 16px;
-  box-shadow: 0 0 0 2px rgba(227, 6, 19, 0.55);
-}
-
 .landing-drag-scroll img {
   pointer-events: none;
 }
@@ -258,31 +245,29 @@ table.data-table tbody tr:hover {
 .landing-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 20px;
+  z-index: 200;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 .landing-lightbox-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(10px);
+  border: none;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
   -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
 
 .landing-lightbox-panel {
-  position: relative;
-  width: min(920px, 92vw);
-  max-height: min(92dvh, 900px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(10, 15, 26, 0.92);
-  border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
-  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  background: #0a0f1a;
+  overflow: hidden;
 }
 
 .landing-lightbox-top {
@@ -290,130 +275,136 @@ table.data-table tbody tr:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: max(10px, env(safe-area-inset-top)) 12px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+  background: rgba(10, 15, 26, 0.98);
 }
 
 .landing-lightbox-close {
-  @apply inline-flex shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-sm font-medium text-white/80 transition;
-  @apply hover:border-white/25 hover:bg-white/10 hover:text-white;
+  @apply inline-flex shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white transition;
+  @apply hover:border-white/25 hover:bg-white/10;
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60;
   min-height: 44px;
   min-width: 44px;
-  padding: 10px 14px;
 }
 
-.landing-lightbox-content {
-  display: grid;
-  grid-template-columns: 44px 1fr 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
+.landing-lightbox-body {
+  display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 0;
+  padding: 8px 12px;
 }
 
 .landing-lightbox-nav {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 text-white transition;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 text-sm font-medium text-white transition;
   @apply hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60;
   min-height: 44px;
   min-width: 44px;
 }
 
 .landing-lightbox-nav-side {
-  @apply h-11 w-11;
+  @apply hidden h-11 w-11 sm:inline-flex;
 }
 
-.landing-lightbox-nav:disabled {
-  opacity: 0.35;
-  pointer-events: none;
+.landing-lightbox-nav-wide {
+  @apply flex-1 px-4;
 }
 
 .landing-lightbox-imageWrap {
   display: flex;
-  flex-direction: column;
+  flex: 1;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   min-height: 0;
   min-width: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .landing-lightbox-frame {
   position: relative;
-  width: min(86vw, 420px);
-  height: min(72dvh, 680px);
-  max-height: calc(92dvh - 180px);
+  width: 100%;
+  height: 100%;
+  max-width: min(100%, 420px);
+  max-height: 100%;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.landing-lightbox-counter {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .landing-lightbox-bottom {
-  display: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(10, 15, 26, 0.98);
 }
 
-@media (max-width: 640px) {
+.landing-lightbox-bottom-single {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 641px) {
   .landing-lightbox {
-    padding: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    touch-action: auto;
   }
 
   .landing-lightbox-panel {
-    width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-    border: none;
+    position: relative;
+    inset: auto;
+    width: min(920px, 92vw);
+    height: auto;
+    max-height: min(92dvh, 900px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
+    background: rgba(10, 15, 26, 0.96);
   }
 
   .landing-lightbox-top {
-    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    padding: 14px 16px;
   }
 
-  .landing-lightbox-content {
-    grid-template-columns: 1fr;
-    padding: 8px 12px 12px;
-    flex: 1;
-  }
-
-  .landing-lightbox-nav-side {
-    display: none;
+  .landing-lightbox-body {
+    padding: 16px;
+    min-height: min(72dvh, 640px);
   }
 
   .landing-lightbox-frame {
-    width: 100%;
-    height: auto;
-    flex: 1;
-    max-height: calc(100dvh - 160px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    aspect-ratio: 9 / 19.5;
-    border-radius: 12px;
+    height: min(68dvh, 620px);
   }
 
   .landing-lightbox-bottom {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    padding: 0 12px max(12px, env(safe-area-inset-bottom));
-    flex-shrink: 0;
+    display: none;
   }
 
-  .landing-lightbox-bottom .landing-lightbox-nav {
-    width: 100%;
-    padding: 0 12px;
-    font-size: 14px;
+  .landing-lightbox-nav-side {
+    display: inline-flex;
   }
 }
 
 .landing-screenshot-item {
   animation: landing-fade-up 0.6s ease-out both;
   transition: transform 0.3s ease;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.landing-screenshot-item:focus-visible {
+  border-radius: 16px;
+  box-shadow: 0 0 0 2px rgba(227, 6, 19, 0.55);
 }
 
 .landing-screenshot-item:hover {
@@ -449,12 +440,25 @@ table.data-table tbody tr:hover {
   @apply text-white/70 transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50;
 }
 
+.landing-nav-logo {
+  height: 3.75rem !important;
+  max-width: 11.5rem !important;
+}
+
+@media (min-width: 640px) {
+  .landing-nav-logo {
+    height: 2.5rem !important;
+    max-width: 8rem !important;
+  }
+}
+
 /* ——— Landing: platform badges ——— */
 
 .landing-platform-badge {
-  @apply inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/80 transition;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white/80 transition;
   @apply hover:-translate-y-0.5 hover:border-brand/30 hover:bg-brand/10 hover:text-white hover:shadow-lg hover:shadow-brand/10;
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50;
+  min-width: 7.5rem;
 }
 
 /* ——— Landing: phone mockup ——— */
@@ -508,11 +512,56 @@ table.data-table tbody tr:hover {
 }
 
 .landing-hero-phone-stage {
-  @apply relative flex justify-center overflow-visible py-6;
+  @apply relative flex justify-center overflow-visible py-2 lg:py-6;
+}
+
+.landing-hero-phone-tap {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .landing-hero-spotlight {
   background: radial-gradient(ellipse 55% 45% at 72% 38%, rgba(227, 6, 19, 0.14), transparent 70%);
+}
+
+@media (max-width: 1023px) {
+  .landing-hero-spotlight {
+    background: radial-gradient(ellipse 80% 50% at 50% 20%, rgba(227, 6, 19, 0.16), transparent 65%);
+  }
+
+  .landing-hero-visual .landing-phone-wrap {
+    width: min(78vw, 300px);
+  }
+
+  .landing-phone-hero .landing-phone-device {
+    transform: none;
+    animation: none;
+    will-change: auto;
+  }
+
+  .landing-phone-hero:hover .landing-phone-device {
+    transform: none;
+  }
+
+  .landing-phone-hero .landing-phone-glow {
+    opacity: 0.45;
+    inset: -1.5rem;
+  }
+
+  .landing-hero-actions .landing-btn {
+    justify-content: center;
+  }
+
+  .landing-phone-gallery .landing-phone-device {
+    transform: none !important;
+  }
+
+  .landing-phone-gallery:hover .landing-phone-device {
+    transform: translateY(-4px) !important;
+  }
+
+  .landing-screenshot-item {
+    width: min(78vw, 280px);
+  }
 }
 
 .landing-phone-gallery {

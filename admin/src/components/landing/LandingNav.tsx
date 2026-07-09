@@ -30,8 +30,8 @@ export function LandingNav() {
         scrolled ? 'border-b border-white/10 bg-[#0a0f1a]/92 shadow-lg shadow-black/20 backdrop-blur-xl' : 'border-b border-white/5 bg-[#0a0f1a]/70 backdrop-blur-md'
       }`}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8 sm:py-4">
-        <a href="#" className="flex min-w-0 items-center gap-2.5 sm:gap-3" onClick={() => setOpen(false)}>
-          <BrandLogo height={36} className="shrink-0 sm:max-h-10" />
+        <a href="#" className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3" onClick={() => setOpen(false)}>
+          <BrandLogo height={56} priority className="landing-nav-logo shrink-0" />
           <div className="hidden min-w-0 sm:block">
             <p className="truncate text-sm font-semibold text-white">Powiat Decyduje</p>
             <p className="text-[11px] text-white/50">Powiat Mławski</p>

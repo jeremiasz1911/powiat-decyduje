@@ -9,8 +9,13 @@ import {
   type AppSettings,
   DEFAULT_APP_SETTINGS,
   type ProjectStatus,
+  type SafetyStandardsPageCMS,
   timestampToIso,
 } from '@/lib/types';
+import {
+  getDefaultSafetyStandardsCMS,
+  SAFETY_STANDARDS_DOC_ID,
+} from '@/lib/safety-standards-page';
 
 function normalizeAdminProjectStatus(value: unknown): ProjectStatus {
   if (value === 'approved' || value === 'rejected' || value === 'submitted') {
@@ -187,6 +192,46 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
       },
       { merge: true }
     );
+}
+
+function mapSafetyStandardsLang(data: Record<string, unknown>, lang: 'pl' | 'en'): SafetyStandardsPageCMS[typeof lang] {
+  const defaults = getDefaultSafetyStandardsCMS()[lang];
+  const source = (data[lang] as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    title: String(source.title ?? defaults.title),
+    metaDescription: String(source.metaDescription ?? defaults.metaDescription),
+    lastUpdated: String(source.lastUpdated ?? defaults.lastUpdated),
+    bodyText: String(source.bodyText ?? defaults.bodyText),
+  };
+}
+
+export async function fetchSafetyStandardsPageCMS(): Promise<SafetyStandardsPageCMS | null> {
+  const db = getFirestore();
+  const doc = await db.collection('site_pages').doc(SAFETY_STANDARDS_DOC_ID).get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  const data = doc.data() ?? {};
+  return {
+    pl: mapSafetyStandardsLang(data, 'pl'),
+    en: mapSafetyStandardsLang(data, 'en'),
+    updatedAt: timestampToIso(data.updatedAt),
+  };
+}
+
+export async function saveSafetyStandardsPageCMS(cms: SafetyStandardsPageCMS): Promise<void> {
+  const db = getFirestore();
+  await db.collection('site_pages').doc(SAFETY_STANDARDS_DOC_ID).set(
+    {
+      pl: cms.pl,
+      en: cms.en,
+      updatedAt: new Date(),
+    },
+    { merge: true }
+  );
 }
 
 export function countProjectsByStatus(projects: AdminProject[]) {

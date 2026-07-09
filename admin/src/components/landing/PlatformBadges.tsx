@@ -18,25 +18,31 @@ function AndroidIcon() {
 
 export function PlatformBadges() {
   return (
-    <div className="mt-8 flex flex-col gap-3">
-      <p className="text-xs font-medium uppercase tracking-wider text-white/45">Dostępne na</p>
-      <div className="flex flex-wrap gap-3">
+    <div className="mt-6 w-full max-w-md sm:mt-8">
+      <p className="text-center text-xs font-medium uppercase tracking-wider text-white/45 lg:text-left">
+        Dostępne na
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-3">
         <a
           href={APP_LINKS.appStore}
           className="landing-platform-badge group"
-          aria-label="Dostępne na iOS — App Store">
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Pobierz aplikację na iOS">
           <AppleIcon />
           <span>iOS</span>
         </a>
         <a
           href={APP_LINKS.googlePlay}
           className="landing-platform-badge group"
-          aria-label="Dostępne na Android — Google Play">
+          target="_blank"
+          rel="noopener noreferrer"
+          download="powiat-decyduje.apk"
+          aria-label="Pobierz aplikację na Android">
           <AndroidIcon />
           <span>Android</span>
         </a>
       </div>
-      {/* TODO: Uzupełnij linki App Store / Google Play w landing-data.ts */}
     </div>
   );
 }

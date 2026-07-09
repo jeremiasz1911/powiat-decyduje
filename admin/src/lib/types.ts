@@ -82,6 +82,19 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   updatedAt: null,
 };
 
+export type SafetyStandardsLangContent = {
+  title: string;
+  metaDescription: string;
+  lastUpdated: string;
+  bodyText: string;
+};
+
+export type SafetyStandardsPageCMS = {
+  pl: SafetyStandardsLangContent;
+  en: SafetyStandardsLangContent;
+  updatedAt: string | null;
+};
+
 export function timestampToIso(value: unknown): string | null {
   if (!value) {
     return null;

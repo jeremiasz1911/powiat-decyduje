@@ -11,6 +11,7 @@ import {
   Vote,
   Settings,
   LogOut,
+  Shield,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/users', label: 'Użytkownicy', icon: Users },
   { href: '/sms', label: 'SMS-y', icon: MessageSquare },
   { href: '/votes', label: 'Głosy', icon: Vote },
+  { href: '/pages/safety-standards', label: 'Standardy bezpieczeństwa', icon: Shield },
   { href: '/settings', label: 'Ustawienia', icon: Settings },
 ];
 

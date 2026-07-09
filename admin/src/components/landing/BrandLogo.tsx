@@ -19,7 +19,7 @@ export function BrandLogo({ className = '', height = 48, priority = false }: Bra
       height={height}
       priority={priority}
       className={`object-contain brightness-0 invert ${className}`}
-      style={{ width, height }}
+      style={{ width: 'auto', height, maxWidth: width }}
     />
   );
 }

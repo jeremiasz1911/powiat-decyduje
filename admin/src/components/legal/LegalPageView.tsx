@@ -11,11 +11,16 @@ import {
   LEGAL_PAGES,
   type LegalBlock,
   type LegalLang,
+  type LegalPageContent,
   type LegalPageId,
 } from './legal-content';
 
 type LegalPageViewProps = {
   pageId: LegalPageId;
+  /** Treść z CMS (np. Firestore) — nadpisuje domyślny fallback z kodu. */
+  cmsContent?: Record<LegalLang, LegalPageContent>;
+  eyebrowPl?: string;
+  eyebrowEn?: string;
 };
 
 function renderText(text: string) {
@@ -59,9 +64,14 @@ function LegalBlockRenderer({ block }: { block: LegalBlock }) {
   );
 }
 
-export function LegalPageView({ pageId }: LegalPageViewProps) {
+export function LegalPageView({
+  pageId,
+  cmsContent,
+  eyebrowPl = 'Dokument prawny',
+  eyebrowEn = 'Legal document',
+}: LegalPageViewProps) {
   const [lang, setLang] = useState<LegalLang>('pl');
-  const content = LEGAL_PAGES[lang][pageId];
+  const content = cmsContent?.[lang] ?? LEGAL_PAGES[lang][pageId];
 
   return (
     <div className="landing-page legal-page relative min-h-screen overflow-x-hidden bg-[#080d18] text-white">
@@ -72,7 +82,7 @@ export function LegalPageView({ pageId }: LegalPageViewProps) {
           <div className="mb-10 flex flex-col gap-4 border-b border-white/10 pb-8 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand">
-                {lang === 'pl' ? 'Dokument prawny' : 'Legal document'}
+                {lang === 'pl' ? eyebrowPl : eyebrowEn}
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">{content.title}</h1>
             </div>

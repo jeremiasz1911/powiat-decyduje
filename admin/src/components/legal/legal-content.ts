@@ -18,13 +18,19 @@ export type LegalPageContent = {
   blocks: LegalBlock[];
 };
 
-export type LegalPageId = 'privacy' | 'terms' | 'support' | 'account-deletion';
+export type LegalPageId = 'privacy' | 'terms' | 'support' | 'account-deletion' | 'safety-standards';
+
+export const SAFETY_STANDARDS_LAST_UPDATED = {
+  pl: '10 lipca 2026',
+  en: '10 July 2026',
+};
 
 export const LEGAL_FOOTER_LINKS: { href: string; labelPl: string; labelEn: string }[] = [
   { href: '/privacy', labelPl: 'Polityka prywatności', labelEn: 'Privacy Policy' },
   { href: '/terms', labelPl: 'Regulamin', labelEn: 'Terms of Use' },
   { href: '/support', labelPl: 'Wsparcie', labelEn: 'Support' },
   { href: '/account-deletion', labelPl: 'Usuwanie konta', labelEn: 'Account Deletion' },
+  { href: '/standardy', labelPl: 'Standardy bezpieczeństwa', labelEn: 'Child Safety Standards' },
 ];
 
 /** TODO: Zweryfikuj treści prawne przed publikacją. */
@@ -400,6 +406,67 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
         { type: 'link', before: 'Więcej informacji: ', href: '/privacy', label: 'Polityka prywatności', after: '.' },
       ],
     },
+    'safety-standards': {
+      title: 'Standardy bezpieczeństwa dzieci i przeciwdziałania CSAE',
+      metaDescription:
+        'Standardy bezpieczeństwa dzieci i przeciwdziałania CSAE w aplikacji Powiat Decyduje.',
+      lastUpdated: SAFETY_STANDARDS_LAST_UPDATED.pl,
+      blocks: [
+        {
+          type: 'p',
+          text: 'Aplikacja Powiat Decyduje nie toleruje żadnych treści, zachowań ani działań związanych z wykorzystywaniem seksualnym dzieci, krzywdzeniem dzieci lub materiałami przedstawiającymi seksualne wykorzystywanie dzieci.',
+        },
+        {
+          type: 'p',
+          text: 'Zakazane jest tworzenie, przesyłanie, publikowanie, zgłaszanie lub rozpowszechnianie jakichkolwiek treści, które mogą:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'przedstawiać lub promować seksualne wykorzystywanie dzieci,',
+            'ułatwiać kontakt z dzieckiem w celu wykorzystania lub krzywdzenia,',
+            'zawierać materiały CSAM, czyli materiały przedstawiające seksualne wykorzystywanie dzieci,',
+            'naruszać bezpieczeństwo dzieci lub obowiązujące przepisy prawa.',
+          ],
+        },
+        {
+          type: 'p',
+          text: 'Powiat Decyduje jest aplikacją służącą do przeglądania projektów lokalnych, mapy inicjatyw oraz udziału mieszkańców w działaniach społecznych. Aplikacja nie służy do randkowania, prywatnej komunikacji z dziećmi ani publikowania treści o charakterze seksualnym.',
+        },
+        { type: 'h2', text: 'Zgłaszanie naruszeń' },
+        {
+          type: 'p',
+          text: 'Użytkownicy mogą zgłaszać naruszenia, niepokojące treści lub problemy dotyczące bezpieczeństwa poprzez kontakt z administratorem aplikacji.',
+        },
+        { type: 'p', text: 'Adres kontaktowy:' },
+        {
+          type: 'link',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+        },
+        {
+          type: 'p',
+          text: 'W przypadku zgłoszenia dotyczącego bezpieczeństwa dzieci lub podejrzenia CSAE/CSAM administrator podejmie odpowiednie działania, w tym analizę zgłoszenia, usunięcie niedozwolonych treści, zablokowanie konta lub przekazanie sprawy odpowiednim organom, jeśli wymagają tego przepisy prawa.',
+        },
+        { type: 'h2', text: 'Punkt kontaktowy ds. bezpieczeństwa dzieci' },
+        {
+          type: 'p',
+          text: 'Osoba odpowiedzialna za kontakt w sprawach bezpieczeństwa dzieci i zgłoszeń CSAE:',
+        },
+        { type: 'p', text: 'Powiat Decyduje' },
+        {
+          type: 'link',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+        },
+        { type: 'h2', text: 'Współpraca z organami i zgodność z prawem' },
+        {
+          type: 'p',
+          text: 'Powiat Decyduje przestrzega obowiązujących przepisów dotyczących ochrony dzieci oraz przeciwdziałania wykorzystywaniu seksualnemu dzieci. W przypadku uzyskania wiedzy o materiałach CSAM lub działaniach zagrażających dzieciom administrator podejmie odpowiednie działania zgodnie z prawem.',
+        },
+        { type: 'p', text: `Data ostatniej aktualizacji: ${SAFETY_STANDARDS_LAST_UPDATED.pl}` },
+      ],
+    },
   },
   en: {
     privacy: {
@@ -752,6 +819,67 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
           text: 'Data will be deleted or anonymized unless the law requires further retention.',
         },
         { type: 'link', before: 'More information: ', href: '/privacy', label: 'Privacy Policy', after: '.' },
+      ],
+    },
+    'safety-standards': {
+      title: 'Child Safety Standards and CSAE Prevention',
+      metaDescription:
+        'Child safety standards and CSAE prevention in the Powiat Decyduje app.',
+      lastUpdated: SAFETY_STANDARDS_LAST_UPDATED.en,
+      blocks: [
+        {
+          type: 'p',
+          text: 'The Powiat Decyduje app does not tolerate any content, behaviour or activity related to child sexual abuse and exploitation, child harm, or materials depicting child sexual abuse.',
+        },
+        {
+          type: 'p',
+          text: 'It is prohibited to create, submit, publish, report or distribute any content that may:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'depict or promote child sexual abuse or exploitation,',
+            'facilitate contact with a child for the purpose of abuse or harm,',
+            'contain CSAM, meaning child sexual abuse material,',
+            'violate child safety or applicable law.',
+          ],
+        },
+        {
+          type: 'p',
+          text: 'Powiat Decyduje is an app designed for browsing local projects, viewing initiatives on a map and supporting civic participation among residents. The app is not intended for dating, private communication with children or publishing sexual content.',
+        },
+        { type: 'h2', text: 'Reporting violations' },
+        {
+          type: 'p',
+          text: 'Users can report violations, concerning content or safety issues by contacting the app administrator.',
+        },
+        { type: 'p', text: 'Contact email:' },
+        {
+          type: 'link',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+        },
+        {
+          type: 'p',
+          text: 'If a report concerns child safety or suspected CSAE/CSAM, the administrator will take appropriate action, including reviewing the report, removing prohibited content, blocking accounts or reporting the matter to the relevant authorities where required by law.',
+        },
+        { type: 'h2', text: 'Child safety point of contact' },
+        {
+          type: 'p',
+          text: 'The person or team responsible for child safety and CSAE reports:',
+        },
+        { type: 'p', text: 'Powiat Decyduje' },
+        {
+          type: 'link',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+        },
+        { type: 'h2', text: 'Cooperation with authorities and legal compliance' },
+        {
+          type: 'p',
+          text: 'Powiat Decyduje complies with applicable laws related to child protection and prevention of child sexual abuse and exploitation. If the administrator becomes aware of CSAM or activities that may endanger children, appropriate action will be taken in accordance with the law.',
+        },
+        { type: 'p', text: `Last updated: ${SAFETY_STANDARDS_LAST_UPDATED.en}` },
       ],
     },
   },

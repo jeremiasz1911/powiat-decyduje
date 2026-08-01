@@ -46,7 +46,7 @@ export function PhoneMockup({
               fill
               priority={priority}
               className="object-cover object-top"
-              sizes="(max-width: 640px) 85vw, (max-width: 1024px) 300px, 280px"
+              sizes="(max-width: 640px) 52vw, (max-width: 1024px) 230px, 280px"
               onError={() => setFailed(true)}
             />
           ) : (

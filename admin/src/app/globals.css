@@ -464,7 +464,7 @@ table.data-table tbody tr:hover {
 /* ——— Landing: phone mockup ——— */
 
 .landing-phone-wrap {
-  @apply relative mx-auto w-[220px] sm:w-[250px] lg:w-[270px];
+  @apply relative mx-auto w-[180px] sm:w-[230px] lg:w-[270px];
 }
 
 .landing-phone-device {
@@ -512,7 +512,7 @@ table.data-table tbody tr:hover {
 }
 
 .landing-hero-phone-stage {
-  @apply relative flex justify-center overflow-visible py-2 lg:py-6;
+  @apply relative flex justify-center overflow-visible py-1 lg:py-6;
 }
 
 .landing-hero-phone-tap {
@@ -529,7 +529,7 @@ table.data-table tbody tr:hover {
   }
 
   .landing-hero-visual .landing-phone-wrap {
-    width: min(78vw, 300px);
+    width: min(52vw, 200px);
   }
 
   .landing-phone-hero .landing-phone-device {
@@ -543,12 +543,14 @@ table.data-table tbody tr:hover {
   }
 
   .landing-phone-hero .landing-phone-glow {
-    opacity: 0.45;
-    inset: -1.5rem;
+    opacity: 0.35;
+    inset: -1rem;
   }
 
   .landing-hero-actions .landing-btn {
     justify-content: center;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
   }
 
   .landing-phone-gallery .landing-phone-device {
@@ -560,7 +562,11 @@ table.data-table tbody tr:hover {
   }
 
   .landing-screenshot-item {
-    width: min(78vw, 280px);
+    width: min(58vw, 210px);
+  }
+
+  .landing-phone-gallery .landing-phone-wrap {
+    width: min(58vw, 210px);
   }
 }
 

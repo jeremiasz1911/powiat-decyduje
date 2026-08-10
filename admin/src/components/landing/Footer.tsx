@@ -1,14 +1,26 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { LEGAL_FOOTER_LINKS } from '@/components/legal/legal-content';
+import { APP_LINKS, LANDING_NAV } from './landing-data';
 import { BrandLogo } from './BrandLogo';
-import { LANDING_NAV } from './landing-data';
+
+const FOOTER_LEGAL = [
+  { href: '/privacy', label: 'Polityka prywatności' },
+  { href: '/terms', label: 'Regulamin' },
+  { href: '/cookies', label: 'Polityka cookies' },
+  { href: '/#contact', label: 'Kontakt' },
+];
+
+const FOOTER_MORE = [
+  { href: '/support', label: 'Wsparcie' },
+  { href: '/account-deletion', label: 'Usuwanie konta' },
+  { href: '/standardy', label: 'Standardy bezpieczeństwa' },
+];
 
 export function Footer() {
   return (
     <footer className="relative border-t border-white/10 bg-[#060a12]/80">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1fr_auto] lg:items-start">
+      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[1.2fr_auto_auto] lg:items-start">
         <div>
           <div className="flex items-center gap-4">
             <BrandLogo height={48} />
@@ -27,26 +39,54 @@ export function Footer() {
           <p className="mt-4 max-w-md text-sm leading-relaxed text-white/50">
             Aplikacja wspierająca udział mieszkańców w lokalnych decyzjach.
           </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a
+              href={APP_LINKS.appStore}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-white/55 transition hover:text-white">
+              App Store
+            </a>
+            <span className="text-white/20">·</span>
+            <a
+              href={APP_LINKS.googlePlay}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-white/55 transition hover:text-white">
+              Google Play
+            </a>
+          </div>
         </div>
-        <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
-          <nav className="flex flex-col gap-2">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Nawigacja</p>
-            {LANDING_NAV.map((item) => (
-              <a key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
+
+        <nav className="flex flex-col gap-2" aria-label="Nawigacja">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Nawigacja</p>
+          {LANDING_NAV.map((item) => (
+            <a key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="flex flex-col gap-8 sm:flex-row sm:gap-12 lg:flex-col lg:gap-8">
+          <nav className="flex flex-col gap-2" aria-label="Informacje prawne">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Informacje prawne</p>
+            {FOOTER_LEGAL.map((item) => (
+              <Link key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
                 {item.label}
-              </a>
+              </Link>
             ))}
           </nav>
-          <nav className="flex flex-col gap-2">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Informacje prawne</p>
-            {LEGAL_FOOTER_LINKS.map((item) => (
+          <nav className="flex flex-col gap-2" aria-label="Więcej">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/35">Więcej</p>
+            {FOOTER_MORE.map((item) => (
               <Link key={item.href} href={item.href} className="text-sm text-white/60 transition hover:text-white">
-                {item.labelPl}
+                {item.label}
               </Link>
             ))}
           </nav>
         </div>
       </div>
+
       <div className="border-t border-white/5 px-5 py-6 text-center text-xs text-white/35 sm:px-8">
         <div>© {new Date().getFullYear()} Jeremiasz Wiśniewski · Powiat Decyduje</div>
         <div className="mt-1">Aplikacja wspierająca udział mieszkańców Powiatu Mławskiego w lokalnych decyzjach.</div>

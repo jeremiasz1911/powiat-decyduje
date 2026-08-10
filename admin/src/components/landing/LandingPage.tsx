@@ -1,6 +1,7 @@
 import { AboutSection } from './AboutSection';
 import { AnimatedBackground } from './AnimatedBackground';
 import { ContactSection } from './ContactSection';
+import { CookieNotice } from './CookieNotice';
 import { FAQSection } from './FAQSection';
 import { FeaturesSection } from './FeaturesSection';
 import { Footer } from './Footer';
@@ -28,6 +29,7 @@ export function LandingPage() {
         <FAQSection />
       </main>
       <Footer />
+      <CookieNotice />
     </div>
   );
 }

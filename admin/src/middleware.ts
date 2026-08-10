@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/api/auth/login',
   '/privacy',
   '/terms',
+  '/cookies',
   '/support',
   '/account-deletion',
   '/standardy',

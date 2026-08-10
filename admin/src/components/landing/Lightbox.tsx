@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 

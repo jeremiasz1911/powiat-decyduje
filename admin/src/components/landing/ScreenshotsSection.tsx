@@ -1,131 +1,101 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LANDING_SCREENSHOTS } from './landing-data';
 import { Lightbox } from './Lightbox';
 import { PhoneMockup } from './PhoneMockup';
 import { SectionHeading, SectionShell } from './SectionShell';
 
-const TAP_MOVE_THRESHOLD = 14;
+const SWIPE_THRESHOLD = 40;
 
-type TapState = {
-  x: number;
-  y: number;
-  time: number;
-};
-
-function ScreenshotCard({
-  index,
-  shot,
-  onOpen,
-}: {
-  index: number;
-  shot: (typeof LANDING_SCREENSHOTS)[number];
-  onOpen: (index: number) => void;
-}) {
-  const tapRef = useRef<TapState>({ x: 0, y: 0, time: 0 });
-
-  const onTapStart = (clientX: number, clientY: number) => {
-    tapRef.current = { x: clientX, y: clientY, time: Date.now() };
-  };
-
-  const onTapEnd = (clientX: number, clientY: number) => {
-    const dx = Math.abs(clientX - tapRef.current.x);
-    const dy = Math.abs(clientY - tapRef.current.y);
-    const dt = Date.now() - tapRef.current.time;
-
-    if (dx <= TAP_MOVE_THRESHOLD && dy <= TAP_MOVE_THRESHOLD && dt < 700) {
-      onOpen(index);
-    }
-  };
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="landing-screenshot-item shrink-0 snap-center text-left"
-      aria-label={`Otwórz podgląd: ${shot.label}`}
-      onPointerDown={(e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        onTapStart(e.clientX, e.clientY);
-      }}
-      onPointerUp={(e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        onTapEnd(e.clientX, e.clientY);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen(index);
-        }
-      }}>
-      <PhoneMockup src={shot.src} alt={shot.alt} label={shot.label} variant="gallery" galleryIndex={index} />
-    </div>
-  );
-}
-
+/**
+ * Karuzela bez overflow-x-auto — pionowy scroll strony działa zawsze.
+ * Przesuwanie: strzałki, swipe, drag myszką.
+ */
 export function ScreenshotsSection() {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStateRef = useRef<{ active: boolean; startX: number; scrollLeft: number }>({
-    active: false,
-    startX: 0,
-    scrollLeft: 0,
-  });
+  const dragRef = useRef<{
+    active: boolean;
+    moved: boolean;
+    startX: number;
+    lastX: number;
+  }>({ active: false, moved: false, startX: 0, lastX: 0 });
 
   const shots = useMemo(() => LANDING_SCREENSHOTS, []);
+  const maxIndex = Math.max(0, shots.length - 1);
 
-  const scroll = (direction: 'left' | 'right') => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const amount = direction === 'left' ? -el.clientWidth * 0.7 : el.clientWidth * 0.7;
-    el.scrollBy({ left: amount, behavior: 'smooth' });
+  const goTo = (index: number) => {
+    setActive(Math.max(0, Math.min(maxIndex, index)));
+    setDragOffset(0);
   };
+
+  const goPrev = () => goTo(active - 1);
+  const goNext = () => goTo(active + 1);
 
   const openLightbox = (index: number) => setLightboxIndex(index);
   const closeLightbox = () => setLightboxIndex(null);
-  const goPrev = () => setLightboxIndex((i) => (i === null ? i : (i + shots.length - 1) % shots.length));
-  const goNext = () => setLightboxIndex((i) => (i === null ? i : (i + 1) % shots.length));
+  const lightboxPrev = () =>
+    setLightboxIndex((i) => (i === null ? i : (i + shots.length - 1) % shots.length));
+  const lightboxNext = () => setLightboxIndex((i) => (i === null ? i : (i + 1) % shots.length));
 
-  const onScrollPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== 'mouse' || e.button !== 0) return;
-    if ((e.target as HTMLElement).closest('.landing-screenshot-item')) return;
-
-    const el = scrollRef.current;
-    if (!el) return;
-
-    dragStateRef.current = {
-      active: true,
-      startX: e.clientX,
-      scrollLeft: el.scrollLeft,
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const section = document.getElementById('screenshots');
+      if (!section) return;
+      const rect = section.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight && rect.bottom > 0;
+      if (!inView || lightboxIndex !== null) return;
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'ArrowRight') goNext();
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, lightboxIndex, maxIndex]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    dragRef.current = { active: true, moved: false, startX: e.clientX, lastX: e.clientX };
     setIsDragging(true);
-    el.setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const onScrollPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragStateRef.current.active) return;
-
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const delta = e.clientX - dragStateRef.current.startX;
-    el.scrollLeft = dragStateRef.current.scrollLeft - delta;
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const delta = e.clientX - dragRef.current.startX;
+    if (Math.abs(delta) > 8) dragRef.current.moved = true;
+    dragRef.current.lastX = e.clientX;
+    setDragOffset(delta);
   };
 
-  const endScrollDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragStateRef.current.active) return;
-
-    dragStateRef.current.active = false;
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const delta = e.clientX - dragRef.current.startX;
+    dragRef.current.active = false;
     setIsDragging(false);
+    setDragOffset(0);
 
-    const el = scrollRef.current;
-    if (el?.hasPointerCapture(e.pointerId)) {
-      el.releasePointerCapture(e.pointerId);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
     }
+
+    if (Math.abs(delta) >= SWIPE_THRESHOLD) {
+      if (delta > 0) goPrev();
+      else goNext();
+    }
+  };
+
+  const slidePercent = 100 / shots.length;
+  const trackStyle = {
+    width: `${shots.length * 100}%`,
+    transform: `translate3d(calc(-${active * slidePercent}% + ${dragOffset}px), 0, 0)`,
+    transition: isDragging ? 'none' : 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1)',
   };
 
   return (
@@ -134,45 +104,95 @@ export function ScreenshotsSection() {
         <SectionHeading
           eyebrow="Aplikacja w działaniu"
           title="Zobacz, jak to wygląda"
-          description="Podgląd ekranów aplikacji — dotknij zdjęcia, aby otworzyć podgląd."
+          description="Podgląd ekranów aplikacji — kliknij zdjęcie, aby otworzyć podgląd."
           align="left"
         />
-        <div className="mb-12 flex shrink-0 gap-2 sm:mb-0">
+        <div className="mb-4 flex shrink-0 gap-2 sm:mb-0">
           <button
             type="button"
-            onClick={() => scroll('left')}
-            className="rounded-xl border border-white/15 bg-white/5 p-2.5 text-white transition hover:bg-white/10"
+            onClick={goPrev}
+            disabled={active === 0}
+            className="landing-carousel-nav"
             aria-label="Poprzedni screenshot">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             type="button"
-            onClick={() => scroll('right')}
-            className="rounded-xl border border-white/15 bg-white/5 p-2.5 text-white transition hover:bg-white/10"
+            onClick={goNext}
+            disabled={active === maxIndex}
+            className="landing-carousel-nav"
             aria-label="Następny screenshot">
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
       </div>
 
+      {/* overflow:hidden tylko clipuje — NIE przechwytuje wheel scrolla strony */}
       <div
-        ref={scrollRef}
-        className={`landing-screenshots-scroll landing-drag-scroll flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 pt-2 sm:gap-8 ${
-          isDragging ? 'is-dragging' : ''
-        }`}
-        onPointerDown={onScrollPointerDown}
-        onPointerMove={onScrollPointerMove}
-        onPointerUp={endScrollDrag}
-        onPointerCancel={endScrollDrag}>
+        ref={trackRef}
+        className="landing-screenshots-viewport relative touch-pan-y"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}>
+        <div className="landing-screenshots-track flex" style={trackStyle}>
+          {shots.map((shot, index) => (
+            <div
+              key={shot.id}
+              className="landing-screenshot-slide flex shrink-0 justify-center px-2 sm:px-4"
+              style={{ width: `${slidePercent}%` }}>
+              <button
+                type="button"
+                className={`landing-screenshot-item text-left transition-transform duration-500 ${
+                  index === active ? 'landing-screenshot-item-active' : 'landing-screenshot-item-dim'
+                }`}
+                aria-label={`Otwórz podgląd: ${shot.label}`}
+                onClick={() => {
+                  if (dragRef.current.moved) {
+                    dragRef.current.moved = false;
+                    return;
+                  }
+                  openLightbox(index);
+                }}>
+                <PhoneMockup
+                  src={shot.src}
+                  alt={shot.alt}
+                  label={shot.label}
+                  variant="gallery"
+                  galleryIndex={index}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-center justify-center gap-2" role="tablist" aria-label="Screenshoty">
         {shots.map((shot, index) => (
-          <ScreenshotCard key={shot.id} index={index} shot={shot} onOpen={openLightbox} />
+          <button
+            key={shot.id}
+            type="button"
+            role="tab"
+            aria-selected={index === active}
+            aria-label={shot.label}
+            className={`landing-carousel-dot ${index === active ? 'is-active' : ''}`}
+            onClick={() => goTo(index)}
+          />
         ))}
       </div>
 
-      <p className="mt-4 text-center text-xs text-white/35 lg:hidden">Przesuń palcem w bok lub dotknij zdjęcia</p>
+      <p className="mt-3 text-center text-xs text-white/35">
+        {active + 1} / {shots.length} · przesuń w bok lub użyj strzałek
+      </p>
 
       {lightboxIndex !== null ? (
-        <Lightbox shots={shots} index={lightboxIndex} onClose={closeLightbox} onPrev={goPrev} onNext={goNext} />
+        <Lightbox
+          shots={shots}
+          index={lightboxIndex}
+          onClose={closeLightbox}
+          onPrev={lightboxPrev}
+          onNext={lightboxNext}
+        />
       ) : null}
     </SectionShell>
   );

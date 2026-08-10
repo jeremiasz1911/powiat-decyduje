@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { AnimatedBackground } from '@/components/landing/AnimatedBackground';
+import { CookieNotice } from '@/components/landing/CookieNotice';
 import { Footer } from '@/components/landing/Footer';
 import { LandingNav } from '@/components/landing/LandingNav';
 
@@ -116,6 +117,7 @@ export function LegalPageView({
         </article>
       </main>
       <Footer />
+      <CookieNotice />
     </div>
   );
 }

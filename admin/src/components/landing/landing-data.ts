@@ -211,11 +211,11 @@ export const CONTACT = {
   websiteLabel: 'Strona Powiatu Mławskiego',
 };
 
-/** Linki do pobrania aplikacji (tymczasowo — bez App Store / Google Play). */
+/** Oficjalne linki do sklepów aplikacji mobilnej. */
 export const APP_LINKS = {
-  openApp: 'https://takdlarodziny.pl/drive/powiat-decyduje/powiat-decyduje.apk',
-  appStore: 'https://takdlarodziny.pl/drive/powiat-decyduje/powiat-decyduje.ipa',
-  googlePlay: 'https://takdlarodziny.pl/drive/powiat-decyduje/powiat-decyduje.apk',
+  openApp: 'https://play.google.com/store/apps/details?id=com.jeremiasz1911.powiatdecyduje',
+  appStore: 'https://apps.apple.com/pl/app/powiat-decyduje/id6787748328',
+  googlePlay: 'https://play.google.com/store/apps/details?id=com.jeremiasz1911.powiatdecyduje',
 };
 
 export const LANDING_NAV = [

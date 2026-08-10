@@ -18,16 +18,23 @@ export type LegalPageContent = {
   blocks: LegalBlock[];
 };
 
-export type LegalPageId = 'privacy' | 'terms' | 'support' | 'account-deletion' | 'safety-standards';
+export type LegalPageId = 'privacy' | 'terms' | 'support' | 'account-deletion' | 'safety-standards' | 'cookies';
 
 export const SAFETY_STANDARDS_LAST_UPDATED = {
   pl: '10 lipca 2026',
   en: '10 July 2026',
 };
 
+export const COOKIES_LAST_UPDATED = {
+  pl: '10 sierpnia 2026',
+  en: '10 August 2026',
+};
+
+/** Linki prawne w stopce (główne). */
 export const LEGAL_FOOTER_LINKS: { href: string; labelPl: string; labelEn: string }[] = [
   { href: '/privacy', labelPl: 'Polityka prywatności', labelEn: 'Privacy Policy' },
   { href: '/terms', labelPl: 'Regulamin', labelEn: 'Terms of Use' },
+  { href: '/cookies', labelPl: 'Polityka cookies', labelEn: 'Cookie Policy' },
   { href: '/support', labelPl: 'Wsparcie', labelEn: 'Support' },
   { href: '/account-deletion', labelPl: 'Usuwanie konta', labelEn: 'Account Deletion' },
   { href: '/standardy', labelPl: 'Standardy bezpieczeństwa', labelEn: 'Child Safety Standards' },
@@ -223,10 +230,29 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
           type: 'p',
           text: 'Stosujemy środki techniczne i organizacyjne mające na celu ochronę danych przed nieuprawnionym dostępem, utratą, zmianą lub nieuprawnionym ujawnieniem. Dostęp do danych powinien być ograniczony do osób i podmiotów, dla których jest to niezbędne do działania aplikacji.',
         },
-        { type: 'h2', text: '11. Zmiany Polityki prywatności' },
+        { type: 'h2', text: '11. Cookies i technologie podobne' },
+        {
+          type: 'p',
+          text: 'Strona internetowa Powiat Decyduje wykorzystuje wyłącznie niezbędne mechanizmy techniczne. Nie używamy opcjonalnych cookies analitycznych ani marketingowych na stronie publicznej.',
+        },
+        {
+          type: 'link',
+          before: 'Szczegóły: ',
+          href: '/cookies',
+          label: 'Polityka cookies',
+          after: '.',
+        },
+        { type: 'h2', text: '12. Zmiany Polityki prywatności' },
         {
           type: 'p',
           text: 'Polityka prywatności może być aktualizowana, jeżeli zmieni się sposób działania aplikacji, zakres przetwarzanych danych, przepisy prawa lub wykorzystywane usługi techniczne. Aktualna wersja Polityki prywatności będzie dostępna na tej stronie.',
+        },
+        {
+          type: 'link',
+          before: 'Zobacz także: ',
+          href: '/terms',
+          label: 'Regulamin',
+          after: '.',
         },
       ],
     },
@@ -337,6 +363,19 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
         {
           type: 'p',
           text: 'Regulamin może być aktualizowany, jeżeli zmieni się sposób działania aplikacji, zakres funkcji, przepisy prawa lub procedury związane z projektami i głosowaniem.',
+        },
+        {
+          type: 'link',
+          before: 'Zobacz także: ',
+          href: '/privacy',
+          label: 'Polityka prywatności',
+          after: ' · ',
+        },
+        {
+          type: 'link',
+          href: '/cookies',
+          label: 'Polityka cookies',
+          after: '.',
         },
       ],
     },
@@ -465,6 +504,92 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
           text: 'Powiat Decyduje przestrzega obowiązujących przepisów dotyczących ochrony dzieci oraz przeciwdziałania wykorzystywaniu seksualnemu dzieci. W przypadku uzyskania wiedzy o materiałach CSAM lub działaniach zagrażających dzieciom administrator podejmie odpowiednie działania zgodnie z prawem.',
         },
         { type: 'p', text: `Data ostatniej aktualizacji: ${SAFETY_STANDARDS_LAST_UPDATED.pl}` },
+      ],
+    },
+    cookies: {
+      title: 'Polityka cookies — Powiat Decyduje',
+      metaDescription:
+        'Informacja o plikach cookies i mechanizmach technicznych używanych na stronie powiatdecyduje.pl.',
+      lastUpdated: COOKIES_LAST_UPDATED.pl,
+      blocks: [
+        { type: 'h2', text: 'Polityka cookies' },
+        { type: 'p', text: `Data ostatniej aktualizacji: ${COOKIES_LAST_UPDATED.pl}` },
+        {
+          type: 'p',
+          text: 'Niniejsza Polityka cookies wyjaśnia, w jaki sposób strona internetowa Powiat Decyduje (powiatdecyduje.pl) korzysta z plików cookies oraz podobnych technologii.',
+        },
+        { type: 'h2', text: '1. Czym są cookies?' },
+        {
+          type: 'p',
+          text: 'Cookies to niewielkie pliki zapisywane w przeglądarce lub urządzeniu użytkownika. Mogą być wykorzystywane do prawidłowego działania strony, zapamiętywania ustawień lub — w innych serwisach — do analityki i marketingu.',
+        },
+        { type: 'h2', text: '2. Jakie technologie wykorzystuje Powiat Decyduje?' },
+        {
+          type: 'p',
+          text: 'Publiczna strona powiatdecyduje.pl nie korzysta z Google Analytics, Google Tag Manager, piksela Meta/Facebook, YouTube embeds ani innych narzędzi marketingowych lub analitycznych wymagających zgody na opcjonalne cookies.',
+        },
+        {
+          type: 'p',
+          text: 'Strona wykorzystuje wyłącznie mechanizmy technicznie niezbędne lub wygodnościowe o charakterze lokalnym, w szczególności:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'mechanizmy sesji panelu administracyjnego (cookie sesji administratora) — wyłącznie po zalogowaniu do panelu admin,',
+            'zapis w pamięci przeglądarki (localStorage) dotyczący zamknięcia komunikatu informacyjnego o cookies,',
+            'techniczne mechanizmy platformy Next.js / hostingu potrzebne do działania i bezpieczeństwa strony.',
+          ],
+        },
+        { type: 'h2', text: '3. Cookies niezbędne' },
+        {
+          type: 'p',
+          text: 'Mechanizmy niezbędne służą do prawidłowego działania witryny i — w przypadku panelu administracyjnego — utrzymania bezpiecznej sesji logowania. Bez nich strona lub panel admin mogą nie działać poprawnie.',
+        },
+        { type: 'h2', text: '4. Cookies analityczne i marketingowe' },
+        {
+          type: 'p',
+          text: 'Obecnie strona publiczna nie stosuje opcjonalnych cookies analitycznych ani marketingowych. Dlatego nie wyświetlamy systemu zgód „Akceptuję / Odrzuć opcjonalne”.',
+        },
+        {
+          type: 'p',
+          text: 'Jeśli w przyszłości pojawią się takie narzędzia, Polityka cookies i sposób uzyskiwania zgody zostaną zaktualizowane, a opcjonalne skrypty nie będą uruchamiane przed wyrażeniem zgody.',
+        },
+        { type: 'h2', text: '5. Czas przechowywania' },
+        {
+          type: 'ul',
+          items: [
+            'sesja administratora — do czasu wylogowania lub wygaśnięcia sesji (maksymalnie kilka godzin),',
+            'zapis o zamknięciu komunikatu cookies — do czasu wyczyszczenia danych przeglądarki przez użytkownika,',
+            'pozostałe mechanizmy techniczne — zgodnie z wymaganiami działania strony i konfiguracją przeglądarki.',
+          ],
+        },
+        { type: 'h2', text: '6. Jak zarządzać cookies w przeglądarce?' },
+        {
+          type: 'p',
+          text: 'Użytkownik może w każdej chwili usunąć lub zablokować cookies oraz dane lokalne w ustawieniach swojej przeglądarki. Ograniczenie niezbędnych mechanizmów może wpłynąć na działanie strony lub panelu administracyjnego.',
+        },
+        { type: 'h2', text: '7. Powiązane dokumenty' },
+        {
+          type: 'link',
+          before: 'Szczegóły przetwarzania danych osobowych: ',
+          href: '/privacy',
+          label: 'Polityka prywatności',
+          after: '.',
+        },
+        {
+          type: 'link',
+          before: 'Zasady korzystania z aplikacji i strony: ',
+          href: '/terms',
+          label: 'Regulamin',
+          after: '.',
+        },
+        {
+          type: 'link',
+          before: 'Kontakt: ',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+          after: '.',
+        },
       ],
     },
   },
@@ -641,10 +766,29 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
           type: 'p',
           text: 'We use technical and organizational measures designed to protect data against unauthorized access, loss, alteration or disclosure. Access to data should be limited to persons and entities for whom it is necessary for the operation of the app.',
         },
-        { type: 'h2', text: '11. Changes to This Privacy Policy' },
+        { type: 'h2', text: '11. Cookies and similar technologies' },
+        {
+          type: 'p',
+          text: 'The Powiat Decyduje website uses only necessary technical mechanisms. We do not use optional analytics or marketing cookies on the public website.',
+        },
+        {
+          type: 'link',
+          before: 'Details: ',
+          href: '/cookies',
+          label: 'Cookie Policy',
+          after: '.',
+        },
+        { type: 'h2', text: '12. Changes to This Privacy Policy' },
         {
           type: 'p',
           text: 'This Privacy Policy may be updated if the app functionality, scope of processed data, legal requirements or technical services change. The current version of the Privacy Policy will be available on this page.',
+        },
+        {
+          type: 'link',
+          before: 'See also: ',
+          href: '/terms',
+          label: 'Terms of Use',
+          after: '.',
         },
       ],
     },
@@ -752,6 +896,19 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
         {
           type: 'p',
           text: 'These Terms may be updated if the app functionality, legal requirements or procedures related to projects and voting change.',
+        },
+        {
+          type: 'link',
+          before: 'See also: ',
+          href: '/privacy',
+          label: 'Privacy Policy',
+          after: ' · ',
+        },
+        {
+          type: 'link',
+          href: '/cookies',
+          label: 'Cookie Policy',
+          after: '.',
         },
       ],
     },
@@ -880,6 +1037,92 @@ export const LEGAL_PAGES: Record<LegalLang, Record<LegalPageId, LegalPageContent
           text: 'Powiat Decyduje complies with applicable laws related to child protection and prevention of child sexual abuse and exploitation. If the administrator becomes aware of CSAM or activities that may endanger children, appropriate action will be taken in accordance with the law.',
         },
         { type: 'p', text: `Last updated: ${SAFETY_STANDARDS_LAST_UPDATED.en}` },
+      ],
+    },
+    cookies: {
+      title: 'Cookie Policy — Powiat Decyduje',
+      metaDescription:
+        'Information about cookies and technical mechanisms used on powiatdecyduje.pl.',
+      lastUpdated: COOKIES_LAST_UPDATED.en,
+      blocks: [
+        { type: 'h2', text: 'Cookie Policy' },
+        { type: 'p', text: `Last updated: ${COOKIES_LAST_UPDATED.en}` },
+        {
+          type: 'p',
+          text: 'This Cookie Policy explains how the Powiat Decyduje website (powiatdecyduje.pl) uses cookies and similar technologies.',
+        },
+        { type: 'h2', text: '1. What are cookies?' },
+        {
+          type: 'p',
+          text: 'Cookies are small files stored in the user’s browser or device. They may be used for the proper operation of a website, remembering settings or — on other services — for analytics and marketing.',
+        },
+        { type: 'h2', text: '2. What technologies does Powiat Decyduje use?' },
+        {
+          type: 'p',
+          text: 'The public website powiatdecyduje.pl does not use Google Analytics, Google Tag Manager, Meta/Facebook Pixel, YouTube embeds or other marketing/analytics tools that require consent for optional cookies.',
+        },
+        {
+          type: 'p',
+          text: 'The site uses only technically necessary or local convenience mechanisms, in particular:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'admin panel session mechanisms (administrator session cookie) — only after logging into the admin panel,',
+            'browser storage (localStorage) for dismissing the informational cookie notice,',
+            'technical mechanisms of the Next.js / hosting platform required for site operation and security.',
+          ],
+        },
+        { type: 'h2', text: '3. Necessary cookies' },
+        {
+          type: 'p',
+          text: 'Necessary mechanisms enable the website to work correctly and — for the admin panel — keep a secure login session. Without them, the site or admin panel may not function properly.',
+        },
+        { type: 'h2', text: '4. Analytics and marketing cookies' },
+        {
+          type: 'p',
+          text: 'The public website currently does not use optional analytics or marketing cookies. Therefore we do not show an “Accept / Reject optional” consent system.',
+        },
+        {
+          type: 'p',
+          text: 'If such tools are introduced in the future, this Cookie Policy and the consent flow will be updated, and optional scripts will not run before consent is given.',
+        },
+        { type: 'h2', text: '5. Retention' },
+        {
+          type: 'ul',
+          items: [
+            'administrator session — until logout or session expiry (up to several hours),',
+            'cookie notice dismissal record — until the user clears browser data,',
+            'other technical mechanisms — as required for site operation and browser settings.',
+          ],
+        },
+        { type: 'h2', text: '6. Managing cookies in your browser' },
+        {
+          type: 'p',
+          text: 'Users may delete or block cookies and local data at any time in browser settings. Restricting necessary mechanisms may affect the website or admin panel.',
+        },
+        { type: 'h2', text: '7. Related documents' },
+        {
+          type: 'link',
+          before: 'Details on personal data processing: ',
+          href: '/privacy',
+          label: 'Privacy Policy',
+          after: '.',
+        },
+        {
+          type: 'link',
+          before: 'Terms of use: ',
+          href: '/terms',
+          label: 'Terms of Use',
+          after: '.',
+        },
+        {
+          type: 'link',
+          before: 'Contact: ',
+          href: 'mailto:kontakt@powiatdecyduje.pl',
+          label: 'kontakt@powiatdecyduje.pl',
+          after: '.',
+        },
       ],
     },
   },
